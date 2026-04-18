@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+owlready2
+pydantic
+redis
+networkx
+pydantic-settings
