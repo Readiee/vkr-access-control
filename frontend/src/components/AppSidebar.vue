@@ -1,0 +1,35 @@
+<script setup lang="ts">
+import { useRouter } from 'vue-router';
+
+const router = useRouter();
+const menuItems = [
+  { label: 'Дашборд', icon: 'pi pi-home', route: '/' },
+  { label: 'Симулятор', icon: 'pi pi-users', route: '/simulator' }
+];
+</script>
+
+<template>
+  <aside class="w-64 bg-surface-0 border-r border-surface-200 flex flex-col transition-colors duration-200">
+    <div class="h-16 flex items-center px-6 border-b border-surface-200">
+      <span class="text-xl font-bold text-primary-600 flex items-center gap-2">
+        OntoRules
+      </span>
+    </div>
+    <nav class="flex-1 p-4 space-y-1">
+      <button 
+        v-for="item in menuItems" 
+        :key="item.route"
+        @click="router.push(item.route)"
+        class="w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-left font-medium outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+        :class="[
+          router.currentRoute.value.path === item.route 
+            ? 'bg-primary-50 text-primary-600' 
+            : 'text-surface-700 hover:bg-surface-100 hover:text-surface-900'
+        ]"
+      >
+        <i :class="item.icon" class="text-lg"></i>
+        {{ item.label }}
+      </button>
+    </nav>
+  </aside>
+</template>

@@ -1,0 +1,14 @@
+@layer tailwind-base, primevue, tailwind-utilities;
+
+@layer tailwind-base {
+  @tailwind base;
+}
+
+@layer tailwind-utilities {
+  @tailwind components;
+  @tailwind utilities;
+}
+
+body {
+  @apply bg-gray-50 text-gray-900 m-0 p-0 font-sans;
+}
