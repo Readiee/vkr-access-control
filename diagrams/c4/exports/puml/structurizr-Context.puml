@@ -1,0 +1,41 @@
+@startuml
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 60
+skinparam defaultFontName "Segoe UI, Inter, Arial"
+skinparam defaultFontSize 12
+skinparam roundCorner 8
+skinparam shadowing false
+skinparam ArrowThickness 1.2
+skinparam ArrowFontSize 10
+skinparam ArrowFontColor #222
+skinparam BackgroundColor #FFFFFF
+skinparam BorderColor #222
+title <size:14>System Context View: Система управления правилами доступа</size>\n<size:14>Уровень 1 C4 — системный контекст: участники процесса и внешняя СДО.</size>
+
+set separator none
+left to right direction
+
+<style>
+  root {
+    BackgroundColor: #ffffff
+    FontColor: #444444
+  }
+</style>
+
+!include <C4/C4>
+!include <C4/C4_Context>
+
+Person(Методист, "Методист", $descr="Проектирует курс и правила доступа к активностям и модулям. Запускает верификацию, анализирует отчёты.", $tags="", $link="")
+Person(Администратор, "Администратор", $descr="Импортирует курсы из внешних СДО, ведёт аудит, управляет правилами для пулов курсов.", $tags="", $link="")
+System(ВнешняяСДО, "Внешняя СДО", $descr="Moodle, Canvas, Blackboard, Open edX, Stepik или СДО Дистех. Публикует контент студентам и запрашивает у нашей системы решения о доступе.", $tags="", $link="")
+System(Системауправленияправиламидоступа, "Система управления правилами доступа", $descr="База правил в OWL+SWRL, DL-reasoning, графовая верификация, API для интеграции со внешними СДО.", $tags="", $link="")
+
+Rel(Методист, Системауправленияправиламидоступа, "Создаёт правила, запускает верификацию, работает с симулятором", $techn="HTTPS", $tags="", $link="")
+Rel(Администратор, Системауправленияправиламидоступа, "Импортирует курсы, ведёт аудит правил", $techn="HTTPS", $tags="", $link="")
+Rel(ВнешняяСДО, Системауправленияправиламидоступа, "Запросы доступа, события прогресса, импорт", $techn="HTTPS/REST", $tags="", $link="")
+Rel(Системауправленияправиламидоступа, ВнешняяСДО, "Решения о доступе, объяснения блокировок", $techn="HTTPS/REST", $tags="", $link="")
+
+SHOW_LEGEND(true)
+hide stereotypes
+@enduml

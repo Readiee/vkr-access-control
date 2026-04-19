@@ -1,0 +1,91 @@
+@startuml
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 60
+skinparam defaultFontName "Segoe UI, Inter, Arial"
+skinparam defaultFontSize 12
+skinparam roundCorner 8
+skinparam shadowing false
+skinparam ArrowThickness 1.2
+skinparam ArrowFontSize 10
+skinparam ArrowFontColor #222
+skinparam BackgroundColor #FFFFFF
+skinparam BorderColor #222
+title <size:14>Component View: Система управления правилами доступа - API Backend</size>\n<size:14>Уровень 3 C4 — обзор компонентов API Backend. Три слоя: API, Service, Core. Без внешних контейнеров (для приложения ПЗ).</size>
+
+set separator none
+top to bottom direction
+
+<style>
+  root {
+    BackgroundColor: #ffffff
+    FontColor: #444444
+  }
+</style>
+
+!include <C4/C4>
+!include <C4/C4_Context>
+!include <C4/C4_Component>
+
+System_Boundary("Системауправленияправиламидоступа_boundary", "Система управления правилами доступа", $tags="") {
+  Container_Boundary("Системауправленияправиламидоступа.APIBackend_boundary", "API Backend", $tags="") {
+    AddBoundaryTag("API Layer", $borderColor="#cccccc", $fontColor="#cccccc", $borderStyle="dashed")
+    Boundary(group_1, "API Layer", $tags="API Layer") {
+      Component(Системауправленияправиламидоступа.APIBackend.VerificationController, "VerificationController", $techn="FastAPI router", $descr="Запуск полной верификации курса по свойствам СВ-1…СВ-5 (UC-6).", $tags="", $link="")
+      Component(Системауправленияправиламидоступа.APIBackend.SimulationController, "SimulationController", $techn="FastAPI router", $descr="Песочница: гипотетический студент, изменение фактов, карта доступа (UC-7).", $tags="", $link="")
+      Component(Системауправленияправиламидоступа.APIBackend.IntegrationController, "IntegrationController", $techn="FastAPI router", $descr="Импорт структуры и правил, webhook-события от внешней СДО (UC-5, UC-10).", $tags="", $link="")
+      Component(Системауправленияправиламидоступа.APIBackend.PolicyController, "PolicyController", $techn="FastAPI router + Pydantic", $descr="CRUD правил с предварительной валидацией (UC-1, UC-2, UC-3).", $tags="", $link="")
+      Component(Системауправленияправиламидоступа.APIBackend.AccessController, "AccessController", $techn="FastAPI router", $descr="Решение о доступе к ресурсу для студента с объяснением (UC-4, UC-9).", $tags="", $link="")
+      Component(Системауправленияправиламидоступа.APIBackend.ProgressController, "ProgressController", $techn="FastAPI router", $descr="Приём событий прогресса, запуск восходящей агрегации (UC-5, UC-8).", $tags="", $link="")
+    }
+
+    AddBoundaryTag("Core Layer", $borderColor="#cccccc", $fontColor="#cccccc", $borderStyle="dashed")
+    Boundary(group_2, "Core Layer", $tags="Core Layer") {
+      Component(Системауправленияправиламидоступа.APIBackend.OntologyCore, "OntologyCore", $techn="Owlready2", $descr="Обёртка Owlready2: load/save, операции TBox/ABox, транзакции.", $tags="", $link="")
+      Component(Системауправленияправиламидоступа.APIBackend.ReasoningOrchestrator, "ReasoningOrchestrator", $techn="Python + JPype + Pellet 2.x (embedded JVM)", $descr="Pipeline А2: enricher (now(), roll-up) → Pellet → CWA-enforcement → таймаут + fallback. Pellet встроен как embedded JVM через JPype, отдельным процессом не деплоится.", $tags="", $link="")
+      Component(Системауправленияправиламидоступа.APIBackend.GraphValidator, "GraphValidator", $techn="NetworkX", $descr="Split-node DiGraph А1, DFS cycle detection, reachability А4.", $tags="", $link="")
+      Component(Системауправленияправиламидоступа.APIBackend.CacheManager, "CacheManager", $techn="redis-py", $descr="GET/SET/DEL решений, инвалидация затронутых ключей (А5).", $tags="", $link="")
+    }
+
+    AddBoundaryTag("Service Layer", $borderColor="#cccccc", $fontColor="#cccccc", $borderStyle="dashed")
+    Boundary(group_3, "Service Layer", $tags="Service Layer") {
+      Component(Системауправленияправиламидоступа.APIBackend.PolicyService, "PolicyService", $techn="Python service", $descr="Создание, обновление, удаление правил с предпроверкой (ФТ-1, ФТ-5).", $tags="", $link="")
+      Component(Системауправленияправиламидоступа.APIBackend.AccessService, "AccessService", $techn="Python service", $descr="Cache-first решение о доступе, cache miss → reasoning, обратная цепочка (ФТ-2, ФТ-6).", $tags="", $link="")
+      Component(Системауправленияправиламидоступа.APIBackend.VerificationService, "VerificationService", $techn="Python service", $descr="Проверка СВ-1…СВ-5 для курса (ФТ-3).", $tags="", $link="")
+      Component(Системауправленияправиламидоступа.APIBackend.SimulationService, "SimulationService", $techn="Python service", $descr="Сценарии песочницы на изолированной копии ABox (ФТ-7).", $tags="", $link="")
+      Component(Системауправленияправиламидоступа.APIBackend.RollupService, "RollupService", $techn="Python service", $descr="Восходящая агрегация завершённости А3 (ФТ-8).", $tags="", $link="")
+      Component(Системауправленияправиламидоступа.APIBackend.IntegrationService, "IntegrationService", $techn="Python service", $descr="Импорт из СДО, нормализация форматов, автозапуск верификации (ФТ-4).", $tags="", $link="")
+    }
+
+  }
+
+}
+
+Rel(Системауправленияправиламидоступа.APIBackend.PolicyController, Системауправленияправиламидоступа.APIBackend.PolicyService, "Делегирует", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.AccessController, Системауправленияправиламидоступа.APIBackend.AccessService, "Делегирует", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.ProgressController, Системауправленияправиламидоступа.APIBackend.RollupService, "Делегирует", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.VerificationController, Системауправленияправиламидоступа.APIBackend.VerificationService, "Делегирует", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.SimulationController, Системауправленияправиламидоступа.APIBackend.SimulationService, "Делегирует", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.IntegrationController, Системауправленияправиламидоступа.APIBackend.IntegrationService, "Делегирует", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.PolicyService, Системауправленияправиламидоступа.APIBackend.GraphValidator, "Проверка ацикличности", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.PolicyService, Системауправленияправиламидоступа.APIBackend.ReasoningOrchestrator, "Проверка консистентности", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.PolicyService, Системауправленияправиламидоступа.APIBackend.OntologyCore, "Изменение TBox/ABox", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.PolicyService, Системауправленияправиламидоступа.APIBackend.CacheManager, "Инвалидация затронутых ключей", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.AccessService, Системауправленияправиламидоступа.APIBackend.CacheManager, "Cache lookup / store", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.AccessService, Системауправленияправиламидоступа.APIBackend.ReasoningOrchestrator, "Cache miss → reasoning", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.AccessService, Системауправленияправиламидоступа.APIBackend.OntologyCore, "Чтение ABox", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.VerificationService, Системауправленияправиламидоступа.APIBackend.GraphValidator, "СВ-2, СВ-3", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.VerificationService, Системауправленияправиламидоступа.APIBackend.ReasoningOrchestrator, "СВ-1, СВ-4, СВ-5", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.VerificationService, Системауправленияправиламидоступа.APIBackend.OntologyCore, "Чтение TBox + ABox", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.SimulationService, Системауправленияправиламидоступа.APIBackend.OntologyCore, "Работа с копией ABox", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.SimulationService, Системауправленияправиламидоступа.APIBackend.AccessService, "Запрос решений (разрешённое исключение)", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.RollupService, Системауправленияправиламидоступа.APIBackend.OntologyCore, "Чтение структуры, запись состояний", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.RollupService, Системауправленияправиламидоступа.APIBackend.CacheManager, "Инвалидация после прогресса", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.IntegrationService, Системауправленияправиламидоступа.APIBackend.OntologyCore, "Запись структуры и правил", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.IntegrationService, Системауправленияправиламидоступа.APIBackend.RollupService, "Первичная агрегация после импорта", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.IntegrationService, Системауправленияправиламидоступа.APIBackend.VerificationService, "Автоверификация (разрешённое исключение)", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.ReasoningOrchestrator, Системауправленияправиламидоступа.APIBackend.OntologyCore, "Инжекция и CWA-enforcement", $techn="Python call", $tags="", $link="")
+
+SHOW_LEGEND(true)
+hide stereotypes
+@enduml

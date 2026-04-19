@@ -1,0 +1,59 @@
+@startuml
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 60
+skinparam defaultFontName "Segoe UI, Inter, Arial"
+skinparam defaultFontSize 12
+skinparam roundCorner 8
+skinparam shadowing false
+skinparam ArrowThickness 1.2
+skinparam ArrowFontSize 10
+skinparam ArrowFontColor #222
+skinparam BackgroundColor #FFFFFF
+skinparam BorderColor #222
+title <size:14>Component View: Система управления правилами доступа - API Backend</size>\n<size:14>Уровень 3 C4 — полная верификация курса (UC-6). Проверка пяти свойств СВ-1…СВ-5. API Layer скрыт — см. Overview.</size>
+
+set separator none
+left to right direction
+
+<style>
+  root {
+    BackgroundColor: #ffffff
+    FontColor: #444444
+  }
+</style>
+
+!include <C4/C4>
+!include <C4/C4_Context>
+!include <C4/C4_Container>
+!include <C4/C4_Component>
+
+System_Boundary("Системауправленияправиламидоступа_boundary", "Система управления правилами доступа", $tags="") {
+  Container_Boundary("Системауправленияправиламидоступа.APIBackend_boundary", "API Backend", $tags="") {
+    AddBoundaryTag("Core Layer", $borderColor="#cccccc", $fontColor="#cccccc", $borderStyle="dashed")
+    Boundary(group_1, "Core Layer", $tags="Core Layer") {
+      Component(Системауправленияправиламидоступа.APIBackend.OntologyCore, "OntologyCore", $techn="Owlready2", $descr="Обёртка Owlready2: load/save, операции TBox/ABox, транзакции.", $tags="", $link="")
+      Component(Системауправленияправиламидоступа.APIBackend.ReasoningOrchestrator, "ReasoningOrchestrator", $techn="Python + JPype + Pellet 2.x (embedded JVM)", $descr="Pipeline А2: enricher (now(), roll-up) → Pellet → CWA-enforcement → таймаут + fallback. Pellet встроен как embedded JVM через JPype, отдельным процессом не деплоится.", $tags="", $link="")
+      Component(Системауправленияправиламидоступа.APIBackend.GraphValidator, "GraphValidator", $techn="NetworkX", $descr="Split-node DiGraph А1, DFS cycle detection, reachability А4.", $tags="", $link="")
+    }
+
+    AddBoundaryTag("Service Layer", $borderColor="#cccccc", $fontColor="#cccccc", $borderStyle="dashed")
+    Boundary(group_2, "Service Layer", $tags="Service Layer") {
+      Component(Системауправленияправиламидоступа.APIBackend.VerificationService, "VerificationService", $techn="Python service", $descr="Проверка СВ-1…СВ-5 для курса (ФТ-3).", $tags="", $link="")
+    }
+
+  }
+
+  ContainerDb(Системауправленияправиламидоступа.OntologyStore, "Ontology Store", $techn=".owl файл (RDF/XML)", $descr="OWL 2 DL онтология: TBox (классы, аксиомы, SWRL-шаблоны) + ABox (факты курса).", $tags="", $link="")
+  Container(Системауправленияправиламидоступа.WebUI, "Web UI", $techn="Vue 3 + PrimeVue (SPA)", $descr="Редактор правил, симулятор сценариев (UC-7a/b/c), отчёты верификации, интерфейс импорта.", $tags="", $link="")
+}
+
+Rel(Системауправленияправиламидоступа.APIBackend.VerificationService, Системауправленияправиламидоступа.APIBackend.GraphValidator, "СВ-2, СВ-3", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.VerificationService, Системауправленияправиламидоступа.APIBackend.ReasoningOrchestrator, "СВ-1, СВ-4, СВ-5", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.VerificationService, Системауправленияправиламидоступа.APIBackend.OntologyCore, "Чтение TBox + ABox", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.OntologyCore, Системауправленияправиламидоступа.OntologyStore, "Загрузка и сохранение .owl", $techn="Owlready2 I/O", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.ReasoningOrchestrator, Системауправленияправиламидоступа.APIBackend.OntologyCore, "Инжекция и CWA-enforcement", $techn="Python call", $tags="", $link="")
+
+SHOW_LEGEND(true)
+hide stereotypes
+@enduml

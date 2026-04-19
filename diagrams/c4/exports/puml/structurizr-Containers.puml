@@ -1,0 +1,51 @@
+@startuml
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 60
+skinparam defaultFontName "Segoe UI, Inter, Arial"
+skinparam defaultFontSize 12
+skinparam roundCorner 8
+skinparam shadowing false
+skinparam ArrowThickness 1.2
+skinparam ArrowFontSize 10
+skinparam ArrowFontColor #222
+skinparam BackgroundColor #FFFFFF
+skinparam BorderColor #222
+title <size:14>Container View: Система управления правилами доступа</size>\n<size:14>Уровень 2 C4 — контейнеры системы. Reasoning встроен в API Backend (Pellet + JPype, не отдельный процесс).</size>
+
+set separator none
+left to right direction
+
+<style>
+  root {
+    BackgroundColor: #ffffff
+    FontColor: #444444
+  }
+</style>
+
+!include <C4/C4>
+!include <C4/C4_Context>
+!include <C4/C4_Container>
+
+Person(Методист, "Методист", $descr="Проектирует курс и правила доступа к активностям и модулям. Запускает верификацию, анализирует отчёты.", $tags="", $link="")
+Person(Администратор, "Администратор", $descr="Импортирует курсы из внешних СДО, ведёт аудит, управляет правилами для пулов курсов.", $tags="", $link="")
+System(ВнешняяСДО, "Внешняя СДО", $descr="Moodle, Canvas, Blackboard, Open edX, Stepik или СДО Дистех. Публикует контент студентам и запрашивает у нашей системы решения о доступе.", $tags="", $link="")
+
+System_Boundary("Системауправленияправиламидоступа_boundary", "Система управления правилами доступа", $tags="") {
+  ContainerDb(Системауправленияправиламидоступа.OntologyStore, "Ontology Store", $techn=".owl файл (RDF/XML)", $descr="OWL 2 DL онтология: TBox (классы, аксиомы, SWRL-шаблоны) + ABox (факты курса).", $tags="", $link="")
+  ContainerDb(Системауправленияправиламидоступа.Cache, "Cache", $techn="Redis 7", $descr="Кэш решений о доступе. Fallback при таймауте reasoning (НФТ-3).", $tags="", $link="")
+  Container(Системауправленияправиламидоступа.WebUI, "Web UI", $techn="Vue 3 + PrimeVue (SPA)", $descr="Редактор правил, симулятор сценариев (UC-7a/b/c), отчёты верификации, интерфейс импорта.", $tags="", $link="")
+  Container(Системауправленияправиламидоступа.APIBackend, "API Backend", $techn="Python 3.11 + FastAPI + Owlready2 + NetworkX", $descr="REST API для UC-1…UC-10. Оркестрация reasoning, графовый анализ, агрегация завершённости, CWA-enforcement, инвалидация кэша.", $tags="", $link="")
+}
+
+Rel(Методист, Системауправленияправиламидоступа.WebUI, "Управляет правилами, сценарии симулятора", $techn="HTTPS", $tags="", $link="")
+Rel(Администратор, Системауправленияправиламидоступа.WebUI, "Импортирует и администрирует", $techn="HTTPS", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.WebUI, Системауправленияправиламидоступа.APIBackend, "Вызовы UC-1…UC-10", $techn="HTTPS/JSON", $tags="", $link="")
+Rel(ВнешняяСДО, Системауправленияправиламидоступа.APIBackend, "Запросы доступа, webhooks", $techn="HTTPS/REST", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend, ВнешняяСДО, "Объяснения блокировок", $techn="HTTPS/REST", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend, Системауправленияправиламидоступа.OntologyStore, "Чтение и запись онтологии", $techn="Owlready2 I/O", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend, Системауправленияправиламидоступа.Cache, "Чтение и запись кэша", $techn="Redis protocol", $tags="", $link="")
+
+SHOW_LEGEND(true)
+hide stereotypes
+@enduml

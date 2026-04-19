@@ -1,0 +1,66 @@
+@startuml
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 60
+skinparam defaultFontName "Segoe UI, Inter, Arial"
+skinparam defaultFontSize 12
+skinparam roundCorner 8
+skinparam shadowing false
+skinparam ArrowThickness 1.2
+skinparam ArrowFontSize 10
+skinparam ArrowFontColor #222
+skinparam BackgroundColor #FFFFFF
+skinparam BorderColor #222
+title <size:14>Component View: Система управления правилами доступа - API Backend</size>\n<size:14>Уровень 3 C4 — импорт курса и агрегация прогресса (UC-5, UC-8, UC-10). После импорта — автоверификация; при событии прогресса — каскадное roll-up. API Layer скрыт — см. Overview.</size>
+
+set separator none
+left to right direction
+
+<style>
+  root {
+    BackgroundColor: #ffffff
+    FontColor: #444444
+  }
+</style>
+
+!include <C4/C4>
+!include <C4/C4_Context>
+!include <C4/C4_Container>
+!include <C4/C4_Component>
+
+System(ВнешняяСДО, "Внешняя СДО", $descr="Moodle, Canvas, Blackboard, Open edX, Stepik или СДО Дистех. Публикует контент студентам и запрашивает у нашей системы решения о доступе.", $tags="", $link="")
+
+System_Boundary("Системауправленияправиламидоступа_boundary", "Система управления правилами доступа", $tags="") {
+  Container_Boundary("Системауправленияправиламидоступа.APIBackend_boundary", "API Backend", $tags="") {
+    AddBoundaryTag("Core Layer", $borderColor="#cccccc", $fontColor="#cccccc", $borderStyle="dashed")
+    Boundary(group_1, "Core Layer", $tags="Core Layer") {
+      Component(Системауправленияправиламидоступа.APIBackend.OntologyCore, "OntologyCore", $techn="Owlready2", $descr="Обёртка Owlready2: load/save, операции TBox/ABox, транзакции.", $tags="", $link="")
+      Component(Системауправленияправиламидоступа.APIBackend.CacheManager, "CacheManager", $techn="redis-py", $descr="GET/SET/DEL решений, инвалидация затронутых ключей (А5).", $tags="", $link="")
+    }
+
+    AddBoundaryTag("Service Layer", $borderColor="#cccccc", $fontColor="#cccccc", $borderStyle="dashed")
+    Boundary(group_2, "Service Layer", $tags="Service Layer") {
+      Component(Системауправленияправиламидоступа.APIBackend.VerificationService, "VerificationService", $techn="Python service", $descr="Проверка СВ-1…СВ-5 для курса (ФТ-3).", $tags="", $link="")
+      Component(Системауправленияправиламидоступа.APIBackend.RollupService, "RollupService", $techn="Python service", $descr="Восходящая агрегация завершённости А3 (ФТ-8).", $tags="", $link="")
+      Component(Системауправленияправиламидоступа.APIBackend.IntegrationService, "IntegrationService", $techn="Python service", $descr="Импорт из СДО, нормализация форматов, автозапуск верификации (ФТ-4).", $tags="", $link="")
+    }
+
+  }
+
+  ContainerDb(Системауправленияправиламидоступа.OntologyStore, "Ontology Store", $techn=".owl файл (RDF/XML)", $descr="OWL 2 DL онтология: TBox (классы, аксиомы, SWRL-шаблоны) + ABox (факты курса).", $tags="", $link="")
+  ContainerDb(Системауправленияправиламидоступа.Cache, "Cache", $techn="Redis 7", $descr="Кэш решений о доступе. Fallback при таймауте reasoning (НФТ-3).", $tags="", $link="")
+  Container(Системауправленияправиламидоступа.WebUI, "Web UI", $techn="Vue 3 + PrimeVue (SPA)", $descr="Редактор правил, симулятор сценариев (UC-7a/b/c), отчёты верификации, интерфейс импорта.", $tags="", $link="")
+}
+
+Rel(Системауправленияправиламидоступа.APIBackend.VerificationService, Системауправленияправиламидоступа.APIBackend.OntologyCore, "Чтение TBox + ABox", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.RollupService, Системауправленияправиламидоступа.APIBackend.OntologyCore, "Чтение структуры, запись состояний", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.RollupService, Системауправленияправиламидоступа.APIBackend.CacheManager, "Инвалидация после прогресса", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.IntegrationService, Системауправленияправиламидоступа.APIBackend.OntologyCore, "Запись структуры и правил", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.IntegrationService, Системауправленияправиламидоступа.APIBackend.RollupService, "Первичная агрегация после импорта", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.IntegrationService, Системауправленияправиламидоступа.APIBackend.VerificationService, "Автоверификация (разрешённое исключение)", $techn="Python call", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.OntologyCore, Системауправленияправиламидоступа.OntologyStore, "Загрузка и сохранение .owl", $techn="Owlready2 I/O", $tags="", $link="")
+Rel(Системауправленияправиламидоступа.APIBackend.CacheManager, Системауправленияправиламидоступа.Cache, "GET/SET/DEL", $techn="Redis protocol", $tags="", $link="")
+
+SHOW_LEGEND(true)
+hide stereotypes
+@enduml

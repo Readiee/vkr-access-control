@@ -1,0 +1,49 @@
+# ── Python ─────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ── Node / Vue frontend ────────────────────────────────────────────────
+node_modules/
+dist/
+.vite/
+*.local
+npm-debug.log*
+yarn-error.log
+
+# ── OS / IDE ──────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── Секреты и окружение ───────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# ── Structurizr / C4 ──────────────────────────────────────────────────
+# workspace.json регенерируется Structurizr Lite из workspace.dsl при каждом старте контейнера
+diagrams/c4/workspace.json
+# Внутренний кэш / индекс / логи Structurizr Lite
+diagrams/c4/.structurizr/
+
+# ── Временные файлы отладки ───────────────────────────────────────────
+# артефакты curl-инспекций Structurizr API (создаются в корне проекта)
+/_*.json
+/_*.html
+/_*.txt

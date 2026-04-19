@@ -959,17 +959,16 @@ Three core properties — это не случайный набор, а покр
 
 **Level 2. Container.**
 
-5 контейнеров внутри нашей системы:
+4 контейнера внутри нашей системы (уточнено 19.04: Reasoning Engine вынесен из Container-уровня в Component-уровень — см. решение 19.04):
 
 | Контейнер | Технология | Ответственность | Обоснование |
 |---|---|---|---|
 | Web UI | Vue 3 + PrimeVue (SPA) | Редактор правил, симулятор (UC-7a/b/c), визуализация отчётов верификации | Фронтенд не научный вклад; знакомый стек |
-| API Backend | Python 3.11 + FastAPI + Owlready2 + NetworkX | REST API (UC-1…UC-10), оркестрация reasoning, графовый анализ, агрегация, CWA-enforcement | Решение 15.04 (Python+FastAPI) |
-| Reasoning Engine | Pellet 2.x (Java) через Owlready2/JPype | DL-reasoning, SWRL-выполнение, consistency check | Единственный резонер с SWRL+built-ins (L8) |
+| API Backend | Python 3.11 + FastAPI + Owlready2 + NetworkX; Pellet 2.x встроен как embedded JVM через JPype | REST API (UC-1…UC-10), оркестрация reasoning, графовый анализ, агрегация, CWA-enforcement | Решение 15.04 (Python+FastAPI). Pellet не отдельный контейнер (решение 19.04) |
 | Ontology Store | Файл .owl (RDF/XML, OWL 2 DL) | TBox + SWRL-правила + ABox | НФТ-10 (W3C стандарт). Для production — триплстор, в перспективу |
 | Cache | Redis 7 (in-memory) | Кэш решений о доступе, fallback при таймауте | LIM4, НФТ-1 (50 мс cache hit) |
 
-Ключевые решения уровня: (1) Redis обязателен, не опционален — без него НФТ-1 недостижим; (2) Ontology Store как файл — оправдано для прототипа, перспектива — триплстор; (3) Web UI и API — отдельные контейнеры, возможна замена UI силами Дистех при встраивании.
+Ключевые решения уровня: (1) Redis обязателен, не опционален — без него НФТ-1 недостижим; (2) Ontology Store как файл — оправдано для прототипа, перспектива — триплстор; (3) Web UI и API — отдельные контейнеры, возможна замена UI силами Дистех при встраивании; (4) Pellet через JPype — это встраиваемая библиотека, не отдельно деплоируемый процесс: критерий C4-контейнера (независимый деплой, масштабирование) не выполняется, JVM живёт в рамках процесса backend-а (решение 19.04). На Deployment-диаграмме JVM обозначается как embedded.
 
 **Level 3. Component (внутри API Backend).**
 
@@ -1012,14 +1011,27 @@ Three core properties — это не случайный набор, а покр
 | НФТ-8 (API не раскрывает правила) | API Layer (Pydantic-схемы ответов) |
 | НФТ-9 (OpenAPI) | FastAPI автогенерация |
 
-**Что нужно сделать в Claude Code (следующая сессия):**
+**Выполнено в сессии 19.04 (Claude Code):**
 
-1. Создать `diagrams/c4/workspace.dsl` со всей моделью (три представления).
-2. Отрендерить через Structurizr Lite, проверить, что диаграммы читаемые.
-3. Экспортировать PNG/SVG в `diagrams/c4/exports/` для включения в ПЗ.
-4. Сверить с реальным кодом: все ли компоненты Core Layer есть? Что в реальности называется иначе? Расхождения — в таблицу 3.6.
+1. ✅ Создан `diagrams/c4/workspace.dsl` с моделью: 2 person, 2 softwareSystem (своя + внешняя СДО), 4 container (Web UI, API Backend, Ontology Store, Cache), 16 component в API Backend, сгруппированных по 3 слоям (API/Service/Core).
+2. ✅ Рендер через `structurizr/structurizr local` (образ `structurizr/lite` deprecated), подтверждено: 3 косметические инспекции (scope, docs, decisions) — не влияют.
+3. ✅ Экспорт через Structurizr CLI `export -format plantuml/c4plantuml` + PlantUML Docker → `diagrams/c4/exports/puml` (исходники), `exports/svg`, `exports/png` (200 dpi).
 
-Статус 3.5.1: ⚠️ черновик готов, финальные диаграммы — в Claude Code
+**Состав view** (решение 19.04: монолит 16 компонентов нечитаем, разбито на 4+1):
+- `Context` — L1, системный контекст.
+- `Containers` — L2, 4 контейнера.
+- `Overview` — L3, обзор всех 16 компонентов с 3 слоями; без внешних контейнеров; для приложения ПЗ (A4 landscape).
+- `PolicyFlow` — L3 focused, поток UC-1/2/3 (создание/обновление правила с валидацией).
+- `AccessEvaluation` — L3 focused, UC-4/7/9 (оценка доступа + симулятор).
+- `Verification` — L3 focused, UC-6 (проверка СВ-1…СВ-5).
+- `IntegrationRollup` — L3 focused, UC-5/8/10 (импорт + агрегация прогресса).
+
+Для презентации (слайд): Container view + схематичное изображение слоёв без 16 компонентов — решение 19.04.
+
+**Отложено:**
+- Сверить DSL с реальным кодом: все ли компоненты Core Layer есть? Что в реальности называется иначе? Расхождения — в таблицу 3.6.
+
+Статус 3.5.1: ✅ выполнено (артефакты в репо, финальная сверка с кодом — в 3.6).
 
 #### 3.5.2. Диаграммы UML
 
@@ -1286,16 +1298,16 @@ onto/
 - [x] 2.7.7. Матрица трассировки ФТ × UC (покрытие без провисаний)
 
 Проектные артефакты (раздел 3.5):
-- [~] 3.5.1. C4 Model: содержание трёх уровней (Context, Container, Component) согласовано в PROJECT_BIBLE. Финальные Structurizr DSL + рендеры — следующая сессия в Claude Code (уровень C4 Code пропускается)
+- [x] 3.5.1. C4 Model: Structurizr DSL написан (4 контейнера после слияния Reasoning Engine в компонент — решение 19.04). 7 представлений: Context, Containers, Overview (все 16 компонентов), 4 focused component-view (PolicyFlow, AccessEvaluation, Verification, IntegrationRollup). Экспорт — PNG/SVG через PlantUML pipeline. Валидация DSL пройдена 20.04: 3-слойность без нарушений, циклов в Core нет, ФТ-1…ФТ-8 покрыты 1:1 сервисами, UC-1…UC-10 закреплены за контроллерами, СВ-1…СВ-5 закреплены за `VerificationService` с делегированием в `GraphValidator` (СВ-2, СВ-3) и `ReasoningOrchestrator` (СВ-1, СВ-4, СВ-5). Сверка с реальным кодом — в 3.6. Уровень C4 Code пропущен.
 - [ ] 3.5.2. UML: классы онтологии (TBox), классы backend, 4 sequence-диаграммы, activity as-is/to-be, deployment
 - [ ] 3.5.3. Модели данных: OWL TBox-схема, SWRL-каталог, Redis-схема, OpenAPI-ревизия
 - [ ] 3.5.4. Формализация 5 алгоритмов (А1–А5) с псевдокодом
 - [ ] 3.5.5. Wireframes / user flow (минимально)
 
 Инфраструктура (добавлено 18.04):
-- [ ] Собрать репозиторий `vkr-access-control` по структуре из раздела 8.3
-- [ ] Установить Claude Code локально и подключить репозиторий
-- [ ] Установить Structurizr Lite (Docker) для C4
+- [x] Собрать репозиторий `vkr-access-control` по структуре из раздела 8.3
+- [x] Установить Claude Code локально и подключить репозиторий
+- [x] Установить Structurizr Lite (Docker) для C4 — 19.04: перешли на `structurizr/structurizr local` (образ `structurizr/lite` deprecated)
 - [ ] Создать `.claude/CLAUDE.md` с краткими инструкциями для агента
 
 Ревизия кода (раздел 3.6):
@@ -1415,12 +1427,19 @@ onto/
 | 18.04 | Structurizr как основной инструмент для C4 | Нативный инструмент Simon Brown (автор C4). Один DSL → все уровни автоматически. Бесплатный Structurizr Lite через Docker. Альтернативы (C4-PlantUML, Mermaid C4) — хуже по качеству дефолтного рендера |
 | 18.04 | Claude Design — для фазы 5, не для технических диаграмм | Claude Design (Anthropic Labs, research preview, 17.04.2026) ориентирован на UI-прототипы, pitch decks, one-pagers. Для C4/UML/activity не подходит — нужны специализированные инструменты с формальной семантикой. В фазе 5 используется для презентации защиты и one-pager внедрения для Дистех |
 | 18.04 | Раздел 3.5.1 — черновик готов, финальные диаграммы — в Claude Code | Содержание трёх уровней C4 (Context, Container, Component) согласовано в сессии Projects. Финальные Structurizr DSL + рендеры создаются в следующей сессии в Claude Code. Уровень C4 Code пропускается (опционален в C4 model, избыточен для ВКР) |
+| 19.04 | Reasoning Engine — компонент Core Layer, не отдельный контейнер | Pellet через JPype — это embedded JVM, запускается Owlready2 как дочерний subprocess в рамках процесса backend-а, делит с ним lifecycle. Критерий C4-контейнера (независимо деплоируемый/масштабируемый процесс) не выполняется. Упрощает Container view до 4 контейнеров (помещается на слайд), честнее отражает решение 15.04 о едином runtime. На Deployment-диаграмме JVM обозначается как embedded. Технология указывается как tech-note на `ReasoningOrchestrator` |
+| 19.04 | Компонентная диаграмма разбита на Overview + 4 focused view | Монолитный view 16 компонентов + 3 внешних контейнера + ~30 связей не читается на A4 и тем более на слайде. Стандартный приём C4 (Simon Brown): несколько сфокусированных component-views по потокам. Разбиение по use case: PolicyFlow (UC-1/2/3), AccessEvaluation (UC-4/7/9), Verification (UC-6), IntegrationRollup (UC-5/8/10). Плюс Overview без внешних контейнеров — для приложения ПЗ в A4 landscape |
+| 19.04 | Группировка компонентов по слоям через `group` в Structurizr DSL | 3-слойная архитектура (API/Service/Core) декларируется через `group` → Structurizr рисует лейн-структуру вокруг компонентов. Визуальная структура соответствует логической декомпозиции из 3.5.1. Без групп компоненты «плавают» на диаграмме, слои теряются |
+| 19.04 | Экспорт диаграмм: Structurizr CLI `export -format plantuml/c4plantuml` + PlantUML Docker | Structurizr Lite не имеет server-side PNG-рендера (только браузерный canvas). Нативный экспорт Structurizr CLI — в PlantUML/Mermaid/DOT. Выбран C4-PlantUML: стандарт, формальная семантика, PlantUML рендерит в PNG/SVG через один docker run. Pipeline: `docker run structurizr/structurizr export` → `.puml` → `docker run plantuml/plantuml -tpng/-tsvg` → PNG/SVG. В репо сохраняются все три формата: `.puml` (правится вручную при необходимости), `.svg` (векторные для ПЗ), `.png` 200dpi (для вставки в Word/презентацию) |
+| 20.04 | Визуализация C4: потолок — PlantUML с ortho-лейаутом и полировкой skinparams. D2 и темы Structurizr отклонены | D2+ELK дал визуально худший результат, несмотря на прямые линии — компоновка ELK в нашем случае хуже dot. Темы Structurizr (`default`, облачные) — cosmetic layer с теми же цветами, которые уже заданы в `styles` DSL; layout они не меняют. Облако Structurizr уходит в EOL 30.09.2026, долгосрочно полагаться на `theme` с URL нельзя. Текущий pipeline PlantUML с ortho + `SHOW_LEGEND` + sans-font остаётся финальным для автоматики. Для особо важных диаграмм в ПЗ и на слайдах допустимо доотрисовать вручную в draw.io поверх `workspace.dsl` как источника правды (тот же путь, что для Use Case — решение 18.04). Автоматический рендер кладётся в `diagrams/c4/exports/`, вручную доработанные версии — в `diagrams/use-case/` по необходимости |
+| 20.04 | Валидация DSL-архитектуры пройдена автоматическими и независимыми проверками | Прогнаны: (1) слоистая чистота (API→Service, Service→Core, Core→Core + 2 документированных исключения), (2) циклы в Core, (3) внешние входы только через API Layer, (4) покрытие ФТ-1…ФТ-8 сервисами, UC-1…UC-10 контроллерами, СВ-1…СВ-5 валидаторами. Результат: нарушений нет. Независимое ревью агентом-ревьюером подтвердило корректность DSL-уровня; 🔴 замечания ревьюера относятся к коду (отсутствие транзакционности НФТ-5, таймаута НФТ-3 в `run_reasoner`, явной consistency-проверки в `create_policy`) — это вход в фазу 2 (FIX1–FIX10), не в фазу 1. Расхождения DSL↔код зафиксированы как повестка раздела 3.6: реальные сервисы в `code/backend/src/services/` не совпадают по именам и декомпозиции с DSL (`course_service` — гибрид Integration+структуры, отсутствуют `access_service`/`verification_service`/`integration_service`; `sandbox_service` = `SimulationService`); реальные роутеры (`competencies`, `courses`, `integration`, `policies`, `sandbox`) не покрывают `access`/`progress`/`verification` отдельными входами — UC-4/5/6/8/9 размазаны по имеющимся. Полная сверка — в 3.6 |
 
 ### Тупики
 
 | Дата | Проблема | Что пробовали | Результат |
 |------|---------|--------------|-----------|
 | Март 2026 | «Не рекомендовать» | Код без науки | Нет новизны, нет верификации → полноценное исследование |
+| 19.04 | Structurizr Docker монтирует не ту директорию в Git Bash / MSYS2 | Обычный `docker run -v "C:\...\c4:/usr/local/structurizr" ...` | MSYS2 на Windows агрессивно конвертирует пути с `:` в Windows-формат. И source (`C:\...\c4`) разрезается по двоеточию → появляется мусорная директория `c4;C`, и destination (`/usr/local/structurizr`) переводится в `C:\Program Files\Git\usr\local\structurizr`. Structurizr не видит рабочий DSL, показывает дефолтный stub. Решение: `MSYS_NO_PATHCONV=1 docker run -v "/c/Documents/itmo/vkr/vkr-access-control/diagrams/c4:/usr/local/structurizr" structurizr/structurizr local`. Источник — Unix-стиль `/c/...`, destination без конвертации, образ `structurizr/structurizr` с аргументом `local` (образ `structurizr/lite` deprecated). Правило: в любом `docker run -v "..."` из Git Bash/MSYS2 ставить `MSYS_NO_PATHCONV=1` |
 
 ---
 
@@ -1502,7 +1521,7 @@ vkr-access-control/
 
 | Тип диаграммы | Инструмент | Почему | Где в репо |
 |---|---|---|---|
-| C4 (Context, Container, Component) | **Structurizr Lite** (Docker, бесплатно) | Нативный инструмент для C4. Один DSL → все уровни автоматически. Итерации бесплатны | `diagrams/c4/workspace.dsl` |
+| C4 (Context, Container, Component) | **Structurizr** (`structurizr/structurizr local` в Docker, бесплатно; образ `structurizr/lite` deprecated) + PlantUML для экспорта PNG/SVG | Нативный инструмент для C4. Один DSL → все уровни автоматически. Итерации бесплатны. Команда запуска из Git Bash/MSYS2: `MSYS_NO_PATHCONV=1 docker run -d --name structurizr -p 8080:8080 -v "/c/path/to/diagrams/c4:/usr/local/structurizr" structurizr/structurizr local` | `diagrams/c4/workspace.dsl`, экспорт в `diagrams/c4/exports/{puml,svg,png}/` |
 | Sequence | Mermaid | Простой линейный поток, встроен в Claude Code и GitHub | `diagrams/uml/sequence-*.mmd` |
 | Class (TBox, Backend) | PlantUML | Классический выбор, хорошая поддержка объектной модели | `diagrams/uml/class-*.puml` |
 | Activity (as-is, to-be) | Mermaid | Flowchart-синтаксис, хорошо читается | `diagrams/uml/activity-*.mmd` |
