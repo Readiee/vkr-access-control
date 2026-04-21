@@ -12,7 +12,7 @@ APP_DESCRIPTION = (
     "Работает с OWL-онтологией через Owlready2, запускает Pellet Reasoner "
     "и кэширует результаты логического вывода в Redis."
 )
-APP_VERSION = "2.1.1"
+APP_VERSION = "2.2.0-dev"
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 

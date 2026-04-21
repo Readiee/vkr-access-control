@@ -2,7 +2,7 @@ import logging
 import uuid
 from typing import List, Optional, Any
 from schemas.schemas import ProgressEvent
-from core.enums import ProgressStatus, SWRL_RULE_TYPES
+from core.enums import ProgressStatus
 from services.ontology_core import OntologyCore
 from services.rollup_service import RollupService
 from utils.owl_utils import get_owl_prop
@@ -55,8 +55,8 @@ class ProgressService:
         if not student:
             return {"status": "error", "message": f"Студент {student_id} не найден."}
 
-        from utils.enrichers import DateRestrictionEnricher
-        enrichers_list = [DateRestrictionEnricher()]
+        from utils.access_postprocessors import DateWindowPostProcessor
+        postprocessors = [DateWindowPostProcessor()]
         inferred_access: dict = {}
 
         for course_elem in self.core.courses.get_all_elements():
@@ -73,21 +73,18 @@ class ProgressService:
 
             for p in parents:
                 p_active = [pol for pol in getattr(p, "has_access_policy", []) if get_owl_prop(pol, "is_active", True) is True]
-                p_swrl = [pol for pol in p_active if get_owl_prop(pol, "rule_type") in SWRL_RULE_TYPES]
-                if p_swrl and student not in getattr(p, "is_available_for", []):
+                if p_active and student not in getattr(p, "is_available_for", []):
                     parent_unlocked = False
                     break
 
-            swrl_policies = [p for p in active_policies if get_owl_prop(p, "rule_type") in SWRL_RULE_TYPES]
-            swrl_passed = (not swrl_policies) or (student in getattr(course_elem, "is_available_for", []))
+            swrl_passed = (not active_policies) or (student in getattr(course_elem, "is_available_for", []))
             
             is_available = parent_unlocked and swrl_passed
             
             if is_available:
                 element_data: dict = {}
-                # Применяем обогатители. DateRestrictionEnricher добавит 'available_from'/'available_until'
-                for enricher in enrichers_list:
-                    element_data = enricher.enrich(course_elem, element_data)
+                for pp in postprocessors:
+                    element_data = pp.process(course_elem, element_data)
                 inferred_access[course_elem.name] = element_data
 
         self.core.cache.set_student_access(student_id, inferred_access)
@@ -112,8 +109,8 @@ class ProgressService:
 
         inferred_access = cached_access
         
-        from utils.enrichers import DateAccessFilter
-        access_filters = [DateAccessFilter()]
+        from utils.access_postprocessors import DateWindowFilter
+        access_filters = [DateWindowFilter()]
         
         filtered_access = {}
         for elem_id, elem_data in inferred_access.items():

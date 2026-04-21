@@ -8,15 +8,10 @@ class RuleType(str, Enum):
     GRADE = "grade_required"
     COMPETENCY = "competency_required"
     DATE = "date_restricted"
-
-
-# Набор правил, которые вычисляются на уровне OWL-ризонера (SWRL)
-SWRL_RULE_TYPES = {
-    RuleType.VIEWED.value,
-    RuleType.COMPLETION.value,
-    RuleType.GRADE.value,
-    RuleType.COMPETENCY.value
-}
+    AND = "and_combination"
+    OR = "or_combination"
+    GROUP = "group_restricted"
+    AGGREGATE = "aggregate_required"
 
 
 class ElementType(str, Enum):

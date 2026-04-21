@@ -1,103 +1,146 @@
-"""Встраивание SWRL-правил доступа в онтологию.
+"""Каталог SWRL-правил.
 
-Загружает базовую схему edu_ontology.owl, добавляет объектные свойства
-и SWRL-правила логического вывода,
-сохраняет результат в ontologies/edu_ontology_with_rules.owl.
+Двухуровневая семантика:
+  - Ступень 1: атомарные и композитные шаблоны выводят satisfies(?s, ?p)
+    — условие политики выполнено для студента.
+  - Ступень 2: единое мета-правило превращает satisfies в is_available_for.
 
-Использование:
-    python 2_rules_setup.py
+Загружает TBox из edu_ontology.owl, встраивает правила, сохраняет
+edu_ontology_with_rules.owl.
 """
-from owlready2 import get_ontology, ObjectProperty, Imp, TransitiveProperty
+from owlready2 import get_ontology, Imp
 
-# Загрузка базовой схемы (только TBox, без экземпляров)
 onto = get_ontology("file://../ontologies/edu_ontology.owl").load()
 
 with onto:
-    # ------------------------------------------------------------------
-    # Объектные свойства
-    # ------------------------------------------------------------------
-
-    class is_available_for(ObjectProperty):
-        """Логически выводимое свойство: элемент курса доступен студенту."""
-        domain = [onto.CourseStructure]
-        range  = [onto.Student]
-
-    class has_competency(ObjectProperty):
-        """Студент владеет компетенцией."""
-        domain = [onto.Student]
-        range  = [onto.Competency]
-
-    class targets_competency(ObjectProperty):
-        """Политика требует наличие компетенции."""
-        domain = [onto.AccessPolicy]
-        range  = [onto.Competency]
-
-    # Транзитивное свойство для иерархии компетенций
-    class is_subcompetency_of(ObjectProperty, TransitiveProperty):
-        domain = [onto.Competency]
-        range = [onto.Competency]
-
-    # ------------------------------------------------------------------
-    # Если студент владеет подкомпетенцией, он владеет и родительской компетенцией.
-    # ------------------------------------------------------------------
+    # ==================================================================
+    # H-1. НАСЛЕДОВАНИЕ КОМПЕТЕНЦИЙ (вспомогательное правило)
+    # Распространяет has_competency вверх по иерархии is_subcompetency_of.
+    # ==================================================================
     rule_competency_inheritance = Imp()
     rule_competency_inheritance.set_as_rule("""
         Student(?s), has_competency(?s, ?sub), is_subcompetency_of(?sub, ?parent)
         -> has_competency(?s, ?parent)
     """)
 
-    # ------------------------------------------------------------------
-    # ПРАВИЛО 1 — grade_required
-    # Срабатывает, если оценка студента >= порогового значения политики.
-    # ------------------------------------------------------------------
-    rule_grade_access = Imp()
-    rule_grade_access.set_as_rule("""
-        CourseStructure(?element), has_access_policy(?element, ?policy), is_active(?policy, true), rule_type(?policy, "grade_required"),
-        targets_element(?policy, ?target_elem), passing_threshold(?policy, ?threshold),
-        Student(?student), has_progress_record(?student, ?pr), refers_to_element(?pr, ?target_elem),
-        has_grade(?pr, ?grade), greaterThanOrEqual(?grade, ?threshold)
-        -> is_available_for(?element, ?student)
+    # ==================================================================
+    # СТУПЕНЬ 1 — АТОМАРНЫЕ ШАБЛОНЫ (выводят satisfies)
+    # ==================================================================
+
+    # Шаблон 1 — completion_required
+    rule_completion = Imp()
+    rule_completion.set_as_rule("""
+        AccessPolicy(?p), is_active(?p, true), rule_type(?p, "completion_required"),
+        targets_element(?p, ?target),
+        Student(?s), has_progress_record(?s, ?pr),
+        refers_to_element(?pr, ?target), has_status(?pr, status_completed)
+        -> satisfies(?s, ?p)
     """)
 
-    # ------------------------------------------------------------------
-    # ПРАВИЛО 2 — completion_required
-    # Срабатывает при наличии статуса completed у записи прогресса. Пороговая оценка не важна.
-    # ------------------------------------------------------------------
-    rule_completion_access = Imp()
-    rule_completion_access.set_as_rule("""
-        CourseStructure(?element), has_access_policy(?element, ?policy), is_active(?policy, true), rule_type(?policy, "completion_required"),
-        targets_element(?policy, ?target_elem),
-        Student(?student), has_progress_record(?student, ?pr), refers_to_element(?pr, ?target_elem),
-        has_status(?pr, status_completed)
-        -> is_available_for(?element, ?student)
+    # Шаблон 2 — grade_required
+    rule_grade = Imp()
+    rule_grade.set_as_rule("""
+        AccessPolicy(?p), is_active(?p, true), rule_type(?p, "grade_required"),
+        targets_element(?p, ?target), passing_threshold(?p, ?th),
+        Student(?s), has_progress_record(?s, ?pr),
+        refers_to_element(?pr, ?target), has_grade(?pr, ?g),
+        greaterThanOrEqual(?g, ?th)
+        -> satisfies(?s, ?p)
     """)
 
-    # ------------------------------------------------------------------
-    # ПРАВИЛО 3: Открытие по компетенции (с учетом иерархии!)
-    # Если студент имеет ?actual_comp, которая является подкомпетенцией ?req_comp, доступ открывается.
-    # ------------------------------------------------------------------
-    rule_competency_access = Imp()
-    rule_competency_access.set_as_rule("""
-        CourseStructure(?element), has_access_policy(?element, ?policy), is_active(?policy, true), rule_type(?policy, "competency_required"),
-        targets_competency(?policy, ?req_comp), 
-        Student(?student), has_competency(?student, ?actual_comp),
-        is_subcompetency_of(?actual_comp, ?req_comp)
-        -> is_available_for(?element, ?student)
+    # Шаблон 3 — viewed_required
+    rule_viewed = Imp()
+    rule_viewed.set_as_rule("""
+        AccessPolicy(?p), is_active(?p, true), rule_type(?p, "viewed_required"),
+        targets_element(?p, ?target),
+        Student(?s), has_progress_record(?s, ?pr),
+        refers_to_element(?pr, ?target), has_status(?pr, status_viewed)
+        -> satisfies(?s, ?p)
     """)
 
-    # ------------------------------------------------------------------
-    # ПРАВИЛО 4 — viewed_required
-    # Срабатывает, если студент открыл (просмотрел) целевой элемент.
-    # ------------------------------------------------------------------
-    rule_viewed_access = Imp()
-    rule_viewed_access.set_as_rule("""
-        CourseStructure(?element), has_access_policy(?element, ?policy), is_active(?policy, true), rule_type(?policy, "viewed_required"),
-        targets_element(?policy, ?target_elem),
-        Student(?student), has_progress_record(?student, ?pr), refers_to_element(?pr, ?target_elem),
-        has_status(?pr, status_viewed)
-        -> is_available_for(?element, ?student)
+    # Шаблон 4 — competency_required (иерархия через H-1)
+    rule_competency = Imp()
+    rule_competency.set_as_rule("""
+        AccessPolicy(?p), is_active(?p, true), rule_type(?p, "competency_required"),
+        targets_competency(?p, ?req_comp),
+        Student(?s), has_competency(?s, ?req_comp)
+        -> satisfies(?s, ?p)
     """)
 
-# Сохранение онтологии с встроенными SWRL-правилами
+    # Шаблон 5 — date_restricted (CurrentTime подкладывает текущее время перед прогоном)
+    rule_date = Imp()
+    rule_date.set_as_rule("""
+        AccessPolicy(?p), is_active(?p, true), rule_type(?p, "date_restricted"),
+        valid_from(?p, ?from), valid_until(?p, ?until),
+        CurrentTime(?now_ind), has_value(?now_ind, ?now),
+        greaterThanOrEqual(?now, ?from), lessThanOrEqual(?now, ?until),
+        Student(?s)
+        -> satisfies(?s, ?p)
+    """)
+
+    # Шаблон 8 — group_restricted
+    rule_group = Imp()
+    rule_group.set_as_rule("""
+        AccessPolicy(?p), is_active(?p, true), rule_type(?p, "group_restricted"),
+        restricted_to_group(?p, ?g),
+        Student(?s), belongs_to_group(?s, ?g)
+        -> satisfies(?s, ?p)
+    """)
+
+    # Шаблон 9 — aggregate_required (AggregateFact считается до прогона, SWRL только сравнивает с порогом)
+    rule_aggregate = Imp()
+    rule_aggregate.set_as_rule("""
+        AccessPolicy(?p), is_active(?p, true), rule_type(?p, "aggregate_required"),
+        passing_threshold(?p, ?th),
+        AggregateFact(?f), for_policy(?f, ?p), for_student(?f, ?s),
+        computed_value(?f, ?val),
+        greaterThanOrEqual(?val, ?th)
+        -> satisfies(?s, ?p)
+    """)
+
+    # ==================================================================
+    # СТУПЕНЬ 1 — КОМПОЗИТНЫЕ ШАБЛОНЫ
+    # ==================================================================
+
+    # Шаблон 7 — or_combination (хотя бы одна подполитика выполнена)
+    rule_or = Imp()
+    rule_or.set_as_rule("""
+        AccessPolicy(?p), is_active(?p, true), rule_type(?p, "or_combination"),
+        has_subpolicy(?p, ?sub),
+        Student(?s), satisfies(?s, ?sub)
+        -> satisfies(?s, ?p)
+    """)
+
+    # Шаблон 6 — and_combination (бинарный). DifferentFrom обязателен — иначе SWRL унифицирует ?sub1=?sub2 и AND превращается в OR.
+    rule_and_2 = Imp()
+    rule_and_2.set_as_rule("""
+        AccessPolicy(?p), is_active(?p, true), rule_type(?p, "and_combination"),
+        has_subpolicy(?p, ?sub1), has_subpolicy(?p, ?sub2), DifferentFrom(?sub1, ?sub2),
+        Student(?s), satisfies(?s, ?sub1), satisfies(?s, ?sub2)
+        -> satisfies(?s, ?p)
+    """)
+
+    # Шаблон 6b — and_combination (3-арный, для плоских AND из 3 операндов)
+    rule_and_3 = Imp()
+    rule_and_3.set_as_rule("""
+        AccessPolicy(?p), is_active(?p, true), rule_type(?p, "and_combination"),
+        has_subpolicy(?p, ?sub1), has_subpolicy(?p, ?sub2), has_subpolicy(?p, ?sub3),
+        DifferentFrom(?sub1, ?sub2), DifferentFrom(?sub2, ?sub3), DifferentFrom(?sub1, ?sub3),
+        Student(?s), satisfies(?s, ?sub1), satisfies(?s, ?sub2), satisfies(?s, ?sub3)
+        -> satisfies(?s, ?p)
+    """)
+
+    # ==================================================================
+    # СТУПЕНЬ 2 — МЕТА-ПРАВИЛО (satisfies → is_available_for)
+    # ==================================================================
+    rule_meta_available = Imp()
+    rule_meta_available.set_as_rule("""
+        CourseStructure(?el), has_access_policy(?el, ?p), is_active(?p, true),
+        Student(?s), satisfies(?s, ?p)
+        -> is_available_for(?el, ?s)
+    """)
+
 onto.save(file="../ontologies/edu_ontology_with_rules.owl", format="rdfxml")
-print("SWRL-правила успешно встроены. Файл сохранён как edu_ontology_with_rules.owl")
+print("SWRL-каталог встроён: edu_ontology_with_rules.owl")
+print("  ступень 1: 9 шаблонов (1-5, 6 binary, 6 ternary, 7, 8, 9) + H-1")
+print("  ступень 2: 1 мета-правило")

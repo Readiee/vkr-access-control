@@ -1,17 +1,20 @@
 import logging
-import subprocess
 import redis
 from typing import Optional, Any
-from owlready2 import get_ontology, sync_reasoner_pellet
+from owlready2 import get_ontology
 from repositories.ontology_repositories import StudentRepository, CourseRepository, ProgressRepository, PolicyRepository
 from services.cache_service import CacheService
+from services.reasoning_orchestrator import ReasoningOrchestrator, ReasoningResult
 
 logger = logging.getLogger(__name__)
 
 class OntologyCore:
     """Управляет операциями с семантическим графом, ризонером и кэшем Redis."""
 
-    def __init__(self, onto_path: str = "data/edu_ontology_with_rules.owl") -> None:
+    def __init__(self, onto_path: str | None = None) -> None:
+        from core.config import DEFAULT_ONTOLOGY_PATH
+        if onto_path is None:
+            onto_path = DEFAULT_ONTOLOGY_PATH
         """Загружает онтологию в память и подключается к Redis."""
         self.onto_file: str = onto_path
         logger.info("Загрузка онтологии из %s...", onto_path)
@@ -25,6 +28,7 @@ class OntologyCore:
         self.courses = CourseRepository(self.onto)
         self.progress = ProgressRepository(self.onto)
         self.policies = PolicyRepository(self.onto)
+        self.reasoner = ReasoningOrchestrator(self.onto)
 
 
     def _connect_redis(self) -> Optional[redis.Redis]:
@@ -38,20 +42,13 @@ class OntologyCore:
             logger.warning("Redis недоступен — кэширование доступов отключено.")
             return None
 
-    def run_reasoner(self) -> None:
-        """Запускает Pellet Reasoner с патчем совместимости Java/Jena."""
-        original_run = subprocess.run
+    def run_reasoner(self) -> ReasoningResult:
+        """Прогнать reasoning через orchestrator."""
+        return self.reasoner.reason()
 
-        def patched_run(cmd, *args, **kwargs):
-            if isinstance(cmd, list) and "java" in cmd and "Jena" in cmd:
-                cmd[cmd.index("Jena")] = "OWLAPI"
-            return original_run(cmd, *args, **kwargs)
-
-        subprocess.run = patched_run
-        try:
-            sync_reasoner_pellet(infer_property_values=True, infer_data_property_values=True)
-        finally:
-            subprocess.run = original_run
+    def check_consistency(self) -> tuple[bool, Optional[str]]:
+        """Вернуть (consistent, объяснение). Объяснение — None, если всё ок."""
+        return self.reasoner.check_consistency()
 
     def save(self):
         """Сохраняет текущее состояние онтологии в файл."""

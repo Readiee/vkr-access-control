@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Path, Query, status, HTTPException, Depends
 from typing import List, Optional
 from schemas.schemas import Policy, PolicyCreate, TogglePolicy
-from services.policy_service import PolicyService
+from services.policy_service import PolicyService, PolicyConflictError
 from api.dependencies import get_policy_service
 
 router = APIRouter(prefix="/api/v1/policies", tags=["Policies"])
@@ -29,6 +29,10 @@ async def create_policy(
     """Создаёт новый индивид AccessPolicy в графе онтологии."""
     try:
         return service.create_policy(policy)
+    except PolicyConflictError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.explanation)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 

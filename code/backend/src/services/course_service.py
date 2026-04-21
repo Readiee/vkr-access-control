@@ -115,8 +115,8 @@ class CourseService:
                     "passing_threshold": get_owl_prop(pol, "passing_threshold"),
                     "competency_id": getattr(get_owl_prop(pol, "targets_competency"), "name", None),
                     "target_element_id": getattr(get_owl_prop(pol, "targets_element"), "name", None),
-                    "available_from": get_owl_prop(pol, "available_from"),
-                    "available_until": get_owl_prop(pol, "available_until"),
+                    "valid_from": get_owl_prop(pol, "valid_from"),
+                    "valid_until": get_owl_prop(pol, "valid_until"),
                     "is_active": get_owl_prop(pol, "is_active", True)
                 })
 

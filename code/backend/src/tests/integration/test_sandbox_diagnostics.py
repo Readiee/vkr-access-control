@@ -3,8 +3,8 @@ import json
 import sys
 import os
 
-# Добавляем корень src в путь, чтобы импорты работали
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+# tests/integration/ → tests/ → src/
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from services.ontology_core import OntologyCore
 from services.progress_service import ProgressService
@@ -20,7 +20,8 @@ def run_diagnostics():
     
     # 1. Инициализация (используем демо-базу, чтобы не портить основную)
     # Используем абсолютный путь для надежности
-    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
+    # code/backend/src/tests/integration → code/
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", ".."))
     onto_path = os.path.join(base_dir, "onto", "ontologies", "demo_knowledge_base.owl")
     
     logger.info(f"Загрузка онтологии: {onto_path}")

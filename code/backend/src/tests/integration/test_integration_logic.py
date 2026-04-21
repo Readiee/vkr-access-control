@@ -4,18 +4,21 @@ import unittest
 import shutil
 from datetime import datetime
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# tests/integration/ → tests/ → src/
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from schemas.schemas import CourseElement, PolicyCreate, ProgressEvent, CourseSyncPayload
 from core.enums import ElementType, RuleType, ProgressStatus, EventType
+from core.config import DEFAULT_ONTOLOGY_PATH
 from services.ontology_core import OntologyCore
 from services.policy_service import PolicyService
 from services.course_service import CourseService
 from services.progress_service import ProgressService
 
+
 class TestOntologyIntegration(unittest.TestCase):
     def setUp(self):
-        self.original_owl = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "edu_ontology_with_rules.owl")
+        self.original_owl = DEFAULT_ONTOLOGY_PATH
         self.test_owl = "test_integration.owl"
         shutil.copy(self.original_owl, self.test_owl)
         

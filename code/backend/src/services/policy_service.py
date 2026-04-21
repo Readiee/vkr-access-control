@@ -1,9 +1,20 @@
+import logging
 import uuid
 from typing import List, Optional, Any
 from schemas.schemas import PolicyCreate
 from services.graph_validator import GraphValidator
 from services.ontology_core import OntologyCore
 from core.enums import RuleType
+
+logger = logging.getLogger(__name__)
+
+
+class PolicyConflictError(Exception):
+    """Политика создаёт логическое противоречие с остальной онтологией."""
+
+    def __init__(self, explanation: str):
+        super().__init__(explanation)
+        self.explanation = explanation
 
 class PolicyService:
     """Сервис управления политиками доступа в онтологии."""
@@ -32,14 +43,14 @@ class PolicyService:
                 if getattr(policy_node, "passing_threshold", None)
                 else None
             ),
-            "available_from": (
-                policy_node.available_from[0]
-                if getattr(policy_node, "available_from", None)
+            "valid_from": (
+                policy_node.valid_from[0]
+                if getattr(policy_node, "valid_from", None)
                 else None
             ),
-            "available_until": (
-                policy_node.available_until[0]
-                if getattr(policy_node, "available_until", None)
+            "valid_until": (
+                policy_node.valid_until[0]
+                if getattr(policy_node, "valid_until", None)
                 else None
             ),
             "is_active": policy_node.is_active[0] if getattr(policy_node, "is_active", None) else False,
@@ -64,10 +75,10 @@ class PolicyService:
 
         if policy_data.passing_threshold is not None:
             new_policy.passing_threshold = [policy_data.passing_threshold]
-        if policy_data.available_from:
-            new_policy.available_from = [policy_data.available_from]
-        if policy_data.available_until:
-            new_policy.available_until = [policy_data.available_until]
+        if policy_data.valid_from:
+            new_policy.valid_from = [policy_data.valid_from]
+        if policy_data.valid_until:
+            new_policy.valid_until = [policy_data.valid_until]
 
         author = self.core._get_or_create_element(policy_data.author_id, self.core.onto.Methodologist)
         new_policy.has_author = [author]
@@ -88,10 +99,30 @@ class PolicyService:
             source = self.core.courses.get_or_create_element(policy_data.source_element_id, "CourseStructure")
         source.has_access_policy.append(new_policy)
 
+        # reasoning до save — если онтология ломается, откатываемся и не сохраняем файл
+        result = self.core.run_reasoner()
+        if result.status == "inconsistent":
+            logger.warning("Политика %s сделала онтологию inconsistent: %s", policy_id, result.error)
+            self._rollback_policy(new_policy, source)
+            raise PolicyConflictError(
+                f"Политика создаёт логическое противоречие: {result.error or 'онтология inconsistent'}"
+            )
+        if result.status == "error":
+            self._rollback_policy(new_policy, source)
+            raise PolicyConflictError(f"Ошибка reasoning: {result.error}")
+
         self.core.save()
-        self.core.run_reasoner()
         self._invalidate_all_access_caches()
         return self._map_policy_to_dict(new_policy, policy_data.source_element_id)
+
+    def _rollback_policy(self, policy_node: Any, source_node: Any) -> None:
+        """Снять политику с элемента и удалить её из ABox."""
+        try:
+            if policy_node in source_node.has_access_policy:
+                source_node.has_access_policy.remove(policy_node)
+            self.core.policies.delete(policy_node)
+        except Exception:
+            logger.exception("Откат политики %s не удался", getattr(policy_node, "name", "?"))
 
     def get_policies(
         self,
@@ -174,8 +205,8 @@ class PolicyService:
             policy.targets_element = []
             policy.targets_competency = []
             
-        policy.available_from = [data.available_from] if data.available_from else []
-        policy.available_until = [data.available_until] if data.available_until else []
+        policy.valid_from = [data.valid_from] if data.valid_from else []
+        policy.valid_until = [data.valid_until] if data.valid_until else []
 
         self.core.save()
         self.core.run_reasoner()

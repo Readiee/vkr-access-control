@@ -40,15 +40,18 @@ def create_competency(comp: Competency):
         logger.warning(f"Существующая компетенция {comp.id} ({comp.name}) будет перезаписана на {comp.id} ({comp.name})")
     new_comp = onto.Competency(comp.id)
     new_comp.label = [comp.name]
-    
-    # Установка родительской связи
+
+    # parent ищем только среди Competency — иначе при совпадении имён ссылка
+    # может привязаться к другому классу (методисту, лекции и т.п.)
     if comp.parent_id:
-        parent = onto.search_one(iri=f"*{comp.parent_id}")
-        if parent:
-            if parent not in new_comp.is_subcompetency_of:
-                new_comp.is_subcompetency_of.append(parent)
-        else:
-            raise HTTPException(status_code=400, detail=f"Родительская компетенция {comp.parent_id} не найдена")
+        parent = onto.search_one(iri=f"*{comp.parent_id}", type=onto.Competency)
+        if parent is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Родительская компетенция {comp.parent_id} не найдена (ни одного индивида класса Competency с таким id)",
+            )
+        if parent not in new_comp.is_subcompetency_of:
+            new_comp.is_subcompetency_of.append(parent)
     
     core.save()
     return comp
@@ -59,23 +62,29 @@ def sync_competencies(payload: List[Competency]):
     core = get_ontology_core()
     onto = core.onto
     
-    # 1. Первый проход: создаем/обновляем все индивиды и их названия
+    # 1. Первый проход: создаём/обновляем индивиды класса Competency
     for comp in payload:
-        existing = onto.search_one(iri=f"*{comp.id}")
-        if not existing:
+        existing = onto.search_one(iri=f"*{comp.id}", type=onto.Competency)
+        if existing is None:
             new_comp = onto.Competency(comp.id)
         else:
             new_comp = existing
         new_comp.label = [comp.name]
-        
-    # 2. Второй проход: устанавливаем связи иерархии
+
+    # 2. Второй проход: связи иерархии
     for comp in payload:
-        if comp.parent_id:
-            child = onto.search_one(iri=f"*{comp.id}")
-            parent = onto.search_one(iri=f"*{comp.parent_id}")
-            if child and parent:
-                if parent not in child.is_subcompetency_of:
-                    child.is_subcompetency_of.append(parent)
+        if not comp.parent_id:
+            continue
+        child = onto.search_one(iri=f"*{comp.id}", type=onto.Competency)
+        parent = onto.search_one(iri=f"*{comp.parent_id}", type=onto.Competency)
+        if child is None or parent is None:
+            logger.warning(
+                "sync_competencies: пропущена связь %s → %s (Competency не найдены)",
+                comp.id, comp.parent_id,
+            )
+            continue
+        if parent not in child.is_subcompetency_of:
+            child.is_subcompetency_of.append(parent)
                     
     core.save()
     core.run_reasoner() # Перерасчет графа

@@ -1,5 +1,5 @@
 """Pydantic-модели запросов и ответов Semantic Rules API."""
-from pydantic import BaseModel, Field, model_validator, ConfigDict
+from pydantic import BaseModel, Field, model_validator, ConfigDict, AliasChoices
 from typing import List, Optional, Dict, Any
 from enum import Enum
 from datetime import datetime
@@ -39,8 +39,20 @@ class PolicyBase(BaseModel):
     target_element_id: Optional[str] = Field(None, description="ID целевого элемента (для grade/completion)")
     target_competency_id: Optional[str] = Field(None, description="ID целевой компетенции (для competency)")
     passing_threshold: Optional[float] = Field(None, description="Пороговая оценка для grade_required")
-    available_from: Optional[datetime] = Field(None, description="Дата открытия доступа")
-    available_until: Optional[datetime] = Field(None, description="Дата закрытия доступа")
+    valid_from: Optional[datetime] = Field(
+        None,
+        description="Дата открытия доступа (date_restricted)",
+        alias="available_from",
+        validation_alias=AliasChoices("valid_from", "available_from"),
+        serialization_alias="valid_from",
+    )
+    valid_until: Optional[datetime] = Field(
+        None,
+        description="Дата закрытия доступа (date_restricted)",
+        alias="available_until",
+        validation_alias=AliasChoices("valid_until", "available_until"),
+        serialization_alias="valid_until",
+    )
     author_id: str = Field(..., description="ID методиста, создавшего правило")
 
 
