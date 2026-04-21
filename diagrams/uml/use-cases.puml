@@ -1,0 +1,89 @@
+@startuml use-cases
+!theme plain
+skinparam defaultFontName "Segoe UI"
+skinparam dpi 150
+skinparam actorStyle awesome
+skinparam usecaseBackgroundColor White
+skinparam usecaseBorderColor Black
+skinparam packageStyle rectangle
+left to right direction
+
+title Диаграмма вариантов использования — UC-1…UC-10
+
+actor "Методист" as M
+actor "Администратор" as A
+actor "Студент\n(через СДО)" as S
+actor "LMS\n<<system>>" as LMS
+
+rectangle "Система управления правилами доступа" {
+
+    package "Управление правилами" {
+        usecase "UC-1\nСоздать правило" as UC1
+        usecase "UC-2\nРедактировать /\nудалить правило" as UC2
+        usecase "UC-3\nВалидация правила\nпри создании" as UC3
+    }
+
+    package "Исполнение" {
+        usecase "UC-4\nПроверить доступ" as UC4
+        usecase "UC-5\nЗафиксировать\nсобытие прогресса" as UC5
+        usecase "UC-8\nАгрегация\nзавершённости" as UC8
+        usecase "UC-9\nОбъяснение\nблокировки" as UC9
+    }
+
+    package "Верификация" {
+        usecase "UC-6\nПолная\nверификация курса" as UC6
+    }
+
+    package "Симулятор" {
+        usecase "UC-7a\nСоздать тестового\nстудента" as UC7a
+        usecase "UC-7b\nИзменить факты\nстудента" as UC7b
+        usecase "UC-7c\nПросмотреть\nкарту доступов" as UC7c
+    }
+
+    package "Интеграция" {
+        usecase "UC-10\nИмпортировать\nкурс со структурой\nи правилами" as UC10
+    }
+}
+
+' Методист
+M --> UC1
+M --> UC2
+M --> UC6
+M --> UC7a
+M --> UC7b
+M --> UC7c
+
+' Администратор
+A --> UC10
+A --> UC6
+
+' LMS
+LMS --> UC4
+LMS --> UC5
+
+' Студент — только объяснение блокировки
+S --> UC9
+
+' Include / Extend
+UC1  ..> UC3  : <<include>>
+UC2  ..> UC3  : <<include>>
+UC5  ..> UC8  : <<include>>
+UC7b ..> UC4  : <<include>>
+UC7c ..> UC4  : <<include>>
+UC10 ..> UC6  : <<include>>
+UC9  ..|> UC4 : <<extend>>
+UC9  ..|> UC7c : <<extend>>
+
+note bottom
+  **Покрытие ФТ (трассировка 2.7.7):**
+  ФТ-1 → UC-1, UC-2, UC-10
+  ФТ-2 → UC-4, UC-7b, UC-7c
+  ФТ-3 → UC-6, UC-10
+  ФТ-4 → UC-5, UC-10
+  ФТ-5 → UC-1, UC-2, UC-3
+  ФТ-6 → UC-4, UC-7c, UC-9
+  ФТ-7 → UC-7a, UC-7b, UC-7c
+  ФТ-8 → UC-5, UC-8
+end note
+
+@enduml

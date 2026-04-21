@@ -1,0 +1,66 @@
+%%{init: {'theme': 'default', 'themeVariables': {'fontFamily': 'Segoe UI'}}}%%
+sequenceDiagram
+    autonumber
+    title UC-1 + UC-3: Создание правила доступа с валидацией (А1)
+
+    actor M as Методист
+    participant UI as Web UI
+    participant PC as PolicyController
+    participant PS as PolicyService
+    participant GV as GraphValidator<br/>(А1)
+    participant RO as ReasoningOrchestrator<br/>(А2)
+    participant OC as OntologyCore
+    participant CM as CacheManager<br/>(А5)
+    participant OWL as Ontology Store
+    participant R as Redis
+
+    M  ->> UI  : Заполняет форму правила
+    UI ->> PC  : POST /policies<br/>{src, tgt?, rule_type, params}
+    PC ->> PS  : create_policy(dto)
+
+    rect rgb(240, 248, 255)
+        note over PS,GV: Этап 1 — валидация ацикличности (СВ-2, А1)
+        PS ->> GV : detect_cycles_with_probe(src, tgt, rule_type)
+        GV ->> OC : get_course_structure()
+        OC -->> GV : active elements + policies
+        GV ->> GV : build_dependency_graph()<br/>+ добавить пробную дугу
+        GV -->> PS : cycle_path (пустой или путь)
+
+        alt Цикл обнаружен
+            PS -->> PC : ValueError("Циклическая зависимость: …")
+            PC -->> UI : 400 Bad Request
+            UI -->> M  : «Создание отклонено: цикл»
+        end
+    end
+
+    rect rgb(245, 255, 245)
+        note over PS,RO: Этап 2 — валидация консистентности (СВ-1, А2 dry-run)
+        PS ->> OC : clone_abox() (транзакция НФТ-5)
+        PS ->> OC : add_policy_individual(dto)
+        PS ->> RO : check_consistency()
+        RO ->> RO : pre_enrich()
+        RO ->> RO : reason() / Pellet
+        alt InconsistentOntologyError
+            RO -->> PS : explanation
+            PS ->> OC : rollback_abox()
+            PS -->> PC : ValueError("Неконсистентная онтология: …")
+            PC -->> UI : 400 Bad Request
+            UI -->> M  : «Конфликт с правилом X»
+        else Consistent
+            RO -->> PS : ok
+        end
+    end
+
+    rect rgb(255, 250, 240)
+        note over PS,R: Этап 3 — применение и материализация
+        PS ->> OC : commit_abox()
+        OC ->> OWL : save()
+        PS ->> RO : reason_and_materialize(student_id=None)
+        RO ->> RO : pre_enrich + reason + post_enforce
+        RO ->> CM : invalidate_all_access()
+        CM ->> R  : DEL access:*
+        RO -->> PS : ok
+        PS -->> PC : policy_dict
+        PC -->> UI : 201 Created
+        UI -->> M  : «Правило создано»
+    end

@@ -1,0 +1,80 @@
+%%{init: {'theme': 'default', 'themeVariables': {'fontFamily': 'Segoe UI'}}}%%
+flowchart TB
+    title["<b>Процесс to-be: управление доступом в проектируемой системе</b><br/><i>UC-1 + UC-3 + UC-4 + верификационный слой</i>"]
+    title ~~~ start
+
+    start([Методист создаёт правило<br/>через Web UI])
+    form[Выбор элемента,<br/>rule_type из 10 типов,<br/>параметры]
+    post[POST /policies]
+    policySrv[PolicyService.create_policy]
+
+    subgraph validation["<b>Валидация до сохранения (UC-3)</b>"]
+        direction TB
+        v1[А1: построить split-node<br/>DiGraph + пробная дуга]
+        v1check{Цикл<br/>обнаружен?}
+        reject1[Отклонить с путём цикла:<br/>«A → B → C → A»]
+
+        v2[Клонировать ABox,<br/>добавить кандидата-правило,<br/>А2 dry-run]
+        v2check{Консистентно?}
+        reject2[Отклонить с explanation:<br/>«Конфликт с правилом X»]
+
+        v1 --> v1check
+        v1check -- Да --> reject1
+        v1check -- Нет --> v2 --> v2check
+        v2check -- Нет --> reject2
+    end
+
+    commit[Commit: добавить правило<br/>в основной ABox]
+    owl[(OWL Store<br/>RDF/XML файл)]
+    reason[А2: pre_enrich →<br/>Pellet + SWRL →<br/>post_enforce → materialize]
+    cacheInv[Invalidate cache<br/>для всех активных студентов]
+    redis[(Redis<br/>access:*)]
+    saved([Правило сохранено<br/>+ консистентность+ацикличность гарантированы])
+
+    start --> form --> post --> policySrv --> v1
+    v2check -- Да --> commit
+    commit --> owl
+    commit --> reason
+    reason --> cacheInv --> redis
+    cacheInv --> saved
+
+    subgraph runtime["<b>Исполнение правил при запросе студентом (UC-4)</b>"]
+        direction TB
+        req(["LMS: GET /access/<br/>{student}/{element}"])
+        cacheGet{Cache<br/>hit?}
+        cacheHit[НФТ-1: вернуть<br/>из Redis за ≤ 50 мс]
+        cacheMiss[Cache miss — запуск А2<br/>за ≤ 2 с НФТ-2]
+        decision{Доступно?}
+        show[accessible: true]
+        blockExplain[accessible: false<br/>+ список невыполненных условий<br/>UC-9]
+        respond([JSON-ответ LMS])
+
+        req --> cacheGet
+        cacheGet -- Да --> cacheHit --> decision
+        cacheGet -- Нет --> cacheMiss --> decision
+        decision -- Да --> show --> respond
+        decision -- Нет --> blockExplain --> respond
+    end
+
+    saved -.->|Правила применяются| req
+
+    subgraph verify["<b>Верификация курса (UC-6) — отсутствует в as-is</b>"]
+        direction TB
+        vReq(["Методист / админ:<br/>POST /courses/{id}/verify"])
+        sv1[СВ-1: Pellet consistency]
+        sv2[СВ-2: А1 — все циклы]
+        sv3[СВ-3: А4 — недостижимые элементы<br/>3 прохода: атомарный +<br/>структурный + Pellet joint]
+        sv4[СВ-4 / СВ-5: subsumption-check<br/>Pellet]
+        report([Отчёт: список проблем<br/>с типом, элементами, правилами])
+
+        vReq --> sv1 --> sv2 --> sv3 --> sv4 --> report
+    end
+
+    saved -.->|Периодический аудит| vReq
+
+    classDef new fill:#e6fff2,stroke:#2e8b57,color:#0b3d1e
+    classDef reject fill:#ffeef0,stroke:#ff6b6b,color:#8b0000
+    classDef verify fill:#e6f2ff,stroke:#1e6091,color:#0b2a4a
+    class v1,v2,sv1,sv2,sv3,sv4,vReq,report new
+    class reject1,reject2 reject
+    class verify verify

@@ -1,0 +1,81 @@
+%%{init: {'theme': 'default', 'themeVariables': {'fontFamily': 'Segoe UI'}}}%%
+sequenceDiagram
+    autonumber
+    title UC-5 + UC-8: Событие прогресса и каскадное завершение (А3)
+
+    participant LMS as Внешняя СДО
+    participant PC as ProgressController
+    participant IS as IntegrationService
+    participant OC as OntologyCore
+    participant RS as RollupService<br/>(А3)
+    participant RO as ReasoningOrchestrator<br/>(А2)
+    participant CM as CacheManager<br/>(А5)
+    participant R as Redis
+    participant OWL as Ontology Store
+
+    LMS ->> PC : POST /progress<br/>{student, element, event_type, value?}
+    PC  ->> IS : handle_progress_event(evt)
+
+    rect rgb(240, 248, 255)
+        note over IS,OC: Шаг 1 — нормализация и запись факта
+        IS ->> OC : find_student(student_id) / get_or_create
+        IS ->> OC : find_element(element_id)
+        alt element не найден
+            OC -->> IS : None
+            IS -->> PC : 404 ElementNotFound
+            PC -->> LMS : 404
+        end
+        IS ->> OC : create_or_update ProgressRecord<br/>(refers_to_student, refers_to_element,<br/>has_grade?, has_status)
+        IS ->> OC : save()
+        OC ->> OWL : persist
+    end
+
+    rect rgb(245, 255, 245)
+        note over IS,RS: Шаг 2 — каскадная агрегация завершённости (А3)
+        alt event_type = "completed" или триггерит completed
+            IS ->> RS : execute(student, just_completed=element)
+
+            loop пока parent ≠ None и все обязательные дети завершены
+                RS ->> OC : find_parent(current)
+                alt parent = None (корень)
+                    OC -->> RS : None
+                    note right of RS: выход из рекурсии
+                else
+                    OC -->> RS : parent
+                    RS ->> OC : children_of(parent)<br/>filter is_mandatory=true
+                    OC -->> RS : mandatory_set
+                    alt mandatory_set = ∅
+                        note right of RS: нет обязательных — не завершаем
+                    else
+                        loop ∀ c ∈ mandatory_set
+                            RS ->> OC : is_completed(student, c)
+                        end
+                        alt все завершены
+                            RS ->> OC : set_status(student, parent, COMPLETED)
+                            note right of RS: current := parent,<br/>продолжаем вверх
+                        else
+                            note right of RS: выход
+                        end
+                    end
+                end
+            end
+
+            RS ->> OC : save()
+        end
+    end
+
+    rect rgb(255, 250, 240)
+        note over IS,R: Шаг 3 — re-reasoning и инвалидация кэша
+        IS ->> RO : reason_and_materialize(student_id=student)
+        activate RO
+        note right of RO: Полный pipeline А2:<br/>pre_enrich → reason →<br/>post_enforce → materialize
+        RO ->> CM : invalidate_student(student)<br/>(перед записью)
+        CM ->> R  : DEL access:{student}
+        RO ->> CM : set_student_access(student, new_map, ttl)
+        CM ->> R  : SET access:{student}
+        RO -->> IS : {status: "ok"}
+        deactivate RO
+    end
+
+    IS -->> PC : {accepted: true, rollup_applied: list<parent_id>}
+    PC -->> LMS : 202 Accepted

@@ -1,0 +1,95 @@
+@startuml deployment
+!theme plain
+skinparam defaultFontName "Segoe UI"
+skinparam dpi 150
+skinparam rectangle {
+    BackgroundColor White
+    BorderColor Black
+}
+skinparam node {
+    BackgroundColor<<Host>> #F8F8F8
+    BorderColor Black
+    FontStyle bold
+}
+skinparam linetype polyline
+
+title Диаграмма развёртывания (Docker Compose)
+
+cloud "Внешняя сеть" as Net {
+    actor "Методист /\nАдминистратор" as User
+    [Внешняя СДО] as LMS
+}
+
+node "Хост-машина Linux / macOS / Windows+WSL" <<Host>> as Host {
+
+    frame "Docker Compose: vkr-access-control" as Stack {
+
+        node "container: nginx:alpine" <<Web>> as Nginx {
+            component "статика Vue 3 SPA" as WebUI
+            note right of WebUI
+              Web UI (Vue 3 + PrimeVue)
+              собрано через Vite,
+              раздаётся статикой
+            end note
+        }
+
+        node "container: api-backend" <<Python>> as BackendNode {
+            component "FastAPI\n(uvicorn worker)" as FastAPI
+            component "Owlready2\n+ NetworkX\n+ redis-py" as PyLibs
+            component "Pellet 2.x\n(JVM embedded через JPype)" as PelletJVM
+            artifact "edu_ontology_with_rules.owl\n(том volume)" as OWLFile
+            FastAPI -down-> PyLibs
+            PyLibs -down-> PelletJVM : sync_reasoner_pellet\n(subprocess → JVM)
+            PyLibs --> OWLFile : load / save
+        }
+
+        node "container: redis:7-alpine" <<Cache>> as RedisNode {
+            database "Redis in-memory" as Redis
+        }
+
+        node "volume: onto-data" <<Volume>> as Volume {
+            file ".owl (RDF/XML)" as OwlVol
+        }
+    }
+}
+
+' Внешние потоки
+User --> Nginx : HTTPS :443
+LMS --> Nginx : HTTPS :443\n(REST)
+Nginx --> BackendNode : HTTP :8000\n(reverse-proxy /api)
+
+' Внутренние потоки
+BackendNode --> RedisNode : TCP :6379\n(redis protocol)
+OWLFile -up-> OwlVol : mount
+
+note bottom of BackendNode
+  **Pellet не отдельный контейнер** (решение 19.04):
+  JVM запускается в рамках процесса backend-а
+  через JPype, разделяет с ним lifecycle.
+  Критерий C4-контейнера (независимо деплоируемый)
+  не выполняется.
+end note
+
+note bottom of RedisNode
+  **Опциональный компонент.**
+  При недоступности система работает
+  в деградированном режиме: каждый запрос
+  триггерит полный reasoning (НФТ-6).
+end note
+
+note bottom of Volume
+  OWL-файл в volume для
+  персистентности между
+  перезапусками контейнера.
+  Перспектива (фаза 4):
+  замена на триплстор.
+end note
+
+legend bottom right
+  **НФТ-12 Переносимость:** Docker Compose
+  воспроизводится на Linux / macOS /
+  Windows (WSL2). Одна команда:
+    docker compose up -d
+endlegend
+
+@enduml

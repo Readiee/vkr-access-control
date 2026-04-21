@@ -1,0 +1,80 @@
+%%{init: {'theme': 'default', 'themeVariables': {'fontFamily': 'Segoe UI'}}}%%
+sequenceDiagram
+    autonumber
+    title А2: Reasoning pipeline с enricher и CWA-enforcement
+
+    participant Caller as AccessService /<br/>ProgressService /<br/>PolicyService
+    participant RO as ReasoningOrchestrator
+    participant OC as OntologyCore
+    participant ABox as ABox<br/>(в памяти)
+    participant P as Pellet<br/>(JPype → JVM)
+    participant CM as CacheManager
+    participant R as Redis
+
+    Caller ->> RO : reason_and_materialize(student_id?)
+
+    rect rgb(240, 248, 255)
+        note over RO,ABox: Стадия 1 — PRE-ENRICH (LIM1, LIM2, LIM6)
+        RO ->> OC : destroy_all(CurrentTime)
+        RO ->> OC : create CurrentTime("current_time_ind")<br/>has_value = utcnow()
+        RO ->> OC : destroy_all(AggregateFact)
+
+        loop ∀ p : active aggregate_required
+            RO ->> OC : fetch policy.aggregate_elements,<br/>aggregate_function
+            loop ∀ student s
+                RO ->> OC : fetch s.progress_records<br/>over aggregate_elements
+                RO ->> RO : compute AGG(fn, grades)
+                alt grades ≠ ∅ (или fn=COUNT)
+                    RO ->> OC : create AggregateFact<br/>(for_student=s, for_policy=p,<br/>computed_value=…)
+                end
+            end
+        end
+
+        RO ->> OC : clear is_available_for для всех элементов
+    end
+
+    rect rgb(245, 255, 245)
+        note over RO,P: Стадия 2 — REASON
+        RO ->> P  : patch subprocess.run (Jena → OWLAPI)
+        RO ->> P  : sync_reasoner_pellet<br/>(infer_property_values=true,<br/>infer_data_property_values=true)
+        activate P
+        note right of P: Классификация TBox, проверка<br/>consistency, применение SWRL:<br/>• 10 шаблонов типов правил<br/>• H-1 competency inheritance<br/>• Мета-правило ступени 2
+        alt InconsistentOntologyError
+            P -->> RO : explanation
+            RO -->> Caller : {status: "inconsistent", explanation}
+        else TimeoutError (> 10 с)
+            P -->> RO : TIMEOUT
+            RO ->> CM : get_student_access(s_id)
+            alt stale есть
+                CM -->> RO : stale
+                RO -->> Caller : {status: "stale_cache", from_ts}
+            else
+                RO -->> Caller : {status: "timeout", http: 503}
+            end
+        else OK
+            P -->> RO : ABox обновлён<br/>(satisfies, is_available_for,<br/>has_competency)
+            deactivate P
+        end
+    end
+
+    rect rgb(255, 250, 240)
+        note over RO,CM: Стадия 3 — POST-ENFORCE (CWA + иерархия)
+        RO ->> OC : build parent_of map<br/>has_active_policies map<br/>inferred map
+        loop ∀ student s (один или все)
+            loop ∀ element e
+                RO ->> RO : cwa_decide(e, s):<br/>нет политик → allow<br/>inferred → allow<br/>есть политики, нет inferred → deny
+            end
+            RO ->> RO : is_really_accessible(e):<br/>cwa[e] && is_really_accessible(parent)
+            RO ->> RO : accessible_set = filter
+        end
+    end
+
+    rect rgb(255, 245, 255)
+        note over RO,R: Стадия 4 — MATERIALIZE
+        loop ∀ student s
+            RO ->> RO : apply enrichers<br/>(DateRestrictionEnricher, …)
+            RO ->> CM : set_student_access(s, map,<br/>ttl=compute_student_ttl(s))
+            CM ->> R  : SET access:{s} EX ttl
+        end
+        RO -->> Caller : {status: "ok", updated: N}
+    end

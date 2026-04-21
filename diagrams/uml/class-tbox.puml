@@ -1,0 +1,204 @@
+@startuml class-tbox
+!theme plain
+skinparam defaultFontName "Segoe UI"
+skinparam dpi 150
+skinparam classAttributeIconSize 0
+skinparam classBackgroundColor White
+skinparam classBorderColor Black
+skinparam classFontStyle bold
+skinparam linetype ortho
+skinparam nodesep 40
+skinparam ranksep 50
+
+title Класс-диаграмма TBox онтологии управления доступом (OWL 2 DL)
+
+' ============================================================
+' 1. USERS
+' ============================================================
+package "Пользователи" as PkgUsers {
+    abstract class User
+    class Student
+    class Teacher
+    class Methodologist
+
+    User <|-- Student
+    User <|-- Teacher
+    User <|-- Methodologist
+}
+
+' ============================================================
+' 2. COURSE STRUCTURE
+' ============================================================
+package "Структура курса" as PkgStruct {
+    abstract class CourseStructure {
+        order_index : int <<f>>
+        is_mandatory : bool <<f>>
+    }
+    class Course
+    class Module
+    class LearningActivity
+    class Lecture
+    class Test
+    class Assignment
+    class Practice
+
+    CourseStructure <|-- Course
+    CourseStructure <|-- Module
+    CourseStructure <|-- LearningActivity
+    LearningActivity <|-- Lecture
+    LearningActivity <|-- Test
+    LearningActivity <|-- Assignment
+    LearningActivity <|-- Practice
+}
+
+' ============================================================
+' 3. PROGRESS / STATUS / COMPETENCY / GROUP
+' ============================================================
+package "Прогресс и домен" as PkgProg {
+    class ProgressRecord {
+        has_grade : float <<f>>
+        started_at : dateTime <<f>>
+        completed_at : dateTime <<f>>
+        failed_attempts_count : int <<f>>
+    }
+
+    enum Status {
+        status_viewed
+        status_completed
+        status_failed
+        status_passed
+    }
+
+    class Competency
+    class Group
+}
+
+' ============================================================
+' 4. ACCESS POLICY
+' ============================================================
+package "Управление доступом" as PkgAC {
+    class AccessPolicy {
+        is_active : bool <<f>>
+        rule_type : string <<f>>
+        passing_threshold : float <<f>>
+        valid_from : dateTime <<f>>
+        valid_until : dateTime <<f>>
+        aggregate_function : string <<f>>
+    }
+}
+
+' ============================================================
+' 5. ENRICHER-INJECTED (LIM1, LIM2 compensation)
+' ============================================================
+package "Enricher-инжекции" as PkgEnr {
+    class CurrentTime <<enricher>> {
+        has_value : dateTime <<f>>
+    }
+    class AggregateFact <<enricher>> {
+        computed_value : float <<f>>
+    }
+}
+
+' ============================================================
+' === RELATIONS: HIERARCHY ===
+' ============================================================
+Course "1" *--> "0..*" Module : has_module
+Module "1" *--> "0..*" LearningActivity : contains_activity
+
+' ============================================================
+' === RELATIONS: PROGRESS ===
+' ============================================================
+Student "1" *--> "0..*" ProgressRecord : has_progress_record
+ProgressRecord --> CourseStructure : refers_to_element <<f>>
+ProgressRecord --> Status : has_status <<f>>
+
+' ============================================================
+' === RELATIONS: COMPETENCY ===
+' ============================================================
+Student --> Competency : has_competency
+LearningActivity --> Competency : assesses
+Competency --> Competency : is_subcompetency_of\n<<transitive>>
+
+' ============================================================
+' === RELATIONS: GROUP ===
+' ============================================================
+Student --> Group : belongs_to_group
+
+' ============================================================
+' === RELATIONS: ACCESS POLICY ===
+' ============================================================
+CourseStructure "1" o--> "0..*" AccessPolicy : has_access_policy
+AccessPolicy --> CourseStructure : targets_element <<f>>
+AccessPolicy --> Methodologist : has_author <<f>>
+AccessPolicy --> AccessPolicy : has_subpolicy\n(AND / OR)
+AccessPolicy --> Competency : targets_competency
+AccessPolicy --> Group : restricted_to_group <<f>>
+AccessPolicy --> CourseStructure : aggregate_elements
+
+' ============================================================
+' === RELATIONS: ENRICHER LINKS ===
+' ============================================================
+AggregateFact --> Student : for_student <<f>>
+AggregateFact --> AccessPolicy : for_policy <<f>>
+
+' ============================================================
+' === RELATIONS: INFERRED (SWRL) ===
+' ============================================================
+Student ..> AccessPolicy : <<inferred>>\nsatisfies
+CourseStructure ..> Student : <<inferred>>\nis_available_for
+
+' ============================================================
+' NOTES
+' ============================================================
+note right of AccessPolicy
+  **rule_type ∈** {
+    completion_required,
+    grade_required,
+    viewed_required,
+    competency_required,
+    date_restricted,
+    and_combination,
+    or_combination,
+    group_restricted,
+    aggregate_required
+  }
+end note
+
+note bottom of CurrentTime
+  Singleton-индивид **current_time_ind**,
+  пересоздаваемый enricher-ом
+  перед каждым reasoning-прогоном (LIM1).
+end note
+
+note bottom of AggregateFact
+  По одному индивиду
+  на пару (Student × AccessPolicy) типа
+  aggregate_required. Пересчитывается
+  enricher-ом перед каждым прогоном (LIM2).
+end note
+
+note right of Status
+  Enum: 4 named individuals.
+  Связь через object property
+  **has_status** (functional).
+end note
+
+' ============================================================
+' LEGEND
+' ============================================================
+legend bottom right
+  **Обозначения**
+  <<f>>                   — Functional property
+  **жирная стрелка**        — asserted object property
+  <u>пунктирная стрелка</u> — SWRL-inferred property
+  **◆**                   — композиция (иерархия курса)
+  **◇**                   — агрегация (политика на элементе)
+  ----
+  **Дизъюнктность классов:**
+  Student ⊓ Teacher ⊓ Methodologist ⊑ ⊥
+  Course ⊓ Module ⊓ LearningActivity ⊑ ⊥
+  Lecture ⊓ Test ⊓ Assignment ⊓ Practice ⊑ ⊥
+  (все корневые классы попарно)
+endlegend
+
+@enduml

@@ -1,0 +1,62 @@
+%%{init: {'theme': 'default', 'themeVariables': {'fontFamily': 'Segoe UI'}}}%%
+sequenceDiagram
+    autonumber
+    title UC-4: Запрос доступа студента к элементу (с кэшем)
+
+    participant LMS as Внешняя СДО
+    participant AC as AccessController
+    participant AS as AccessService
+    participant CM as CacheManager<br/>(А5)
+    participant R as Redis
+    participant RO as ReasoningOrchestrator<br/>(А2)
+    participant OC as OntologyCore
+    participant P as Pellet<br/>(embedded JVM)
+
+    LMS ->> AC : GET /access/{student}/{element}
+    AC  ->> AS : get_access(student, element)
+    AS  ->> CM : get_student_access(student)
+    CM  ->> R  : GET access:{student}
+    R   -->> CM : payload | nil
+
+    alt Cache HIT (НФТ-1 ≤ 50 мс)
+        CM -->> AS : cached_map
+        AS ->> AS : проверить element ∈ cached_map<br/>+ DateAccessFilter<br/>+ ontology_version
+        alt version mismatch
+            AS ->> CM : invalidate_student(student)
+            note right of AS : перейти в ветку MISS
+        end
+        AS -->> AC : AccessDecision{accessible: bool}
+        AC -->> LMS : 200 {accessible: true/false}
+    else Cache MISS (НФТ-2 ≤ 2 с)
+        CM -->> AS : nil
+        AS ->> RO : reason_and_materialize(student)
+
+        rect rgb(255, 248, 240)
+            note over RO,P: Pipeline А2 — полный прогон
+            RO ->> OC : clear_inferred(is_available_for)<br/>инжекция CurrentTime<br/>инжекция AggregateFact
+            RO ->> P  : sync_reasoner_pellet() + SWRL<br/>(timeout 10 с)
+
+            alt TimeoutError (НФТ-3)
+                P -->> RO : TIMEOUT
+                RO ->> CM : get_student_access(student) / stale
+                alt stale есть
+                    CM -->> AS : stale_cache
+                    AS -->> AC : AccessDecision + header X-Stale
+                    AC -->> LMS : 200 (degraded)
+                else stale нет
+                    AS -->> AC : 503 Service Unavailable
+                    AC -->> LMS : 503
+                end
+            else OK
+                P -->> RO : ABox обновлён
+                RO ->> RO : post_enforce(student)<br/>CWA + иерархия
+                RO ->> CM : set_student_access(student, map, ttl)
+                CM ->> R  : SET access:{student} EX ttl
+                RO -->> AS : ok
+                AS ->> CM : get_student_access(student)
+                CM -->> AS : fresh_map
+                AS -->> AC : AccessDecision
+                AC -->> LMS : 200
+            end
+        end
+    end
