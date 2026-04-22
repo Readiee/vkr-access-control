@@ -673,6 +673,14 @@ comp_python
 - Любой студент, удовлетворяющий `p_subj_group`, удовлетворяет и `p_subj_all` (те же критерии + более жёсткий групповой фильтр). При этом `p_subj_all` срабатывает для более широкой аудитории. `p_subj_group` поглощена `p_subj_all` на уровне **subjects** (множество студентов).
 - Ожидаемое: А6 различает СВ-4 (одинаковые условия) и СВ-5 (разные субъекты при одном условии) по witness — если множество студентов, удовлетворяющих подмножеству условий, шире → это subject subsumption. Отчёт СВ-5.
 
+### 6.8.1. Отклонения фактической сборки от спецификации (22.04)
+
+При реализации скриптов `code/onto/scenarios/` и прогоне Pellet на собранном ABox обнаружены три расхождения с §6.3/§6.6/§6.7:
+
+1. **Прямые элементы курса обёрнуты в `module_extras`.** `contains_element` в TBox имеет `domain=Module`, а `seasonal_workshop`, `extra_material`, `final_exam` по §6.3 висят прямо на курсе. Owlready2 в OWA выводит `Module(course_python_basics)` при `course.contains_element = ...`, что нарушает `AllDisjoint([Course, Module, EducationalElement])`. Минимальный фикс — обёрточный `module_extras: Module` с `is_required=false`. Альтернатива (расширение `contains_element domain=[Module, Course]`) отложена, чтобы не ломать inverse `is_contained_in_module` и существующие тесты.
+2. **`quiz_3`/`practice_3` не помечены `assesses=comp_oop`.** С `comp_oop ⊑ comp_functions` и p4 `competency_required(comp_functions)` на `module_3_oop` GraphValidator находит структурный цикл: `p4` раскрывается через `assesses` на всех под-компетенциях (A1, §6.2), даёт дугу `practice_3.complete → module_3_oop.access`, а hierarchy descent даёт обратную `module_3_oop.access → practice_3.access`. Цикл реальный, детектор прав. `comp_oop` сохраняется только как sub-компетенция `comp_functions` — `student_sidorov` получает её извне через `has_competency = [comp_oop]`, и H-1 поднимает цепочку вверх, демонстрируя наследование без создания цикла.
+3. **SWRL rule 3 `viewed_required` требует именно `status_viewed`.** Строго, `status_completed` ≠ `status_viewed`: если студент завершил элемент, но не имеет отдельной записи «viewed», rule 3 не сработает. Матрица §6.7 корректна как «через какую политику открыт» — для `quiz_1` (p3 viewed_required) формально только `student_petrov` удовлетворяет rule 3, у остальных `completed` без отдельного `viewed`. Семантическое расширение «completed ⊇ viewed» через второе SWRL-правило — перспектива, выходит за scope фазы 2.
+
 ### 6.9. Связь с экспериментами и фазой 2
 
 | Артефакт | Использование |
