@@ -22,7 +22,10 @@ services:
         condition: service_healthy
     environment:
       REDIS_URL: redis://redis:6379/0
-      ONTOLOGY_FILE_PATH: /app/onto/ontologies/edu_ontology_with_rules.owl
+      # demo_knowledge_base.owl = TBox + SWRL + happy-path ABox (4 студента, 9 политик всех типов).
+      # Для production-развёртывания у заказчика стоит поменять на edu_ontology_with_rules.owl
+      # и наполнять ABox через /integration/courses/{id}/sync.
+      ONTOLOGY_FILE_PATH: /app/onto/ontologies/demo_knowledge_base.owl
       APP_ENV: prod
     ports:
       - "8000:8000"
