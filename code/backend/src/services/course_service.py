@@ -34,20 +34,17 @@ class CourseService:
         course_elements: List[dict] = []
         all_course_elements = self.core.courses.get_all_elements()
         for el in all_course_elements:
-                raw_type = el.type[0] if getattr(el, "type", None) else None
-                if not raw_type:
-                    raw_type = el.__class__.__name__.lower()
-                
-                if raw_type == ElementType.COURSE:
-                    is_req_list = getattr(el, "is_required", [])
-                    is_req_val = is_req_list[0] if is_req_list else True
-
-                    course_elements.append({
-                        "id": el.name,
-                        "name": el.label[0] if hasattr(el, "label") and el.label else el.name,
-                        "type": raw_type,
-                        "is_required": is_req_val
-                    })
+            raw_type = el.type[0] if getattr(el, "type", None) else None
+            if not raw_type:
+                raw_type = el.__class__.__name__.lower()
+            is_req_list = getattr(el, "is_required", [])
+            is_req_val = is_req_list[0] if is_req_list else True
+            course_elements.append({
+                "id": el.name,
+                "name": el.label[0] if getattr(el, "label", None) else el.name,
+                "type": raw_type,
+                "is_required": is_req_val,
+            })
 
         groups: List[dict] = []
         group_cls = getattr(self.core.onto, "Group", None)
@@ -102,6 +99,7 @@ class CourseService:
                 
 
         self.core.save()
+        self.core.cache.invalidate_verification(course.name)
         return {"status": "success", "course_id": course.name, "synced_elements_count": len(payload.elements)}
 
     def get_course_tree(self, course_id: str) -> List[dict]:
@@ -119,6 +117,7 @@ class CourseService:
             for pol in getattr(node_obj, "has_access_policy", []):
                 policies.append({
                     "id": pol.name,
+                    "name": pol.label[0] if getattr(pol, "label", None) else pol.name,
                     "rule_type": get_owl_prop(pol, "rule_type", ""),
                     "passing_threshold": get_owl_prop(pol, "passing_threshold"),
                     "competency_id": getattr(get_owl_prop(pol, "targets_competency"), "name", None),

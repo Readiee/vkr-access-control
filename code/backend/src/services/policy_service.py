@@ -28,6 +28,7 @@ class PolicyService:
 
     def _invalidate_all_access_caches(self) -> None:
         self.core.cache.invalidate_all_access()
+        self.core.cache.invalidate_verification()
 
     def _rule_type_str(self, value: Any) -> str:
         return value if isinstance(value, str) else value.value

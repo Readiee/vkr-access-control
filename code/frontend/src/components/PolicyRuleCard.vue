@@ -3,7 +3,14 @@ import { computed, onMounted, ref } from 'vue';
 import { AggregateFunction, RuleType } from '@/types';
 import type { PolicyCreate, PolicyResponse, CourseTreeNode } from '@/types';
 import { useOntologyStore } from '@/stores/ontology';
-import { ruleTypeOptions, RuleTypeMap, findNodeNameById, formatPolicyBadgeText } from '@/utils/formatters';
+import {
+  ruleTypeOptions,
+  RuleTypeMap,
+  findNodeNameById,
+  formatPolicyBadgeText,
+  AggregateFunctionLabels,
+  GRADABLE_ELEMENT_TYPES,
+} from '@/utils/formatters';
 import { useTreeHelpers } from '@/composables/useTreeHelpers';
 import { usePolicyForm } from '@/composables/usePolicyForm';
 import { useConfirm } from 'primevue/useconfirm';
@@ -118,18 +125,33 @@ const isCompositeRule = computed(
 );
 const isAggregateRule = computed(() => form.value.rule_type === RuleType.AGGREGATE_REQUIRED);
 
+/** Обычная форма «одного правила» не предлагает AND/OR: композиты создаются
+ *  через отдельный flow «+ Составное условие», где методист сразу даёт
+ *  подусловия без необходимости выбирать существующие правила. */
+const atomicRuleTypeOptions = ruleTypeOptions.filter((o) =>
+  o.value !== RuleType.AND_COMBINATION && o.value !== RuleType.OR_COMBINATION,
+);
+
 const aggregateFunctionOptions = Object.values(AggregateFunction).map((fn) => ({
-  label: fn,
+  label: AggregateFunctionLabels[fn] ?? fn,
   value: fn,
 }));
 
 const availableSubpolicies = ref<PolicyResponse[]>([]);
 
-const flattenElements = (nodes: CourseTreeNode[] | undefined): { id: string; name: string }[] => {
-  const out: { id: string; name: string }[] = [];
+type ElementOption = { id: string; name: string; type: string };
+
+const flattenElements = (nodes: CourseTreeNode[] | undefined): ElementOption[] => {
+  const out: ElementOption[] = [];
   const walk = (arr: CourseTreeNode[] | undefined) => {
     (arr || []).forEach((n) => {
-      if (n.data?.id) out.push({ id: n.data.id, name: n.data.name });
+      if (n.data?.id) {
+        out.push({
+          id: n.data.id,
+          name: n.data.name,
+          type: (n.data.type || '').toLowerCase(),
+        });
+      }
       if (n.children?.length) walk(n.children as any);
     });
   };
@@ -138,6 +160,11 @@ const flattenElements = (nodes: CourseTreeNode[] | undefined): { id: string; nam
 };
 
 const courseElementOptions = computed(() => flattenElements(props.treeData));
+
+/** Для агрегата показываем только тесты/практики/задания — те, где есть оценка. */
+const gradableElementOptions = computed(() =>
+  courseElementOptions.value.filter((el) => GRADABLE_ELEMENT_TYPES.has(el.type)),
+);
 
 onMounted(async () => {
   try {
@@ -220,7 +247,7 @@ const isDateRule = computed(() => form.value.rule_type === RuleType.DATE_RESTRIC
                 <label class="text-[11px] font-bold text-surface-500 uppercase">Тип условия</label>
                 <Select
                   v-model="form.rule_type"
-                  :options="ruleTypeOptions"
+                  :options="atomicRuleTypeOptions"
                   optionLabel="label"
                   optionValue="value"
                   class="w-full"
@@ -290,22 +317,21 @@ const isDateRule = computed(() => form.value.rule_type === RuleType.DATE_RESTRIC
               </div>
            </div>
 
-           <div v-if="isCompositeRule" class="flex flex-col gap-3 pt-2 border-t border-surface-50">
-              <label class="text-[11px] font-bold text-surface-500 uppercase">Подполитики (минимум 2)</label>
+           <!--
+             Форма композитов остаётся в режиме просмотра/редактирования существующих
+             AND/OR-правил, но новые не создаются отсюда — используется отдельный flow.
+           -->
+           <div v-if="isCompositeRule && editMode" class="flex flex-col gap-3 pt-2 border-t border-surface-50">
+              <label class="text-[11px] font-bold text-surface-500 uppercase">Подусловия</label>
               <MultiSelect
                 v-model="form.subpolicy_ids"
                 :options="subpolicyOptions"
                 optionLabel="label"
                 optionValue="id"
-                placeholder="Выберите существующие правила"
                 display="chip"
                 filter
                 class="w-full"
               />
-              <p class="text-xs text-surface-400">
-                Пустые родительские правила (без целевого элемента) можно создать заранее —
-                они будут доступны здесь для AND/OR-композиции.
-              </p>
            </div>
 
            <div v-if="isAggregateRule" class="grid grid-cols-1 md:grid-cols-3 gap-5 pt-2 border-t border-surface-50">
@@ -324,17 +350,22 @@ const isDateRule = computed(() => form.value.rule_type === RuleType.DATE_RESTRIC
                 <InputNumber v-model="form.passing_threshold" :min="0" :max="100" placeholder="0-100" class="w-full" />
               </div>
               <div class="flex flex-col gap-1 col-span-3">
-                <label class="text-[11px] font-bold text-surface-500 uppercase">Элементы для агрегата</label>
+                <label class="text-[11px] font-bold text-surface-500 uppercase">
+                  Элементы с оценками
+                </label>
                 <MultiSelect
                   v-model="form.aggregate_element_ids"
-                  :options="courseElementOptions"
+                  :options="gradableElementOptions"
                   optionLabel="name"
                   optionValue="id"
-                  placeholder="Выберите элементы"
+                  placeholder="Выберите тесты/практики"
                   display="chip"
                   filter
                   class="w-full"
                 />
+                <p class="text-[11px] text-surface-400 mt-1">
+                  Доступны только тесты, практики и задания — те элементы, за которые ставится оценка.
+                </p>
               </div>
            </div>
 

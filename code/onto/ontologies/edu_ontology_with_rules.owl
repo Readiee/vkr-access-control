@@ -1516,6 +1516,108 @@
     <rdf:Description>
       <rdf:first>
         <swrl:ClassAtom>
+          <swrl:classPredicate rdf:resource="#AccessPolicy"/>
+          <swrl:argument1 rdf:resource="urn:swrl#p"/>
+        </swrl:ClassAtom>
+      </rdf:first>
+      <rdf:rest>
+        <rdf:Description>
+          <rdf:first>
+            <swrl:DatavaluedPropertyAtom>
+              <swrl:propertyPredicate rdf:resource="#is_active"/>
+              <swrl:argument1 rdf:resource="urn:swrl#p"/>
+              <swrl:argument2 rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</swrl:argument2>
+            </swrl:DatavaluedPropertyAtom>
+          </rdf:first>
+          <rdf:rest>
+            <rdf:Description>
+              <rdf:first>
+                <swrl:DatavaluedPropertyAtom>
+                  <swrl:propertyPredicate rdf:resource="#rule_type"/>
+                  <swrl:argument1 rdf:resource="urn:swrl#p"/>
+                  <swrl:argument2 rdf:datatype="http://www.w3.org/2001/XMLSchema#string">viewed_required</swrl:argument2>
+                </swrl:DatavaluedPropertyAtom>
+              </rdf:first>
+              <rdf:rest>
+                <rdf:Description>
+                  <rdf:first>
+                    <swrl:IndividualPropertyAtom>
+                      <swrl:propertyPredicate rdf:resource="#targets_element"/>
+                      <swrl:argument1 rdf:resource="urn:swrl#p"/>
+                      <swrl:argument2 rdf:resource="urn:swrl#target"/>
+                    </swrl:IndividualPropertyAtom>
+                  </rdf:first>
+                  <rdf:rest>
+                    <rdf:Description>
+                      <rdf:first>
+                        <swrl:ClassAtom>
+                          <swrl:classPredicate rdf:resource="#Student"/>
+                          <swrl:argument1 rdf:resource="urn:swrl#s"/>
+                        </swrl:ClassAtom>
+                      </rdf:first>
+                      <rdf:rest>
+                        <rdf:Description>
+                          <rdf:first>
+                            <swrl:IndividualPropertyAtom>
+                              <swrl:propertyPredicate rdf:resource="#has_progress_record"/>
+                              <swrl:argument1 rdf:resource="urn:swrl#s"/>
+                              <swrl:argument2 rdf:resource="urn:swrl#pr"/>
+                            </swrl:IndividualPropertyAtom>
+                          </rdf:first>
+                          <rdf:rest>
+                            <rdf:Description>
+                              <rdf:first>
+                                <swrl:IndividualPropertyAtom>
+                                  <swrl:propertyPredicate rdf:resource="#refers_to_element"/>
+                                  <swrl:argument1 rdf:resource="urn:swrl#pr"/>
+                                  <swrl:argument2 rdf:resource="urn:swrl#target"/>
+                                </swrl:IndividualPropertyAtom>
+                              </rdf:first>
+                              <rdf:rest>
+                                <rdf:Description>
+                                  <rdf:first>
+                                    <swrl:IndividualPropertyAtom>
+                                      <swrl:propertyPredicate rdf:resource="#has_status"/>
+                                      <swrl:argument1 rdf:resource="urn:swrl#pr"/>
+                                      <swrl:argument2 rdf:resource="#status_completed"/>
+                                    </swrl:IndividualPropertyAtom>
+                                  </rdf:first>
+                                  <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                                </rdf:Description>
+                              </rdf:rest>
+                            </rdf:Description>
+                          </rdf:rest>
+                        </rdf:Description>
+                      </rdf:rest>
+                    </rdf:Description>
+                  </rdf:rest>
+                </rdf:Description>
+              </rdf:rest>
+            </rdf:Description>
+          </rdf:rest>
+        </rdf:Description>
+      </rdf:rest>
+    </rdf:Description>
+  </swrl:body>
+  <swrl:head>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:IndividualPropertyAtom>
+          <swrl:propertyPredicate rdf:resource="#satisfies"/>
+          <swrl:argument1 rdf:resource="urn:swrl#s"/>
+          <swrl:argument2 rdf:resource="urn:swrl#p"/>
+        </swrl:IndividualPropertyAtom>
+      </rdf:first>
+      <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+    </rdf:Description>
+  </swrl:head>
+</swrl:Imp>
+
+<swrl:Imp>
+  <swrl:body>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:ClassAtom>
           <swrl:classPredicate rdf:resource="#Student"/>
           <swrl:argument1 rdf:resource="urn:swrl#s"/>
         </swrl:ClassAtom>

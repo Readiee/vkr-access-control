@@ -2,7 +2,13 @@
 import { reactive, ref, watch, computed } from 'vue';
 import { useSandboxStore } from '@/stores/sandbox';
 import { useOntologyStore } from '@/stores/ontology';
-import { ProgressStatusMap, ProgressStatusColorMap, ElementTypeMap, findNodeNameById } from '@/utils/formatters';
+import {
+  ProgressStatusMap,
+  ProgressStatusColorMap,
+  ElementTypeMap,
+  findNodeNameById,
+  AggregateFunctionLabels,
+} from '@/utils/formatters';
 import { RuleType, ElementType, ProgressStatus } from '@/types/enums';
 import BlockingExplanation from './BlockingExplanation.vue';
 
@@ -56,10 +62,61 @@ const getCompetencyName = (compId: string) => {
   return comp ? comp.name : null;
 };
 
+const getGroupName = (groupId: string) => {
+  if (!groupId) return null;
+  const g = ontologyStore.groups?.find((gr) => gr.id === groupId);
+  return g ? g.name : groupId;
+};
+
 const formatDate = (dateString: string) => {
   if (!dateString) return '';
   const d = new Date(dateString);
   return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+};
+
+/** Человечное описание одного условия для блока «Что нужно выполнить». */
+const describePolicy = (pol: any): string => {
+  switch (pol.rule_type) {
+    case RuleType.COMPLETION_REQUIRED: {
+      const t = getTargetName(pol.target_element_id) || pol.target_element_id;
+      return `Завершить: ${t}`;
+    }
+    case RuleType.VIEWED_REQUIRED: {
+      const t = getTargetName(pol.target_element_id) || pol.target_element_id;
+      return `Просмотреть: ${t}`;
+    }
+    case RuleType.GRADE_REQUIRED: {
+      const t = getTargetName(pol.target_element_id) || pol.target_element_id;
+      return `Получить оценку не ниже ${pol.passing_threshold ?? '?'} за ${t}`;
+    }
+    case RuleType.COMPETENCY_REQUIRED: {
+      const c = getCompetencyName(pol.competency_id || pol.target_competency_id);
+      return `Получить компетенцию: ${c || pol.competency_id}`;
+    }
+    case RuleType.DATE_RESTRICTED: {
+      const from = pol.valid_from ? `с ${formatDate(pol.valid_from)}` : '';
+      const until = pol.valid_until ? ` по ${formatDate(pol.valid_until)}` : '';
+      return `Доступно в период ${from}${until}`.trim();
+    }
+    case RuleType.GROUP_RESTRICTED: {
+      return `Входить в группу: ${getGroupName(pol.restricted_to_group_id) || '—'}`;
+    }
+    case RuleType.AND_COMBINATION: {
+      const n = pol.subpolicy_ids?.length ?? 0;
+      return `Выполнить ВСЕ ${n} связанных условий (составное правило)`;
+    }
+    case RuleType.OR_COMBINATION: {
+      const n = pol.subpolicy_ids?.length ?? 0;
+      return `Выполнить ЛЮБОЕ из ${n} связанных условий (составное правило)`;
+    }
+    case RuleType.AGGREGATE_REQUIRED: {
+      const fn = AggregateFunctionLabels[pol.aggregate_function] || pol.aggregate_function;
+      const cnt = pol.aggregate_element_ids?.length ?? 0;
+      return `${fn} по ${cnt} элементам не ниже ${pol.passing_threshold ?? '?'}`;
+    }
+    default:
+      return pol.rule_type;
+  }
 };
 
 const explanationVisible = ref(false);
@@ -123,27 +180,9 @@ const submitSimulation = async () => {
       </p>
       
       <ul v-if="selectedNode.data.policies && selectedNode.data.policies.length" class="list-disc pl-5 text-sm text-gray-700 mt-2 space-y-1">
-         <li v-for="pol in selectedNode.data.policies" :key="pol.id">
-           
-           <template v-if="[RuleType.COMPLETION_REQUIRED, RuleType.GRADE_REQUIRED, RuleType.VIEWED_REQUIRED].includes(pol.rule_type)">
-             <span v-if="pol.rule_type === RuleType.COMPLETION_REQUIRED">Завершение: </span>
-             <span v-else-if="pol.rule_type === RuleType.GRADE_REQUIRED">Оценка: </span>
-             <span v-else>Просмотр: </span>
-             
-             <span><strong>{{ getTargetName(pol.target_element_id) || pol.target_element_id }}</strong></span>
-             <span v-if="pol.passing_threshold !== null"><strong> (Мин. балл: {{ pol.passing_threshold }})</strong></span>
-           </template>
-           
-           <template v-else-if="pol.rule_type === RuleType.COMPETENCY_REQUIRED">
-             <strong>Компетенция:</strong> <span>{{ getCompetencyName(pol.competency_id) || pol.competency_id }}</span>
-           </template>
-           
-           <template v-else-if="pol.rule_type === RuleType.DATE_RESTRICTED">
-             <span>Доступен в даты: </span> 
-             <span v-if="pol.available_from || pol.available_until"><br> <span v-if="pol.available_from">с <strong>{{ formatDate(pol.available_from) }}</strong></span> <span v-if="pol.available_until">до <strong>{{ formatDate(pol.available_until) }}</strong></span></span>
-           </template>
-           
-         </li>
+        <li v-for="pol in selectedNode.data.policies" :key="pol.id">
+          {{ describePolicy(pol) }}
+        </li>
       </ul>
       <div v-else class="text-xs italic text-gray-400">
         <ul class="list-disc pl-5 text-sm text-gray-600 space-y-1">

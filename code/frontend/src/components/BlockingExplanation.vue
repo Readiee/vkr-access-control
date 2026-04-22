@@ -4,6 +4,8 @@ import { getBlockingExplanation } from '@/api';
 import type { BlockingExplanation } from '@/types';
 import { RuleTypeMap } from '@/utils/formatters';
 
+const showTrace = ref(false);
+
 const props = defineProps<{
   studentId: string | null;
   elementId: string | null;
@@ -22,7 +24,10 @@ const localVisible = ref(props.visible);
 
 watch(() => props.visible, (v) => {
   localVisible.value = v;
-  if (v) fetchReport();
+  if (v) {
+    showTrace.value = false;
+    fetchReport();
+  }
 });
 
 watch(() => localVisible.value, (v) => emit('update:visible', v));
@@ -119,11 +124,23 @@ const fetchReport = async () => {
         </p>
       </div>
 
-      <div v-if="report.justification" class="flex flex-col gap-2">
-        <div class="text-xs font-semibold text-surface-500 uppercase tracking-wider">
-          Трассировка вывода (SWRL body bindings)
+      <div v-if="report.justification" class="flex flex-col gap-2 pt-2 border-t border-surface-100">
+        <Button
+          :icon="showTrace ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"
+          :label="showTrace ? 'Скрыть техническое объяснение' : 'Показать техническое объяснение'"
+          severity="secondary"
+          variant="text"
+          size="small"
+          class="self-start !px-0"
+          @click="showTrace = !showTrace"
+        />
+        <div v-if="showTrace" class="flex flex-col gap-2">
+          <p class="text-xs text-surface-500">
+            Полная трассировка вывода резонера: какие факты из онтологии удовлетворили
+            условия правила (или наоборот не дали вывести доступ). Для разработчиков и аудита.
+          </p>
+          <JustificationTreeView :node="report.justification" :depth="0" />
         </div>
-        <JustificationTreeView :node="report.justification" :depth="0" />
       </div>
     </div>
 

@@ -8,14 +8,21 @@ import { VerificationPropertyStatus } from '@/types';
 const store = useOntologyStore();
 const report = ref<VerificationReport | null>(null);
 const isLoading = ref(false);
-const includeFull = ref(false);
 
 const PROPERTY_TITLES: Record<string, string> = {
-  consistency: 'СВ-1. Непротиворечивость',
-  acyclicity: 'СВ-2. Отсутствие циклов',
-  reachability: 'СВ-3. Достижимость',
-  redundancy: 'СВ-4. Избыточные правила',
-  subsumption: 'СВ-5. Поглощённые правила',
+  consistency: 'Непротиворечивость правил',
+  acyclicity: 'Отсутствие циклических зависимостей',
+  reachability: 'Достижимость элементов',
+  redundancy: 'Избыточные правила',
+  subsumption: 'Поглощённые правила',
+};
+
+const PROPERTY_HINTS: Record<string, string> = {
+  consistency: 'Ни одно правило не противоречит структуре онтологии.',
+  acyclicity: 'Между элементами нет круговых зависимостей доступа.',
+  reachability: 'Каждый элемент может быть открыт хотя бы одним студентом.',
+  redundancy: 'Нет правил, у которых условие строго слабее другого на том же элементе.',
+  subsumption: 'Нет правил, доступных более узкой аудитории, чем уже разрешённые.',
 };
 
 const orderedEntries = computed<[string, PropertyReport][]>(() => {
@@ -42,7 +49,9 @@ const runVerification = async () => {
   if (!store.currentCourseId) return;
   isLoading.value = true;
   try {
-    report.value = await getVerificationReport(store.currentCourseId, includeFull.value);
+    // Всегда включаем проверку всех 5 свойств. Сервер отдаёт кэш мгновенно,
+    // если ABox не менялся с прошлой проверки.
+    report.value = await getVerificationReport(store.currentCourseId, true);
   } finally {
     isLoading.value = false;
   }
@@ -55,7 +64,7 @@ onMounted(async () => {
 watch(() => store.currentCourseId, (id) => {
   report.value = null;
   if (id) runVerification();
-}, { immediate: true });
+});
 </script>
 
 <template>
@@ -75,13 +84,9 @@ watch(() => store.currentCourseId, (id) => {
         />
       </div>
       <div class="flex items-center gap-3">
-        <ToggleSwitch v-model="includeFull" input-id="full-toggle" />
-        <label for="full-toggle" class="text-sm text-surface-700">
-          Расширенная (СВ-4/5)
-        </label>
         <Button
-          icon="pi pi-refresh"
-          label="Перезапустить"
+          icon="pi pi-play"
+          label="Запустить проверку"
           :loading="isLoading"
           :disabled="!store.currentCourseId"
           @click="runVerification"
@@ -111,26 +116,23 @@ watch(() => store.currentCourseId, (id) => {
         class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-wrap items-center justify-between gap-3"
       >
         <div class="flex flex-col gap-1">
-          <span class="text-xs font-semibold text-surface-400 uppercase tracking-wider">Отчёт</span>
+          <span class="text-xs font-semibold text-surface-400 uppercase tracking-wider">Сводка</span>
           <span class="text-sm text-surface-700">
-            run_id: <code class="text-surface-500">{{ report.run_id.slice(0, 12) }}…</code>
-          </span>
-          <span class="text-xs text-surface-500">
-            {{ report.summary }} · {{ report.duration_ms }} мс
+            {{ report.summary }}
             <Tag
               v-if="report.partial"
               severity="warn"
-              value="partial"
+              value="частичная проверка"
               class="ml-2"
             />
           </span>
         </div>
-        <div class="flex gap-2">
+        <div class="flex flex-wrap gap-2">
           <Tag
             v-for="[key, prop] in orderedEntries"
             :key="key"
             :severity="statusSeverity(prop.status)"
-            :value="PROPERTY_TITLES[key].split('. ')[0]"
+            :value="PROPERTY_TITLES[key]"
           />
         </div>
       </div>
@@ -146,16 +148,17 @@ watch(() => store.currentCourseId, (id) => {
               <Tag :severity="statusSeverity(prop.status)" :value="statusLabel(prop.status)" />
               <span class="font-semibold">{{ PROPERTY_TITLES[key] }}</span>
               <span v-if="prop.violations?.length" class="text-sm text-surface-500">
-                нарушений: {{ prop.violations.length }}
+                найдено: {{ prop.violations.length }}
               </span>
             </span>
           </AccordionHeader>
           <AccordionContent>
+            <p class="text-xs text-surface-500 mb-2">{{ PROPERTY_HINTS[key] }}</p>
             <p v-if="prop.status === VerificationPropertyStatus.PASSED" class="text-surface-600 py-2">
               Свойство выполнено, нарушений не найдено.
             </p>
             <p v-else-if="prop.status === VerificationPropertyStatus.UNKNOWN" class="text-surface-500 py-2 italic">
-              Свойство не могло быть проверено (reasoning не завершился или не применимо).
+              Не удалось проверить автоматически (превышен лимит времени или недостаточно данных).
             </p>
             <div v-else class="flex flex-col gap-2">
               <div
@@ -163,9 +166,6 @@ watch(() => store.currentCourseId, (id) => {
                 :key="idx"
                 class="rounded-lg border border-red-100 bg-red-50 p-3 text-sm"
               >
-                <div class="flex items-center gap-2 mb-1">
-                  <Tag severity="danger" :value="v.code" />
-                </div>
                 <div v-if="v.message" class="text-surface-700">{{ v.message }}</div>
                 <div v-if="v.path" class="text-surface-700">
                   Цикл: <code>{{ v.path.join(' → ') }}</code>
@@ -175,7 +175,7 @@ watch(() => store.currentCourseId, (id) => {
                   <span v-if="v.reason"> — {{ v.reason }}</span>
                 </div>
                 <div v-if="v.policy_id" class="text-surface-700">
-                  Политика: <code>{{ v.policy_id }}</code>
+                  Правило: <code>{{ v.policy_id }}</code>
                   <span v-if="v.reason"> — {{ v.reason }}</span>
                 </div>
                 <div v-if="v.dominant && v.dominated" class="text-surface-700">

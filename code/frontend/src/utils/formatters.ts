@@ -53,6 +53,16 @@ export const ruleTypeOptions = Object.entries(RuleTypeMap).map(([value, info]) =
   label: info.label,
 }));
 
+/** Варианты агрегирующих функций в человекочитаемом виде. */
+export const AggregateFunctionLabels: Record<string, string> = {
+  AVG: 'Средний балл',
+  SUM: 'Сумма баллов',
+  COUNT: 'Количество сданных',
+};
+
+/** Типы элементов, у которых может появиться has_grade — только они годны для агрегата. */
+export const GRADABLE_ELEMENT_TYPES = new Set<string>(['test', 'practice', 'assignment']);
+
 // ---------------------------------------------------------------------------
 // Рекурсивный поиск названия узла по ID в дереве
 // ---------------------------------------------------------------------------

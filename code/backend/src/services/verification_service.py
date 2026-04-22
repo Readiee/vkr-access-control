@@ -59,14 +59,56 @@ class VerificationReport:
         }
 
 
+def _covers(cached: Dict[str, Any], include_subsumption: bool) -> bool:
+    props = cached.get("properties", {})
+    if "consistency" not in props or "acyclicity" not in props or "reachability" not in props:
+        return False
+    if include_subsumption and ("redundancy" not in props or "subsumption" not in props):
+        return False
+    return True
+
+
+def _report_from_dict(data: Dict[str, Any]) -> VerificationReport:
+    props: Dict[str, PropertyReport] = {}
+    for name, payload in (data.get("properties") or {}).items():
+        props[name] = PropertyReport(
+            status=payload.get("status", "unknown"),
+            violations=payload.get("violations", []) or [],
+        )
+    return VerificationReport(
+        course_id=data.get("course_id", ""),
+        run_id=data.get("run_id", ""),
+        timestamp=data.get("timestamp", ""),
+        duration_ms=int(data.get("duration_ms", 0)),
+        partial=bool(data.get("partial", False)),
+        properties=props,
+    )
+
+
 class VerificationService:
     """Единая точка запуска СВ-1…СВ-5."""
 
     def __init__(self, core: OntologyCore) -> None:
         self.core = core
 
-    def verify(self, course_id: str, include_subsumption: bool = False) -> VerificationReport:
-        """Прогнать СВ-1/2/3 (+ СВ-4/5 при include_subsumption) и собрать отчёт."""
+    def verify(
+        self,
+        course_id: str,
+        include_subsumption: bool = False,
+        use_cache: bool = True,
+    ) -> VerificationReport:
+        """Прогнать СВ-1/2/3 (+ СВ-4/5 при include_subsumption) и собрать отчёт.
+
+        При use_cache=True возвращает сохранённый в Redis результат, если он есть и
+        покрывает запрошенный набор свойств. Инвалидация кэша — на стороне
+        PolicyService / CourseService при мутациях ABox.
+        """
+        cache = getattr(self.core, "cache", None)
+        if use_cache and cache is not None:
+            cached = cache.get_verification(course_id)
+            if cached and _covers(cached, include_subsumption):
+                return _report_from_dict(cached)
+
         started = time.monotonic()
         run_id = uuid.uuid4().hex
 
@@ -149,7 +191,7 @@ class VerificationService:
             properties["redundancy"] = redundancy
             properties["subsumption"] = subsumption
 
-        return VerificationReport(
+        report = VerificationReport(
             course_id=course_id,
             run_id=run_id,
             timestamp=datetime.now(timezone.utc).isoformat(),
@@ -157,6 +199,11 @@ class VerificationService:
             partial=partial,
             properties=properties,
         )
+
+        if cache is not None and not partial:
+            cache.set_verification(course_id, report.to_dict())
+
+        return report
 
     # ------------------------------------------------------------------
     # СВ-3 Reachability

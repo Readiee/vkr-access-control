@@ -24,6 +24,21 @@ with onto:
     """)
 
     # ==================================================================
+    # Шаблон 3b — viewed_required через completion
+    # Если элемент завершён, он автоматически считается просмотренным.
+    # Второе правило с той же головой satisfies — даёт дизъюнкцию
+    # (rule 3 «через status_viewed» ∨ rule 3b «через status_completed»).
+    # ==================================================================
+    rule_viewed_via_completed = Imp()
+    rule_viewed_via_completed.set_as_rule("""
+        AccessPolicy(?p), is_active(?p, true), rule_type(?p, "viewed_required"),
+        targets_element(?p, ?target),
+        Student(?s), has_progress_record(?s, ?pr),
+        refers_to_element(?pr, ?target), has_status(?pr, status_completed)
+        -> satisfies(?s, ?p)
+    """)
+
+    # ==================================================================
     # СТУПЕНЬ 1 — АТОМАРНЫЕ ШАБЛОНЫ (выводят satisfies)
     # ==================================================================
 
@@ -142,5 +157,5 @@ with onto:
 
 onto.save(file="../ontologies/edu_ontology_with_rules.owl", format="rdfxml")
 print("SWRL-каталог встроён: edu_ontology_with_rules.owl")
-print("  ступень 1: 9 шаблонов (1-5, 6 binary, 6 ternary, 7, 8, 9) + H-1")
+print("  ступень 1: 10 шаблонов (1-3, 3b, 4-5, 6 binary, 6 ternary, 7, 8, 9) + H-1")
 print("  ступень 2: 1 мета-правило")
