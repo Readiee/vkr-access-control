@@ -14,6 +14,7 @@ import logging
 from typing import Any, Dict, Iterable, List, Optional, Set
 
 from core.enums import RuleType
+from services.course_service import _policy_display_name
 from services.explanation_service import ExplanationService, Justification
 from services.ontology_core import OntologyCore
 from utils.owl_utils import get_owl_prop
@@ -179,7 +180,7 @@ class AccessService:
 
         return {
             "policy_id": policy.name,
-            "policy_name": _label_of(policy),
+            "policy_name": _policy_display_name(policy),
             "rule_type": rule_type,
             "satisfied": satisfied,
             "failure_reason": failure_reason,
@@ -244,7 +245,7 @@ class AccessService:
                     sub_reason, _ = self._diagnose_failure(sub, sub_rt, student)
                 details.append({
                     "id": sub.name,
-                    "name": _label_of(sub),
+                    "name": _policy_display_name(sub),
                     "rule_type": sub_rt,
                     "satisfied": sub_satisfied,
                     "failure_reason": sub_reason,

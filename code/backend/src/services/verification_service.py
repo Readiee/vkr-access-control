@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from core.enums import RuleType
+from services.course_service import _policy_display_name
 from services.graph_validator import GraphValidator
 from services.ontology_core import OntologyCore
 from services.subsumption_checker import SubsumptionChecker
@@ -242,7 +243,7 @@ class VerificationService:
                 unsat.append({
                     "code": "SV3_ATOMIC_UNSAT",
                     "policy_id": policy.name,
-                    "policy_name": policy.label[0] if getattr(policy, "label", None) else policy.name,
+                    "policy_name": _policy_display_name(policy),
                     "rule_type": get_owl_prop(policy, "rule_type", ""),
                     "reason": reason,
                 })
@@ -406,6 +407,8 @@ class VerificationService:
         ind = self.core.onto.search_one(iri=f"*{entity_id}")
         if ind is None:
             return entity_id
+        if isinstance(ind, self.core.onto.AccessPolicy):
+            return _policy_display_name(ind)
         return ind.label[0] if getattr(ind, "label", None) else ind.name
 
     def _policies_on_cycle(self, cycle_path: List[str]) -> List[str]:

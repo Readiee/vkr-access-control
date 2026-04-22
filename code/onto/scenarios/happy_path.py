@@ -120,7 +120,6 @@ def build(onto: Any) -> None:
 
         # --- Политики (9 типов) ---
         p1 = onto.AccessPolicy("p1_lecture2_requires_lecture1")
-        p1.label = ["Лекция «Операторы» — после завершения «Переменных»"]
         p1.rule_type = ["completion_required"]
         p1.is_active = [True]
         p1.has_author = [methodologist_smirnov]
@@ -128,7 +127,6 @@ def build(onto: Any) -> None:
         lec2.has_access_policy = [p1]
 
         p2 = onto.AccessPolicy("p2_module2_requires_quiz1_grade")
-        p2.label = ["Модуль «Функции» — при балле ≥75 за Квиз 1"]
         p2.rule_type = ["grade_required"]
         p2.is_active = [True]
         p2.has_author = [methodologist_smirnov]
@@ -137,7 +135,6 @@ def build(onto: Any) -> None:
         m2.has_access_policy = [p2]
 
         p3 = onto.AccessPolicy("p3_quiz1_requires_viewed_lecture1")
-        p3.label = ["Квиз 1 — после просмотра Лекции о переменных"]
         p3.rule_type = ["viewed_required"]
         p3.is_active = [True]
         p3.has_author = [methodologist_smirnov]
@@ -145,7 +142,6 @@ def build(onto: Any) -> None:
         quiz1.has_access_policy = [p3]
 
         p4 = onto.AccessPolicy("p4_module3_requires_comp_functions")
-        p4.label = ["Модуль ООП — требует компетенцию «Функции»"]
         p4.rule_type = ["competency_required"]
         p4.is_active = [True]
         p4.has_author = [methodologist_smirnov]
@@ -153,7 +149,6 @@ def build(onto: Any) -> None:
         m3.has_access_policy = [p4]
 
         p5 = onto.AccessPolicy("p5_seasonal_workshop_date_window")
-        p5.label = ["Семинар — окно 15.04–30.06"]
         p5.rule_type = ["date_restricted"]
         p5.is_active = [True]
         p5.has_author = [methodologist_smirnov]
@@ -163,14 +158,12 @@ def build(onto: Any) -> None:
 
         # AND: lecture_4_classes completion + quiz_3 grade>=70
         p6_sub_a = onto.AccessPolicy("p6_sub_a_lecture4_completion")
-        p6_sub_a.label = ["Завершить Лекцию о классах"]
         p6_sub_a.rule_type = ["completion_required"]
         p6_sub_a.is_active = [True]
         p6_sub_a.has_author = [methodologist_smirnov]
         p6_sub_a.targets_element = [lec4]
 
         p6_sub_b = onto.AccessPolicy("p6_sub_b_quiz3_grade70")
-        p6_sub_b.label = ["Балл за Квиз ООП ≥ 70"]
         p6_sub_b.rule_type = ["grade_required"]
         p6_sub_b.is_active = [True]
         p6_sub_b.has_author = [methodologist_smirnov]
@@ -178,7 +171,6 @@ def build(onto: Any) -> None:
         p6_sub_b.passing_threshold = [70.0]
 
         p6 = onto.AccessPolicy("p6_practice3_and")
-        p6.label = ["Практика ООП — лекция завершена И балл за квиз ≥ 70"]
         p6.rule_type = ["and_combination"]
         p6.is_active = [True]
         p6.has_author = [methodologist_smirnov]
@@ -188,14 +180,12 @@ def build(onto: Any) -> None:
 
         # OR: comp_basic_syntax OR quiz_2 grade>=85
         p7_sub_a = onto.AccessPolicy("p7_sub_a_comp_basic_syntax")
-        p7_sub_a.label = ["Имеет компетенцию «Базовый синтаксис»"]
         p7_sub_a.rule_type = ["competency_required"]
         p7_sub_a.is_active = [True]
         p7_sub_a.has_author = [methodologist_smirnov]
         p7_sub_a.targets_competency = [comp_basic_syntax]
 
         p7_sub_b = onto.AccessPolicy("p7_sub_b_quiz2_grade85")
-        p7_sub_b.label = ["Балл за Квиз «Функции» ≥ 85"]
         p7_sub_b.rule_type = ["grade_required"]
         p7_sub_b.is_active = [True]
         p7_sub_b.has_author = [methodologist_smirnov]
@@ -203,7 +193,6 @@ def build(onto: Any) -> None:
         p7_sub_b.passing_threshold = [85.0]
 
         p7 = onto.AccessPolicy("p7_quiz3_or")
-        p7.label = ["Квиз ООП — базовый синтаксис ИЛИ балл за Квиз «Функции» ≥ 85"]
         p7.rule_type = ["or_combination"]
         p7.is_active = [True]
         p7.has_author = [methodologist_smirnov]
@@ -211,7 +200,6 @@ def build(onto: Any) -> None:
         quiz3.has_access_policy = [p7]
 
         p8 = onto.AccessPolicy("p8_extra_material_advanced")
-        p8.label = ["Доп. материал — только продвинутый поток"]
         p8.rule_type = ["group_restricted"]
         p8.is_active = [True]
         p8.has_author = [methodologist_smirnov]
@@ -219,7 +207,6 @@ def build(onto: Any) -> None:
         extra.has_access_policy = [p8]
 
         p9 = onto.AccessPolicy("p9_final_exam_avg_prereq")
-        p9.label = ["Итоговый экзамен — средний балл по квизам/практикам ≥ 70"]
         p9.rule_type = ["aggregate_required"]
         p9.is_active = [True]
         p9.has_author = [methodologist_smirnov]

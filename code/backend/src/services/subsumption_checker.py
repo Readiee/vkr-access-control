@@ -17,6 +17,15 @@ from utils.owl_utils import get_owl_prop
 logger = logging.getLogger(__name__)
 
 
+def _label(obj: Any) -> str:
+    if obj is None:
+        return "?"
+    label = getattr(obj, "label", None)
+    if label:
+        return label[0]
+    return obj.name
+
+
 @dataclass
 class SubsumptionPair:
     dominant: str
@@ -75,7 +84,10 @@ class SubsumptionChecker:
                         dominated=p2.name,
                         element=element,
                         kind="redundancy",
-                        witness=f"grade≥{th2} ⊑ grade≥{th1}",
+                        witness=(
+                            f"кто получил ≥{th2} за «{_label(t1)}», автоматически имеет ≥{th1} "
+                            f"— более строгое правило избыточно"
+                        ),
                     )
 
         if rt1 == rt2 and rt1 == RuleType.DATE.value and element is not None:
@@ -85,12 +97,17 @@ class SubsumptionChecker:
             until2 = get_owl_prop(p2, "valid_until")
             if None not in (from1, until1, from2, until2):
                 if from1 <= from2 and until1 >= until2 and (from1 != from2 or until1 != until2):
+                    def _fmt(d):
+                        return d.strftime("%d.%m.%Y")
                     return SubsumptionPair(
                         dominant=p1.name,
                         dominated=p2.name,
                         element=element,
                         kind="redundancy",
-                        witness=f"окно [{from2}, {until2}] ⊆ [{from1}, {until1}]",
+                        witness=(
+                            f"окно {_fmt(from2)}–{_fmt(until2)} уже покрыто "
+                            f"{_fmt(from1)}–{_fmt(until1)}"
+                        ),
                     )
 
         # СВ-5 Subject Subsumption: group_restricted с вложенной группой поглощается более широкой политикой
@@ -104,7 +121,7 @@ class SubsumptionChecker:
                         dominated=p2.name,
                         element=element,
                         kind="subject_subsumption",
-                        witness=f"группа {g2.name} ⊆ {g1.name}",
+                        witness=f"группа «{_label(g2)}» входит в группу «{_label(g1)}»",
                     )
 
         # completion/viewed с одинаковым target — полное равенство → redundancy
@@ -112,12 +129,13 @@ class SubsumptionChecker:
             t1 = get_owl_prop(p1, "targets_element")
             t2 = get_owl_prop(p2, "targets_element")
             if t1 is not None and t2 is not None and t1.name == t2.name and p1.name < p2.name:
+                verb = "завершить" if rt1 == RuleType.COMPLETION.value else "просмотреть"
                 return SubsumptionPair(
                     dominant=p1.name,
                     dominated=p2.name,
                     element=element,
                     kind="redundancy",
-                    witness=f"{rt1}({t1.name}) — полное совпадение",
+                    witness=f"оба правила требуют {verb} «{_label(t1)}»",
                 )
 
         # СВ-5 AND-composite: atomic p1, AND p2 с подполитикой, синтаксически равной p1
@@ -130,7 +148,10 @@ class SubsumptionChecker:
                     dominated=p2.name,
                     element=element,
                     kind="subject_subsumption",
-                    witness=f"{p1.name} ≡ {sub_match.name} ∈ subpolicies({p2.name})",
+                    witness=(
+                        f"условие «{_label(p1)}» уже входит в составное правило "
+                        f"«{_label(p2)}», поэтому более широкое покрывает более узкое"
+                    ),
                 )
 
         return None
