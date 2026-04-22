@@ -90,6 +90,13 @@ class PolicyBase(BaseModel):
 class PolicyCreate(PolicyBase):
     """Payload для создания новой политики."""
     is_active: bool = Field(True, description="Флаг активности (по умолчанию: True)")
+    nested_subpolicies: Optional[List["PolicyCreate"]] = Field(
+        None,
+        description=(
+            "Для and_combination — новые подполитики, создаваемые атомарно вместе "
+            "с родителем. Альтернатива subpolicy_ids (привязка к уже существующим)."
+        ),
+    )
 
     @model_validator(mode='after')
     def validate_by_rule_type(self) -> 'PolicyCreate':
@@ -112,10 +119,17 @@ class PolicyCreate(PolicyBase):
             if self.valid_from > self.valid_until:
                 raise ValueError("valid_from должно быть раньше valid_until.")
         elif rt in {RuleType.AND.value, RuleType.OR.value}:
-            if not self.subpolicy_ids or len(self.subpolicy_ids) < 2:
-                raise ValueError(f"Для {rt} нужно минимум 2 подполитики.")
-            if len(set(self.subpolicy_ids)) != len(self.subpolicy_ids):
+            nested = self.nested_subpolicies or []
+            ids = self.subpolicy_ids or []
+            total = len(nested) + len(ids)
+            if total < 2:
+                raise ValueError(f"Для {rt} нужно минимум 2 подполитики (через nested или subpolicy_ids).")
+            if ids and len(set(ids)) != len(ids):
                 raise ValueError("subpolicy_ids должны быть уникальны.")
+            for child in nested:
+                child_rt = child.rule_type if isinstance(child.rule_type, str) else child.rule_type.value
+                if child_rt in {RuleType.AND.value, RuleType.OR.value}:
+                    raise ValueError("Вложенные композиты сейчас не поддержаны; используйте плоский список условий.")
         elif rt == RuleType.GROUP.value:
             if not self.restricted_to_group_id:
                 raise ValueError("Для group_restricted обязателен restricted_to_group_id.")
@@ -127,6 +141,9 @@ class PolicyCreate(PolicyBase):
             if self.passing_threshold is None:
                 raise ValueError("Для aggregate_required обязателен passing_threshold.")
         return self
+
+
+PolicyCreate.model_rebuild()
 
 
 class Policy(PolicyBase):

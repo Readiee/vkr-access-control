@@ -112,7 +112,29 @@ class PolicyService:
             raise ValueError(f"Циклическая зависимость: {' -> '.join(readable)}")
 
     def create_policy(self, policy_data: PolicyCreate) -> dict:
-        """Создать AccessPolicy в графе и сохранить онтологию."""
+        """Создать AccessPolicy в графе и сохранить онтологию.
+
+        Поддержка nested_subpolicies: если в payload приложены свежесозданные
+        подусловия — они создаются рекурсивно в том же порядке, их id добавляются
+        к subpolicy_ids родителя.
+        """
+        nested = list(getattr(policy_data, "nested_subpolicies", None) or [])
+        created_children: List[Any] = []
+        if nested:
+            for child in nested:
+                child_copy = child.model_copy(update={
+                    "source_element_id": None,
+                    "is_active": True,
+                    "nested_subpolicies": None,
+                })
+                child_dict = self.create_policy(child_copy)
+                created_children.append(child_dict["id"])
+            merged_ids = list(policy_data.subpolicy_ids or []) + created_children
+            policy_data = policy_data.model_copy(update={
+                "subpolicy_ids": merged_ids,
+                "nested_subpolicies": None,
+            })
+
         self._check_cycle(policy_data)
 
         policy_id = f"policy_{uuid.uuid4().hex[:8]}"

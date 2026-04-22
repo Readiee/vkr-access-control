@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue';
 import { ElementTypeMap } from '@/utils/formatters';
 import PolicyRuleCard from './PolicyRuleCard.vue';
+import CompositePolicyBuilder from './CompositePolicyBuilder.vue';
 
 const props = defineProps<{
   targetNode: any;
@@ -10,22 +11,25 @@ const props = defineProps<{
 
 // Стейт для новых несохраненных правил
 const newPolicies = ref<any[]>([]);
+const compositeDraftOpen = ref(false);
 
 // Когда выбираем новый узел, обнуляем список новых полей
 watch(() => props.targetNode?.id, () => {
   newPolicies.value = [];
+  compositeDraftOpen.value = false;
 });
 
 const addNewPolicy = () => {
   // Добавляем пустую болванку в начало или конец (пусть будет в конец)
-  newPolicies.value.push({ 
-    _isNew: true, 
+  newPolicies.value.push({
+    _isNew: true,
     id: 'new-' + Date.now().toString(),
   });
 };
 
 const handleSaved = () => {
   newPolicies.value = [];
+  compositeDraftOpen.value = false;
 };
 </script>
 
@@ -97,14 +101,33 @@ const handleSaved = () => {
         />
       </div>
 
-      <Button 
-        v-if="newPolicies.length < 3"
-        label="Добавить новое правило" 
-        icon="pi pi-plus" 
-        variant="outlined"
-        class="w-full border-dashed py-4 bg-white/50 hover:bg-white hover:border-primary-400 transition-colors"
-        @click="addNewPolicy"
+      <CompositePolicyBuilder
+        v-if="compositeDraftOpen"
+        :target-node="targetNode"
+        :tree-data="treeData"
+        @saved="handleSaved"
+        @cancelled="compositeDraftOpen = false"
       />
+
+      <div class="grid grid-cols-2 gap-3">
+        <Button
+          v-if="newPolicies.length < 3"
+          label="Добавить простое правило"
+          icon="pi pi-plus"
+          variant="outlined"
+          class="border-dashed py-4 bg-white/50 hover:bg-white hover:border-primary-400 transition-colors"
+          @click="addNewPolicy"
+        />
+        <Button
+          v-if="!compositeDraftOpen"
+          label="Составное условие (И)"
+          icon="pi pi-sitemap"
+          variant="outlined"
+          severity="secondary"
+          class="border-dashed py-4 bg-white/50 hover:bg-white hover:border-primary-400 transition-colors"
+          @click="compositeDraftOpen = true"
+        />
+      </div>
     </div>
   </div>
 </template>
