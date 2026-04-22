@@ -44,7 +44,13 @@ export interface PolicyCreate extends PolicyBase {
 
 export interface Policy extends PolicyBase {
   id: string;
+  name?: string;
   is_active: boolean;
+  target_element_name?: string | null;
+  competency_name?: string | null;
+  restricted_to_group_name?: string | null;
+  aggregate_element_names?: string[];
+  subpolicies_detail?: Policy[];
 }
 
 export interface PolicyResponse extends Policy {}
@@ -87,15 +93,21 @@ export interface PropertyViolation {
   message?: string;
   // acyclicity
   path?: string[];
+  path_names?: string[];
   policies?: string[];
-  // reachability
+  policy_names?: string[];
+  // reachability / subsumption-elem shared
   element_id?: string;
+  element_name?: string;
   policy_id?: string;
+  policy_name?: string;
   rule_type?: string;
   reason?: string;
   // subsumption/redundancy
   dominant?: string;
+  dominant_name?: string;
   dominated?: string;
+  dominated_name?: string;
   element?: string;
   witness?: string;
 }
@@ -117,12 +129,21 @@ export interface VerificationReport {
 
 // ---- UC-9 BlockingExplanation ----
 
-export interface ApplicablePolicyTrace {
-  policy_id: string;
+export interface SubpolicyDiagnosis {
+  id: string;
+  name: string;
   rule_type: string;
   satisfied: boolean;
   failure_reason?: string | null;
-  witness?: Record<string, any>;
+}
+
+export interface ApplicablePolicyTrace {
+  policy_id: string;
+  policy_name?: string | null;
+  rule_type: string;
+  satisfied: boolean;
+  failure_reason?: string | null;
+  witness?: Record<string, any> & { subpolicies?: SubpolicyDiagnosis[] };
 }
 
 export interface JustificationBodyFact {
@@ -143,9 +164,12 @@ export interface JustificationNode {
 
 export interface BlockingExplanation {
   element_id: string;
+  element_name?: string | null;
   student_id: string;
+  student_name?: string | null;
   is_available: boolean;
   cascade_blocker?: string | null;
+  cascade_blocker_name?: string | null;
   cascade_reason?: string | null;
   applicable_policies: ApplicablePolicyTrace[];
   justification?: JustificationNode | null;

@@ -36,7 +36,7 @@ const formatValue = (v: unknown): string => {
         :value="node.status"
       />
       <code class="text-xs text-surface-700">{{ node.rule_template }}</code>
-      <code v-if="node.policy_id" class="text-xs text-surface-500">{{ node.policy_id }}</code>
+      <span v-if="node.policy_id" class="text-[10px] text-surface-400 font-mono">{{ node.policy_id }}</span>
     </div>
 
     <div v-if="node.note" class="text-surface-700 mb-2">{{ node.note }}</div>

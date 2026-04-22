@@ -149,7 +149,9 @@ class VerificationService:
                 acyclicity.violations.append({
                     "code": "SV2_CYCLE",
                     "path": cycle,
+                    "path_names": [self._label_by_id(eid) for eid in cycle],
                     "policies": self._policies_on_cycle(cycle),
+                    "policy_names": [self._label_by_id(pid) for pid in self._policies_on_cycle(cycle)],
                 })
         else:
             acyclicity.status = "passed"
@@ -170,8 +172,11 @@ class VerificationService:
                 entry = {
                     "code": "SV4_REDUNDANT" if pair.kind == "redundancy" else "SV5_SUBSUMED",
                     "dominant": pair.dominant,
+                    "dominant_name": self._label_by_id(pair.dominant),
                     "dominated": pair.dominated,
+                    "dominated_name": self._label_by_id(pair.dominated),
                     "element": pair.element,
+                    "element_name": self._label_by_id(pair.element) if pair.element else None,
                     "witness": pair.witness,
                 }
                 if pair.kind == "redundancy":
@@ -222,6 +227,7 @@ class VerificationService:
                 reports.append({
                     "code": "SV3_UNREACHABLE",
                     "element_id": element.name,
+                    "element_name": element.label[0] if getattr(element, "label", None) else element.name,
                     "reason": "Не найден путь удовлетворения ни одной политики на элементе",
                 })
         return reports
@@ -236,6 +242,7 @@ class VerificationService:
                 unsat.append({
                     "code": "SV3_ATOMIC_UNSAT",
                     "policy_id": policy.name,
+                    "policy_name": policy.label[0] if getattr(policy, "label", None) else policy.name,
                     "rule_type": get_owl_prop(policy, "rule_type", ""),
                     "reason": reason,
                 })
@@ -392,6 +399,14 @@ class VerificationService:
 
         walk(course)
         return collected
+
+    def _label_by_id(self, entity_id: str) -> str:
+        if not entity_id:
+            return ""
+        ind = self.core.onto.search_one(iri=f"*{entity_id}")
+        if ind is None:
+            return entity_id
+        return ind.label[0] if getattr(ind, "label", None) else ind.name
 
     def _policies_on_cycle(self, cycle_path: List[str]) -> List[str]:
         """Вернуть имена политик, чьи источники попадают в путь цикла."""

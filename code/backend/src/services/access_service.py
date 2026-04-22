@@ -75,6 +75,7 @@ class AccessService:
 
         parent_blocker = self._find_parent_blocker(element, student)
         cascade = parent_blocker["element_id"] if parent_blocker else None
+        cascade_name = parent_blocker["element_name"] if parent_blocker else None
         is_available = satisfies_on_element and cascade is None
         if not applicable:
             is_available = cascade is None  # default-allow для свободного контента
@@ -83,9 +84,12 @@ class AccessService:
 
         return {
             "element_id": element_id,
+            "element_name": _label_of(element),
             "student_id": student_id,
+            "student_name": _label_of(student),
             "is_available": is_available,
             "cascade_blocker": cascade,
+            "cascade_blocker_name": cascade_name,
             "cascade_reason": parent_blocker["reason"] if parent_blocker else None,
             "applicable_policies": applicable,
             "justification": justification,
@@ -155,9 +159,11 @@ class AccessService:
                 if get_owl_prop(pol, "is_active", True) is True
             ]
             if parent_active and student not in (getattr(parent, "is_available_for", []) or []):
+                parent_label = _label_of(parent)
                 return {
                     "element_id": parent.name,
-                    "reason": f"Родитель {parent.name} недоступен по активной политике",
+                    "element_name": parent_label,
+                    "reason": f"Родительский элемент «{parent_label}» недоступен студенту",
                 }
             return self._find_parent_blocker(parent, student)
         return None
@@ -173,6 +179,7 @@ class AccessService:
 
         return {
             "policy_id": policy.name,
+            "policy_name": _label_of(policy),
             "rule_type": rule_type,
             "satisfied": satisfied,
             "failure_reason": failure_reason,
@@ -183,32 +190,37 @@ class AccessService:
         target = get_owl_prop(policy, "targets_element")
         competency = get_owl_prop(policy, "targets_competency")
         if rule_type == RuleType.COMPETENCY.value and competency is not None:
-            owned = [c.name for c in getattr(student, "has_competency", []) or []]
+            comp_name = _label_of(competency)
+            owned = [_label_of(c) for c in getattr(student, "has_competency", []) or []]
             return (
-                f"У студента нет компетенции {competency.name}",
-                {"required_competency": competency.name, "student_competencies": owned},
+                f"У студента нет компетенции «{comp_name}»",
+                {"required_competency": comp_name, "student_competencies": owned},
             )
         if rule_type == RuleType.GROUP.value:
             group = get_owl_prop(policy, "restricted_to_group")
-            groups = [g.name for g in getattr(student, "belongs_to_group", []) or []]
+            group_name = _label_of(group) if group else None
+            groups = [_label_of(g) for g in getattr(student, "belongs_to_group", []) or []]
             return (
-                f"Студент не входит в группу {group.name if group else '(?)'}",
-                {"required_group": group.name if group else None, "student_groups": groups},
+                f"Студент не входит в группу «{group_name or '?'}»",
+                {"required_group": group_name, "student_groups": groups},
             )
         if rule_type in {RuleType.COMPLETION.value, RuleType.VIEWED.value} and target is not None:
+            t = _label_of(target)
+            verb = "завершить" if rule_type == RuleType.COMPLETION.value else "просмотреть"
             return (
-                f"Нет записи прогресса по элементу {target.name}",
-                {"target_element": target.name},
+                f"Нужно {verb} элемент «{t}»",
+                {"target_element": t},
             )
         if rule_type == RuleType.GRADE.value and target is not None:
             threshold = get_owl_prop(policy, "passing_threshold")
+            t = _label_of(target)
             return (
-                f"Не достигнут порог оценки {threshold} на элементе {target.name}",
-                {"target_element": target.name, "passing_threshold": threshold},
+                f"Не достигнут порог оценки {threshold} за «{t}»",
+                {"target_element": t, "passing_threshold": threshold},
             )
         if rule_type == RuleType.DATE.value:
             return (
-                "Текущее время вне валидного окна политики",
+                "Текущее время вне окна доступа",
                 {
                     "valid_from": str(get_owl_prop(policy, "valid_from") or ""),
                     "valid_until": str(get_owl_prop(policy, "valid_until") or ""),
@@ -216,14 +228,30 @@ class AccessService:
             )
         if rule_type == RuleType.AGGREGATE.value:
             threshold = get_owl_prop(policy, "passing_threshold")
+            fn = get_owl_prop(policy, "aggregate_function") or "AVG"
             return (
-                f"Агрегат не достиг порога {threshold}",
-                {"passing_threshold": threshold},
+                f"Агрегат ({fn}) не достиг порога {threshold}",
+                {"passing_threshold": threshold, "aggregate_function": fn},
             )
         if rule_type in {RuleType.AND.value, RuleType.OR.value}:
-            subs = [sub.name for sub in getattr(policy, "has_subpolicy", []) or []]
-            return "Композитная политика не выполнена целиком", {"subpolicies": subs}
-        return "Условие политики не выполнено", {}
+            subs = list(getattr(policy, "has_subpolicy", []) or [])
+            details = []
+            for sub in subs:
+                sub_rt = get_owl_prop(sub, "rule_type", "")
+                sub_satisfied = sub in (getattr(student, "satisfies", []) or [])
+                sub_reason = None
+                if not sub_satisfied:
+                    sub_reason, _ = self._diagnose_failure(sub, sub_rt, student)
+                details.append({
+                    "id": sub.name,
+                    "name": _label_of(sub),
+                    "rule_type": sub_rt,
+                    "satisfied": sub_satisfied,
+                    "failure_reason": sub_reason,
+                })
+            prefix = "Не все условия выполнены" if rule_type == RuleType.AND.value else "Ни одно условие не выполнено"
+            return prefix, {"subpolicies": details}
+        return "Условие правила не выполнено", {}
 
     def _resolve_student(self, student_id: str) -> Optional[Any]:
         node_id = student_id if student_id.startswith("student_") else f"student_{student_id}"
@@ -263,6 +291,16 @@ class AccessService:
         if parent is None:
             return True
         return self._is_really_available(parent, cache, parent_map)
+
+
+def _label_of(owl_obj: Any) -> str:
+    """Человечное название OWL-индивида: rdfs:label или снова ID."""
+    if owl_obj is None:
+        return ""
+    label = getattr(owl_obj, "label", None)
+    if label:
+        return label[0]
+    return owl_obj.name
 
 
 def _justification_to_dict(node: Justification) -> Dict[str, Any]:

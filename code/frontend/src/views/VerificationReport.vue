@@ -168,20 +168,24 @@ watch(() => store.currentCourseId, (id) => {
               >
                 <div v-if="v.message" class="text-surface-700">{{ v.message }}</div>
                 <div v-if="v.path" class="text-surface-700">
-                  Цикл: <code>{{ v.path.join(' → ') }}</code>
+                  Цикл: <span class="font-medium">{{ (v.path_names?.length ? v.path_names : v.path).join(' → ') }}</span>
                 </div>
-                <div v-if="v.element_id" class="text-surface-700">
-                  Элемент: <code>{{ v.element_id }}</code>
+                <div v-if="v.policy_names?.length" class="text-surface-700 text-xs mt-1">
+                  Участвующие правила: {{ v.policy_names.join(', ') }}
+                </div>
+                <div v-if="v.element_id && !v.dominant" class="text-surface-700">
+                  Элемент: <span class="font-medium">{{ v.element_name || v.element_id }}</span>
                   <span v-if="v.reason"> — {{ v.reason }}</span>
                 </div>
-                <div v-if="v.policy_id" class="text-surface-700">
-                  Правило: <code>{{ v.policy_id }}</code>
+                <div v-if="v.policy_id && !v.dominant" class="text-surface-700">
+                  Правило: <span class="font-medium">{{ v.policy_name || v.policy_id }}</span>
                   <span v-if="v.reason"> — {{ v.reason }}</span>
                 </div>
                 <div v-if="v.dominant && v.dominated" class="text-surface-700">
-                  <code>{{ v.dominant }}</code> поглощает <code>{{ v.dominated }}</code>
-                  <span v-if="v.element"> на элементе <code>{{ v.element }}</code></span>
-                  <span v-if="v.witness">; {{ v.witness }}</span>
+                  «<span class="font-medium">{{ v.dominant_name || v.dominant }}</span>» поглощает
+                  «<span class="font-medium">{{ v.dominated_name || v.dominated }}</span>»
+                  <span v-if="v.element"> на элементе «{{ v.element_name || v.element }}»</span>
+                  <span v-if="v.witness" class="text-xs text-surface-500">; {{ v.witness }}</span>
                 </div>
               </div>
             </div>

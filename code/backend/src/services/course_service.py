@@ -1,11 +1,52 @@
 import logging
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Dict
 from schemas.schemas import CourseElement, CourseSyncPayload
 from core.enums import RuleType, ElementType, ProgressStatus
 from services.ontology_core import OntologyCore
 from utils.owl_utils import get_owl_prop
 
 logger = logging.getLogger(__name__)
+
+
+def _label_or_id(obj: Any) -> str:
+    if obj is None:
+        return ""
+    return obj.label[0] if getattr(obj, "label", None) else obj.name
+
+
+def _serialize_policy(pol: Any, include_subpolicies_detail: bool = True) -> Dict[str, Any]:
+    """Подробное представление политики для UI: человечные имена + развёрнутые
+    подусловия у композитов. Поле subpolicies_detail — только на верхнем
+    уровне (чтобы не уходить в бесконечную вложенность)."""
+    subpolicies = list(getattr(pol, "has_subpolicy", []) or [])
+    aggregate_elems = list(getattr(pol, "aggregate_elements", []) or [])
+    target_el = get_owl_prop(pol, "targets_element")
+    target_comp = get_owl_prop(pol, "targets_competency")
+    group = get_owl_prop(pol, "restricted_to_group")
+    result: Dict[str, Any] = {
+        "id": pol.name,
+        "name": _label_or_id(pol),
+        "rule_type": get_owl_prop(pol, "rule_type", ""),
+        "passing_threshold": get_owl_prop(pol, "passing_threshold"),
+        "competency_id": target_comp.name if target_comp else None,
+        "competency_name": _label_or_id(target_comp) if target_comp else None,
+        "target_element_id": target_el.name if target_el else None,
+        "target_element_name": _label_or_id(target_el) if target_el else None,
+        "valid_from": get_owl_prop(pol, "valid_from"),
+        "valid_until": get_owl_prop(pol, "valid_until"),
+        "restricted_to_group_id": group.name if group else None,
+        "restricted_to_group_name": _label_or_id(group) if group else None,
+        "subpolicy_ids": [s.name for s in subpolicies],
+        "aggregate_function": get_owl_prop(pol, "aggregate_function"),
+        "aggregate_element_ids": [e.name for e in aggregate_elems],
+        "aggregate_element_names": [_label_or_id(e) for e in aggregate_elems],
+        "is_active": get_owl_prop(pol, "is_active", True),
+    }
+    if include_subpolicies_detail and subpolicies:
+        result["subpolicies_detail"] = [
+            _serialize_policy(sub, include_subpolicies_detail=False) for sub in subpolicies
+        ]
+    return result
 
 class CourseService:
     """Сервис управления структурой курса и метаданными онтологии."""
@@ -115,23 +156,7 @@ class CourseService:
             
             policies = []
             for pol in getattr(node_obj, "has_access_policy", []):
-                subpolicies = list(getattr(pol, "has_subpolicy", []) or [])
-                aggregate_elems = list(getattr(pol, "aggregate_elements", []) or [])
-                policies.append({
-                    "id": pol.name,
-                    "name": pol.label[0] if getattr(pol, "label", None) else pol.name,
-                    "rule_type": get_owl_prop(pol, "rule_type", ""),
-                    "passing_threshold": get_owl_prop(pol, "passing_threshold"),
-                    "competency_id": getattr(get_owl_prop(pol, "targets_competency"), "name", None),
-                    "target_element_id": getattr(get_owl_prop(pol, "targets_element"), "name", None),
-                    "valid_from": get_owl_prop(pol, "valid_from"),
-                    "valid_until": get_owl_prop(pol, "valid_until"),
-                    "restricted_to_group_id": getattr(get_owl_prop(pol, "restricted_to_group"), "name", None),
-                    "subpolicy_ids": [s.name for s in subpolicies],
-                    "aggregate_function": get_owl_prop(pol, "aggregate_function"),
-                    "aggregate_element_ids": [e.name for e in aggregate_elems],
-                    "is_active": get_owl_prop(pol, "is_active", True)
-                })
+                policies.append(_serialize_policy(pol))
 
             if raw_type == ElementType.COURSE.value:
                 children_objs = getattr(node_obj, "has_module", [])

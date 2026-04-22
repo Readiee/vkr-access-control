@@ -69,8 +69,8 @@ const fetchReport = async () => {
           :severity="report.is_available ? 'success' : 'danger'"
           :value="report.is_available ? 'Доступен' : 'Заблокирован'"
         />
-        <span class="text-sm text-surface-700">
-          <code>{{ report.element_id }}</code>
+        <span class="text-sm font-medium text-surface-800">
+          {{ report.element_name || report.element_id }}
         </span>
       </div>
 
@@ -79,17 +79,17 @@ const fetchReport = async () => {
         class="rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm"
       >
         <div class="font-semibold text-orange-700 mb-1">
-          Каскадная блокировка
+          Заблокировано через родительский элемент
         </div>
         <div class="text-surface-700">
-          Родительский элемент <code>{{ report.cascade_blocker }}</code> недоступен.
+          «{{ report.cascade_blocker_name || report.cascade_blocker }}» недоступен студенту.
           <span v-if="report.cascade_reason"> {{ report.cascade_reason }}</span>
         </div>
       </div>
 
       <div class="flex flex-col gap-2">
         <div class="text-xs font-semibold text-surface-500 uppercase tracking-wider">
-          Применимые политики
+          Применимые правила
         </div>
         <div
           v-for="p in report.applicable_policies"
@@ -97,7 +97,7 @@ const fetchReport = async () => {
           class="rounded-lg border p-3 text-sm"
           :class="p.satisfied ? 'border-green-100 bg-green-50' : 'border-red-100 bg-red-50'"
         >
-          <div class="flex items-center gap-2 mb-1">
+          <div class="flex items-center gap-2 mb-1 flex-wrap">
             <Tag
               :severity="p.satisfied ? 'success' : 'danger'"
               :value="p.satisfied ? 'Выполнено' : 'Не выполнено'"
@@ -106,21 +106,33 @@ const fetchReport = async () => {
               :severity="RuleTypeMap[p.rule_type]?.severity || 'secondary'"
               :value="RuleTypeMap[p.rule_type]?.label || p.rule_type"
             />
-            <code class="text-xs text-surface-500">{{ p.policy_id }}</code>
+            <span class="text-sm text-surface-800 font-medium">
+              {{ p.policy_name || p.policy_id }}
+            </span>
           </div>
           <div v-if="!p.satisfied && p.failure_reason" class="text-surface-700">
             {{ p.failure_reason }}
           </div>
-          <pre
-            v-if="!p.satisfied && p.witness && Object.keys(p.witness).length"
-            class="mt-2 text-xs text-surface-600 bg-white/60 rounded p-2 overflow-x-auto"
-          >{{ JSON.stringify(p.witness, null, 2) }}</pre>
+          <ul
+            v-if="!p.satisfied && p.witness?.subpolicies?.length"
+            class="mt-2 ml-2 list-disc list-inside text-surface-700 text-xs space-y-0.5"
+          >
+            <li v-for="(sub, i) in p.witness.subpolicies" :key="i">
+              <span :class="sub.satisfied ? 'text-green-700' : 'text-red-700'">
+                {{ sub.satisfied ? '✓' : '✗' }}
+              </span>
+              <span class="font-medium">{{ sub.name || sub.id }}</span>
+              <span v-if="!sub.satisfied && sub.failure_reason" class="text-surface-500">
+                — {{ sub.failure_reason }}
+              </span>
+            </li>
+          </ul>
         </div>
         <p
           v-if="!report.applicable_policies.length"
           class="text-surface-500 italic text-sm py-2"
         >
-          На элементе нет активных политик — доступ открыт по умолчанию.
+          На элементе нет активных правил — доступ открыт по умолчанию.
         </p>
       </div>
 

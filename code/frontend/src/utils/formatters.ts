@@ -42,8 +42,8 @@ export const RuleTypeMap: Record<string, RuleTypeInfo> = {
   [RuleType.COMPETENCY_REQUIRED]:  { label: 'Компетенция',  severity: 'danger' },
   [RuleType.DATE_RESTRICTED]:      { label: 'Даты',         severity: 'secondary' },
   [RuleType.GROUP_RESTRICTED]:     { label: 'Группа',       severity: 'contrast' },
-  [RuleType.AND_COMBINATION]:      { label: 'И (AND)',      severity: 'info' },
-  [RuleType.OR_COMBINATION]:       { label: 'ИЛИ (OR)',     severity: 'info' },
+  [RuleType.AND_COMBINATION]:      { label: 'Составное условие (И)',      severity: 'info' },
+  [RuleType.OR_COMBINATION]:       { label: 'Составное условие (ИЛИ)',     severity: 'info' },
   [RuleType.AGGREGATE_REQUIRED]:   { label: 'Агрегат',      severity: 'warn' },
 };
 
@@ -89,34 +89,36 @@ export const formatPolicyBadgeText = (
 ): string => {
   const typeInfo = RuleTypeMap[policy.rule_type];
   const label = typeInfo ? typeInfo.label : policy.rule_type;
+  const p: any = policy;
   let description = '';
+
+  const targetName = (): string | null => {
+    if (p.target_element_name) return p.target_element_name;
+    if (policy.target_element_id) return findNodeNameById(treeNodes, policy.target_element_id);
+    return null;
+  };
 
   switch (policy.rule_type) {
     case RuleType.GRADE_REQUIRED: {
-      const target = policy.target_element_id
-        ? (findNodeNameById(treeNodes, policy.target_element_id) ?? '?')
-        : '?';
-      description = `${label}: ${policy.passing_threshold ?? '–'}+ (${target})`;
+      const target = targetName() ?? '?';
+      description = `${label}: ${policy.passing_threshold ?? '–'}+ («${target}»)`;
       break;
     }
     case RuleType.VIEWED_REQUIRED:
     case RuleType.COMPLETION_REQUIRED: {
-      const target = policy.target_element_id
-        ? findNodeNameById(treeNodes, policy.target_element_id)
-        : null;
-      description = target ? `${label} (${target})` : label;
+      const target = targetName();
+      description = target ? `${label} («${target}»)` : label;
       break;
     }
     case RuleType.COMPETENCY_REQUIRED: {
-      // Поддержка обоих вариантов ключа (с API и из дерева)
-      const compId = policy.target_competency_id || (policy as any).competency_id;
-      const comp = allCompetencies.find(c => c.id === compId)?.name || '?';
-      description = `${label}: ${comp}`;
+      const explicit = p.competency_name;
+      const compId = policy.target_competency_id || p.competency_id;
+      const fallback = allCompetencies.find(c => c.id === compId)?.name;
+      description = `${label}: ${explicit || fallback || '?'}`;
       break;
     }
     case RuleType.DATE_RESTRICTED: {
       const formatDate = (dateStr: string) => {
-        // Парсим YYYY-MM-DDTHH:mm:ssZ в DD.MM.YYYY
         const [year, month, day] = dateStr.split('T')[0].split('-');
         return `${day}.${month}.${year}`;
       };
@@ -126,21 +128,28 @@ export const formatPolicyBadgeText = (
       break;
     }
     case RuleType.GROUP_RESTRICTED: {
-      description = policy.restricted_to_group_id
-        ? `${label}: ${policy.restricted_to_group_id}`
-        : label;
+      description = `${label}: ${p.restricted_to_group_name || policy.restricted_to_group_id || '—'}`;
       break;
     }
     case RuleType.AND_COMBINATION:
     case RuleType.OR_COMBINATION: {
-      const count = policy.subpolicy_ids?.length ?? 0;
-      description = `${label}: ${count} подполитик`;
+      const conj = policy.rule_type === RuleType.AND_COMBINATION ? ' и ' : ' или ';
+      const subs = p.subpolicies_detail as Array<{ name?: string; id: string }> | undefined;
+      if (subs?.length) {
+        description = `${label}: ${subs.map((s) => `«${s.name || s.id}»`).join(conj)}`;
+      } else {
+        const count = policy.subpolicy_ids?.length ?? 0;
+        description = `${label}: ${count} подусловий`;
+      }
       break;
     }
     case RuleType.AGGREGATE_REQUIRED: {
-      const fn = policy.aggregate_function ?? '?';
-      const cnt = policy.aggregate_element_ids?.length ?? 0;
-      description = `${label}: ${fn} ≥ ${policy.passing_threshold ?? '?'} (${cnt} эл.)`;
+      const fn = AggregateFunctionLabels[policy.aggregate_function ?? ''] || policy.aggregate_function || '?';
+      const names: string[] = p.aggregate_element_names?.length
+        ? p.aggregate_element_names
+        : (policy.aggregate_element_ids || []).map((id: string) => findNodeNameById(treeNodes, id) ?? id);
+      const list = names.length ? ` по ${names.map((n) => `«${n}»`).join(', ')}` : '';
+      description = `${fn}${list} ≥ ${policy.passing_threshold ?? '?'}`;
       break;
     }
     default:

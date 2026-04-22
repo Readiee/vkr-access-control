@@ -78,19 +78,19 @@ const formatDate = (dateString: string) => {
 const describePolicy = (pol: any): string => {
   switch (pol.rule_type) {
     case RuleType.COMPLETION_REQUIRED: {
-      const t = getTargetName(pol.target_element_id) || pol.target_element_id;
+      const t = pol.target_element_name || getTargetName(pol.target_element_id) || pol.target_element_id;
       return `Завершить: ${t}`;
     }
     case RuleType.VIEWED_REQUIRED: {
-      const t = getTargetName(pol.target_element_id) || pol.target_element_id;
+      const t = pol.target_element_name || getTargetName(pol.target_element_id) || pol.target_element_id;
       return `Просмотреть: ${t}`;
     }
     case RuleType.GRADE_REQUIRED: {
-      const t = getTargetName(pol.target_element_id) || pol.target_element_id;
-      return `Получить оценку не ниже ${pol.passing_threshold ?? '?'} за ${t}`;
+      const t = pol.target_element_name || getTargetName(pol.target_element_id) || pol.target_element_id;
+      return `Получить оценку не ниже ${pol.passing_threshold ?? '?'} за «${t}»`;
     }
     case RuleType.COMPETENCY_REQUIRED: {
-      const c = getCompetencyName(pol.competency_id || pol.target_competency_id);
+      const c = pol.competency_name || getCompetencyName(pol.competency_id || pol.target_competency_id);
       return `Получить компетенцию: ${c || pol.competency_id}`;
     }
     case RuleType.DATE_RESTRICTED: {
@@ -99,20 +99,23 @@ const describePolicy = (pol: any): string => {
       return `Доступно в период ${from}${until}`.trim();
     }
     case RuleType.GROUP_RESTRICTED: {
-      return `Входить в группу: ${getGroupName(pol.restricted_to_group_id) || '—'}`;
+      const g = pol.restricted_to_group_name || getGroupName(pol.restricted_to_group_id);
+      return `Входить в группу: ${g || '—'}`;
     }
-    case RuleType.AND_COMBINATION: {
-      const n = pol.subpolicy_ids?.length ?? 0;
-      return `Выполнить ВСЕ ${n} связанных условий (составное правило)`;
-    }
-    case RuleType.OR_COMBINATION: {
-      const n = pol.subpolicy_ids?.length ?? 0;
-      return `Выполнить ЛЮБОЕ из ${n} связанных условий (составное правило)`;
-    }
+    case RuleType.AND_COMBINATION:
+    case RuleType.OR_COMBINATION:
+      // Вывод полного описания обрабатывается отдельно через <ul> в шаблоне:
+      // возвращаем короткий prefix, детали рисуются ниже списком.
+      return pol.rule_type === RuleType.AND_COMBINATION
+        ? 'Все условия ниже должны быть выполнены:'
+        : 'Достаточно одного из условий ниже:';
     case RuleType.AGGREGATE_REQUIRED: {
       const fn = AggregateFunctionLabels[pol.aggregate_function] || pol.aggregate_function;
-      const cnt = pol.aggregate_element_ids?.length ?? 0;
-      return `${fn} по ${cnt} элементам не ниже ${pol.passing_threshold ?? '?'}`;
+      const names: string[] = pol.aggregate_element_names?.length
+        ? pol.aggregate_element_names
+        : (pol.aggregate_element_ids || []).map((id: string) => getTargetName(id) || id);
+      const list = names.length ? ` по элементам ${names.map((n) => `«${n}»`).join(', ')}` : '';
+      return `${fn}${list} не ниже ${pol.passing_threshold ?? '?'}`;
     }
     default:
       return pol.rule_type;
@@ -179,9 +182,20 @@ const submitSimulation = async () => {
         Для получения доступа необходимо выполнить требования:
       </p>
       
-      <ul v-if="selectedNode.data.policies && selectedNode.data.policies.length" class="list-disc pl-5 text-sm text-gray-700 mt-2 space-y-1">
+      <ul
+        v-if="selectedNode.data.policies && selectedNode.data.policies.length"
+        class="list-disc pl-5 text-sm text-gray-700 mt-2 space-y-2"
+      >
         <li v-for="pol in selectedNode.data.policies" :key="pol.id">
           {{ describePolicy(pol) }}
+          <ul
+            v-if="[RuleType.AND_COMBINATION, RuleType.OR_COMBINATION].includes(pol.rule_type) && pol.subpolicies_detail?.length"
+            class="list-[circle] pl-5 mt-1 space-y-0.5 text-gray-600"
+          >
+            <li v-for="sub in pol.subpolicies_detail" :key="sub.id">
+              {{ describePolicy(sub) }}
+            </li>
+          </ul>
         </li>
       </ul>
       <div v-else class="text-xs italic text-gray-400">
