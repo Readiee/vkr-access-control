@@ -34,8 +34,11 @@ export const useOntologyStore = defineStore('ontology', () => {
       statuses.value = data.statuses;
       competencies.value = data.competencies;
       groups.value = data.groups || [];
-      // Просто подставляем данные, фильтрация теперь на бэкенде
-      courses.value = data.course_elements || [];
+      // Для селекта курса в Dashboard оставляем только курсы; остальные
+      // элементы (модули/лекции/тесты) и так приезжают через getCourseTree.
+      courses.value = (data.course_elements || []).filter(
+        (el) => (el.type || '').toLowerCase() === 'course',
+      );
       isLoaded.value = true;
     } catch (e: any) {
       error.value = 'Ошибка загрузки метаданных онтологии';

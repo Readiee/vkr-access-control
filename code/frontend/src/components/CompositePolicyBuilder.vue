@@ -163,21 +163,24 @@ const submit = async () => {
         <div class="flex justify-between items-center border-b border-surface-100 pb-3">
           <span class="font-bold text-xs text-surface-600 uppercase tracking-widest flex items-center gap-2">
             <i class="pi pi-sitemap"></i>
-            Составное условие — И (все условия ниже должны быть выполнены)
+            Составное условие "И"
           </span>
+           <p>Все условия ниже должны быть выполнены</p>
           <Button icon="pi pi-times" text rounded size="small" @click="$emit('cancelled')" />
         </div>
 
-        <p class="text-xs text-surface-500">
-          Если нужен ИЛИ (достаточно одного условия) — создайте несколько отдельных
-          правил на одном элементе: они объединяются автоматически.
-        </p>
-
-        <div
-          v-for="(child, idx) in children"
-          :key="child._key"
-          class="rounded-lg border border-surface-200 bg-surface-50 p-3 flex flex-col gap-3"
-        >
+        <template v-for="(child, idx) in children" :key="child._key">
+          <div
+            v-if="idx > 0"
+            class="flex items-center gap-3 text-xs font-bold text-surface-400 uppercase tracking-widest"
+          >
+            <div class="flex-1 h-px bg-surface-200"></div>
+            <span>и</span>
+            <div class="flex-1 h-px bg-surface-200"></div>
+          </div>
+          <div
+            class="rounded-lg border border-surface-200 bg-surface-50 p-3 flex flex-col gap-3"
+          >
           <div class="flex items-center justify-between">
             <span class="text-[11px] font-bold text-surface-500 uppercase">Условие {{ idx + 1 }}</span>
             <Button
@@ -287,7 +290,8 @@ const submit = async () => {
               </div>
             </template>
           </div>
-        </div>
+          </div>
+        </template>
 
         <Button
           v-if="children.length < 5"

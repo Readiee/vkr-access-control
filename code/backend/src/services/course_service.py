@@ -115,6 +115,8 @@ class CourseService:
             
             policies = []
             for pol in getattr(node_obj, "has_access_policy", []):
+                subpolicies = list(getattr(pol, "has_subpolicy", []) or [])
+                aggregate_elems = list(getattr(pol, "aggregate_elements", []) or [])
                 policies.append({
                     "id": pol.name,
                     "name": pol.label[0] if getattr(pol, "label", None) else pol.name,
@@ -124,6 +126,10 @@ class CourseService:
                     "target_element_id": getattr(get_owl_prop(pol, "targets_element"), "name", None),
                     "valid_from": get_owl_prop(pol, "valid_from"),
                     "valid_until": get_owl_prop(pol, "valid_until"),
+                    "restricted_to_group_id": getattr(get_owl_prop(pol, "restricted_to_group"), "name", None),
+                    "subpolicy_ids": [s.name for s in subpolicies],
+                    "aggregate_function": get_owl_prop(pol, "aggregate_function"),
+                    "aggregate_element_ids": [e.name for e in aggregate_elems],
                     "is_active": get_owl_prop(pol, "is_active", True)
                 })
 

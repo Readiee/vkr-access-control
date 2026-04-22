@@ -78,27 +78,40 @@ const handleSaved = () => {
       </div>
 
       <div class="flex flex-col gap-2">
-        <!-- Существующие политики -->
-        <PolicyRuleCard 
-          v-for="policy in targetNode.data.policies" 
-          :key="policy.id"
-          :initial-data="policy"
-          :target-node="targetNode"
-          :tree-data="treeData"
-          :edit-mode="true"
-          @saved="handleSaved"
-        />
+        <!-- Существующие политики: между карточками — неявный OR через мета-правило SWRL -->
+        <template v-for="(policy, idx) in targetNode.data.policies" :key="policy.id">
+          <div v-if="Number(idx) > 0" class="flex items-center gap-3 text-xs font-bold text-surface-400 uppercase tracking-widest">
+            <div class="flex-1 h-px bg-surface-200"></div>
+            <span>или</span>
+            <div class="flex-1 h-px bg-surface-200"></div>
+          </div>
+          <PolicyRuleCard
+            :initial-data="policy"
+            :target-node="targetNode"
+            :tree-data="treeData"
+            :edit-mode="true"
+            @saved="handleSaved"
+          />
+        </template>
 
         <!-- Новые (черновики) -->
-        <PolicyRuleCard 
-          v-for="newPol in newPolicies" 
-          :key="newPol.id"
-          :target-node="targetNode"
-          :tree-data="treeData"
-          :edit-mode="false"
-          @saved="handleSaved"
-          @cancelled="newPolicies = newPolicies.filter(p => p.id !== newPol.id)"
-        />
+        <template v-for="(newPol, idx) in newPolicies" :key="newPol.id">
+          <div
+            v-if="targetNode.data.policies?.length || Number(idx) > 0"
+            class="flex items-center gap-3 text-xs font-bold text-surface-400 uppercase tracking-widest"
+          >
+            <div class="flex-1 h-px bg-surface-200"></div>
+            <span>или</span>
+            <div class="flex-1 h-px bg-surface-200"></div>
+          </div>
+          <PolicyRuleCard
+            :target-node="targetNode"
+            :tree-data="treeData"
+            :edit-mode="false"
+            @saved="handleSaved"
+            @cancelled="newPolicies = newPolicies.filter(p => p.id !== newPol.id)"
+          />
+        </template>
       </div>
 
       <CompositePolicyBuilder
