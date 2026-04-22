@@ -49,11 +49,19 @@ class CourseService:
                         "is_required": is_req_val
                     })
 
+        groups: List[dict] = []
+        group_cls = getattr(self.core.onto, "Group", None)
+        if group_cls is not None:
+            for grp in group_cls.instances():
+                name = grp.label[0] if getattr(grp, "label", None) else grp.name
+                groups.append({"id": grp.name, "name": name})
+
         return {
-            "rule_types": rule_types, 
-            "statuses": statuses, 
+            "rule_types": rule_types,
+            "statuses": statuses,
             "competencies": competencies,
-            "course_elements": course_elements
+            "course_elements": course_elements,
+            "groups": groups,
         }
 
     def sync_course_structure(self, course_id: str, payload: CourseSyncPayload) -> dict:

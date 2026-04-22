@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 const router = useRouter();
 const menuItems = [
   { label: 'Дашборд', icon: 'pi pi-home', route: '/' },
+  { label: 'Верификация', icon: 'pi pi-shield', route: '/verify' },
   { label: 'Симулятор', icon: 'pi pi-users', route: '/simulator' }
 ];
 </script>

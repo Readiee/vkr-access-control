@@ -4,7 +4,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routers import courses, policies, integration, sandbox, competencies
+from api.routers import access, courses, policies, integration, sandbox, competencies, verification
 
 APP_TITLE = "OntoRule API"
 APP_DESCRIPTION = (
@@ -37,6 +37,8 @@ app.include_router(courses.router)
 app.include_router(policies.router)
 app.include_router(competencies.router)
 app.include_router(sandbox.router)
+app.include_router(access.router)
+app.include_router(verification.router)
 
 
 @app.get("/", tags=["Health"])

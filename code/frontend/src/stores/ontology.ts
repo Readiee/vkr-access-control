@@ -1,13 +1,14 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { getMeta, getCourseTree } from '@/api';
-import type { Competency, CourseElement, CourseTreeNode } from '@/types';
+import type { Competency, CourseElement, CourseTreeNode, Group } from '@/types';
 
 export const useOntologyStore = defineStore('ontology', () => {
   // --- State ---
   const ruleTypes = ref<string[]>([]);
   const statuses = ref<string[]>([]);
   const competencies = ref<Competency[]>([]);
+  const groups = ref<Group[]>([]);
   const courses = ref<CourseElement[]>([]);
   const currentCourseTree = ref<CourseTreeNode[]>([]);
   const currentCourseId = ref<string | null>(null);
@@ -32,8 +33,9 @@ export const useOntologyStore = defineStore('ontology', () => {
       ruleTypes.value = data.rule_types;
       statuses.value = data.statuses;
       competencies.value = data.competencies;
+      groups.value = data.groups || [];
       // Просто подставляем данные, фильтрация теперь на бэкенде
-      courses.value = data.course_elements || []; 
+      courses.value = data.course_elements || [];
       isLoaded.value = true;
     } catch (e: any) {
       error.value = 'Ошибка загрузки метаданных онтологии';
@@ -65,6 +67,7 @@ export const useOntologyStore = defineStore('ontology', () => {
     ruleTypes,
     statuses,
     competencies,
+    groups,
     courses,
     currentCourseTree,
     currentCourseId,

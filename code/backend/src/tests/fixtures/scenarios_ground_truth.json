@@ -1,0 +1,145 @@
+{
+  "$comment": "Ground-truth для EXP1/EXP2/EXP3/EXP6. Каждая запись — ожидаемый verdict VerificationService.verify() на сценарии из code/onto/scenarios/. Используется в tests/integration/test_verification_scenarios.py и в Jupyter-ноутбуках фазы 3 для расчёта Precision/Recall.",
+  "scenarios": [
+    {
+      "name": "happy_path",
+      "course_id": "course_python_basics",
+      "full": true,
+      "description": "Полный курс Python, все 9 политик срабатывают корректно на 4 студентах (SAT_DATA_MODELS §6.3–6.7).",
+      "expected": {
+        "consistency": "passed",
+        "acyclicity": "passed",
+        "reachability": "passed",
+        "redundancy": "passed",
+        "subsumption": "passed"
+      },
+      "access_matrix_reference": "SAT_DATA_MODELS §6.7"
+    },
+    {
+      "name": "bad_sv1_disjointness",
+      "course_id": "course_minimal",
+      "description": "user_mixed_role ∈ Student ⊓ Methodologist — нарушение AllDisjoint (§1.5).",
+      "expected": {
+        "consistency": "failed",
+        "violations": [
+          {
+            "property": "consistency",
+            "code": "SV1_INCONSISTENT",
+            "root_individual": "user_mixed_role"
+          }
+        ]
+      }
+    },
+    {
+      "name": "bad_sv2_cycle",
+      "course_id": "course_cycle",
+      "description": "Два модуля взаимно требуют completion друг друга — цикл в split-node графе.",
+      "expected": {
+        "consistency": "passed",
+        "acyclicity": "failed",
+        "violations": [
+          {
+            "property": "acyclicity",
+            "code": "SV2_CYCLE",
+            "policies": ["p_cycle_ab", "p_cycle_ba"]
+          }
+        ]
+      }
+    },
+    {
+      "name": "bad_sv3_atomic_threshold",
+      "course_id": "course_unreach",
+      "description": "grade_required с threshold=150 — вне диапазона has_grade [0, 100].",
+      "expected": {
+        "consistency": "passed",
+        "acyclicity": "passed",
+        "reachability": "failed",
+        "violations": [
+          {
+            "property": "reachability",
+            "code": "SV3_ATOMIC_UNSAT",
+            "policy_id": "p_unreach_threshold"
+          }
+        ]
+      }
+    },
+    {
+      "name": "bad_sv3_empty_date",
+      "course_id": "course_empty_window",
+      "description": "date_restricted с valid_from > valid_until — пустое окно.",
+      "expected": {
+        "consistency": "passed",
+        "acyclicity": "passed",
+        "reachability": "failed",
+        "violations": [
+          {
+            "property": "reachability",
+            "code": "SV3_ATOMIC_UNSAT",
+            "policy_id": "p_unreach_date"
+          }
+        ]
+      }
+    },
+    {
+      "name": "bad_sv3_structural",
+      "course_id": "course_triangle",
+      "description": "Три элемента A→B→C→A через completion_required — структурно недостижимы без стартового прогресса.",
+      "expected": {
+        "consistency": "passed",
+        "acyclicity": "failed",
+        "reachability": "failed",
+        "violations": [
+          {
+            "property": "acyclicity",
+            "code": "SV2_CYCLE"
+          },
+          {
+            "property": "reachability",
+            "code": "SV3_UNREACHABLE",
+            "elements": ["elem_A", "elem_B", "elem_C"]
+          }
+        ]
+      }
+    },
+    {
+      "name": "bad_sv4_redundant",
+      "course_id": "course_redundant",
+      "full": true,
+      "description": "Две grade_required политики на одном элементе: threshold=80 поглощена threshold=60.",
+      "expected": {
+        "consistency": "passed",
+        "acyclicity": "passed",
+        "reachability": "passed",
+        "redundancy": "failed",
+        "violations": [
+          {
+            "property": "redundancy",
+            "code": "SV4_REDUNDANT",
+            "dominant": "p_red_weak",
+            "dominated": "p_red_strong"
+          }
+        ]
+      }
+    },
+    {
+      "name": "bad_sv5_subject",
+      "course_id": "course_subject",
+      "full": true,
+      "description": "p_subj_group (AND(grade≥70, grp_advanced)) поглощена p_subj_all (grade≥70) по субъектам.",
+      "expected": {
+        "consistency": "passed",
+        "acyclicity": "passed",
+        "reachability": "passed",
+        "subsumption": "failed",
+        "violations": [
+          {
+            "property": "subsumption",
+            "code": "SV5_SUBSUMED",
+            "dominant": "p_subj_all",
+            "dominated": "p_subj_group"
+          }
+        ]
+      }
+    }
+  ]
+}

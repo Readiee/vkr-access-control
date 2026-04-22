@@ -41,6 +41,10 @@ export const RuleTypeMap: Record<string, RuleTypeInfo> = {
   [RuleType.GRADE_REQUIRED]:       { label: 'Оценка',       severity: 'warn' },
   [RuleType.COMPETENCY_REQUIRED]:  { label: 'Компетенция',  severity: 'danger' },
   [RuleType.DATE_RESTRICTED]:      { label: 'Даты',         severity: 'secondary' },
+  [RuleType.GROUP_RESTRICTED]:     { label: 'Группа',       severity: 'contrast' },
+  [RuleType.AND_COMBINATION]:      { label: 'И (AND)',      severity: 'info' },
+  [RuleType.OR_COMBINATION]:       { label: 'ИЛИ (OR)',     severity: 'info' },
+  [RuleType.AGGREGATE_REQUIRED]:   { label: 'Агрегат',      severity: 'warn' },
 };
 
 /** Сгенерированные опции для Select из RuleTypeMap */
@@ -106,12 +110,27 @@ export const formatPolicyBadgeText = (
         const [year, month, day] = dateStr.split('T')[0].split('-');
         return `${day}.${month}.${year}`;
       };
-      
-      const from = policy.available_from ? ` с ${formatDate(policy.available_from)}` : '';
-      const until = policy.available_until ? ` по ${formatDate(policy.available_until)}` : '';
-      
-      // Добавляем пробел перед условием, если есть даты
+      const from = policy.valid_from ? ` с ${formatDate(policy.valid_from)}` : '';
+      const until = policy.valid_until ? ` по ${formatDate(policy.valid_until)}` : '';
       description = from || until ? `${label}:${from}${until}` : label;
+      break;
+    }
+    case RuleType.GROUP_RESTRICTED: {
+      description = policy.restricted_to_group_id
+        ? `${label}: ${policy.restricted_to_group_id}`
+        : label;
+      break;
+    }
+    case RuleType.AND_COMBINATION:
+    case RuleType.OR_COMBINATION: {
+      const count = policy.subpolicy_ids?.length ?? 0;
+      description = `${label}: ${count} подполитик`;
+      break;
+    }
+    case RuleType.AGGREGATE_REQUIRED: {
+      const fn = policy.aggregate_function ?? '?';
+      const cnt = policy.aggregate_element_ids?.length ?? 0;
+      description = `${label}: ${fn} ≥ ${policy.passing_threshold ?? '?'} (${cnt} эл.)`;
       break;
     }
     default:

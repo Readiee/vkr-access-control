@@ -1,0 +1,192 @@
+"""Integration: негативные сценарии СВ-1 (inconsistency) и СВ-3 (reachability failed).
+
+Строим минимальные bad-case ABox из §6.8 SAT_DATA_MODELS прямо поверх онтологии.
+"""
+from __future__ import annotations
+
+import os
+import shutil
+import sys
+import unittest
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+from owlready2 import World  # noqa: E402
+
+from core.config import DEFAULT_ONTOLOGY_PATH  # noqa: E402
+from core.enums import ElementType, RuleType  # noqa: E402
+from schemas.schemas import CourseElement, CourseSyncPayload, PolicyCreate  # noqa: E402
+from services.course_service import CourseService  # noqa: E402
+from services.ontology_core import OntologyCore  # noqa: E402
+from services.policy_service import PolicyService  # noqa: E402
+from services.verification_service import VerificationService  # noqa: E402
+
+
+class VerificationNegativeTests(unittest.TestCase):
+    """Каждый тест — свежий owlready2 World, иначе индивиды из прошлого теста
+    остаются в глобальном графе и портят Pellet."""
+
+    def setUp(self):
+        self.test_owl = f"test_verify_neg_{id(self)}.owl"
+        shutil.copy(DEFAULT_ONTOLOGY_PATH, self.test_owl)
+        self.world = World()
+        self.core = OntologyCore(self.test_owl, world=self.world)
+        self.course_service = CourseService(self.core)
+        self.policy_service = PolicyService(self.core)
+        self.verification = VerificationService(self.core)
+
+    def tearDown(self):
+        self.world.close()
+        if os.path.exists(self.test_owl):
+            os.remove(self.test_owl)
+
+    def test_sv1_failed_when_reasoner_returns_inconsistent(self):
+        """СВ-1 отчёт корректно заполняется, когда ReasoningOrchestrator возвращает inconsistent.
+        Реальная Pellet-inconsistency (disjointness/functional) зависит от версии Owlready2;
+        здесь мокаем run_reasoner — тестируем контракт, а не Pellet.
+        """
+        self.course_service.sync_course_structure(
+            "course_neg1",
+            CourseSyncPayload(
+                course_name="Neg1",
+                elements=[
+                    CourseElement(
+                        element_id="mod_neg1",
+                        name="M",
+                        element_type=ElementType.MODULE,
+                        parent_id="course_neg1",
+                    )
+                ],
+            ),
+        )
+
+        from services.reasoning_orchestrator import ReasoningResult
+        self.core.run_reasoner = lambda: ReasoningResult(
+            status="inconsistent", error="disjointness violated on user_mixed_role"
+        )
+
+        report = self.verification.verify("course_neg1").to_dict()
+        self.assertEqual(report["properties"]["consistency"]["status"], "failed")
+        violations = report["properties"]["consistency"]["violations"]
+        self.assertEqual(violations[0]["code"], "SV1_INCONSISTENT")
+        # Reachability при inconsistent не запускается — status unknown
+        self.assertEqual(report["properties"]["reachability"]["status"], "unknown")
+
+    def test_sv1_timeout_returns_partial_unknown(self):
+        """При reasoning timeout отчёт помечается partial=True."""
+        self.course_service.sync_course_structure(
+            "course_neg_timeout",
+            CourseSyncPayload(
+                course_name="NT",
+                elements=[
+                    CourseElement(
+                        element_id="mod_neg_t",
+                        name="M",
+                        element_type=ElementType.MODULE,
+                        parent_id="course_neg_timeout",
+                    )
+                ],
+            ),
+        )
+
+        from services.reasoning_orchestrator import ReasoningResult
+        self.core.run_reasoner = lambda: ReasoningResult(status="timeout", timed_out=True)
+
+        report = self.verification.verify("course_neg_timeout").to_dict()
+        self.assertTrue(report["partial"])
+        self.assertEqual(report["properties"]["consistency"]["status"], "unknown")
+
+    def test_sv3_reachability_failed_atomic(self):
+        """bad_sv3_atomic: политика с threshold=150 → атомарно недостижима."""
+        self.course_service.sync_course_structure(
+            "course_neg3a",
+            CourseSyncPayload(
+                course_name="Neg3a",
+                elements=[
+                    CourseElement(
+                        element_id="mod_neg3a",
+                        name="M",
+                        element_type=ElementType.MODULE,
+                        parent_id="course_neg3a",
+                    ),
+                    CourseElement(
+                        element_id="lec_neg3a_a",
+                        name="A",
+                        element_type=ElementType.LECTURE,
+                        parent_id="mod_neg3a",
+                    ),
+                    CourseElement(
+                        element_id="lec_neg3a_b",
+                        name="B",
+                        element_type=ElementType.LECTURE,
+                        parent_id="mod_neg3a",
+                    ),
+                ],
+            ),
+        )
+
+        # Вручную вешаем плохой threshold (PolicyService.create_policy валидирует через Pydantic,
+        # но дело не в валидации — нам нужна политика с out-of-range threshold для А4 прохода 1)
+        with self.core.onto:
+            target = self.core.onto.search_one(iri="*lec_neg3a_a")
+            source = self.core.onto.search_one(iri="*lec_neg3a_b")
+            bad = self.core.onto.AccessPolicy("p_neg3a_bad_threshold")
+            bad.rule_type = ["grade_required"]
+            bad.is_active = [True]
+            bad.passing_threshold = [150.0]
+            bad.targets_element = [target]
+            source.has_access_policy = [bad]
+        self.core.save()
+
+        report = self.verification.verify("course_neg3a").to_dict()
+        self.assertEqual(report["properties"]["reachability"]["status"], "failed")
+        reasons = report["properties"]["reachability"]["violations"]
+        self.assertTrue(any(r.get("code") == "SV3_ATOMIC_UNSAT" for r in reasons))
+
+    def test_sv2_cycle_reported_in_full_report(self):
+        """СВ-2 должен ловить настоящий цикл после insert напрямую в ABox (обход check_for_cycles)."""
+        self.course_service.sync_course_structure(
+            "course_neg2",
+            CourseSyncPayload(
+                course_name="Neg2",
+                elements=[
+                    CourseElement(
+                        element_id="mod_neg2_a",
+                        name="MA",
+                        element_type=ElementType.MODULE,
+                        parent_id="course_neg2",
+                    ),
+                    CourseElement(
+                        element_id="mod_neg2_b",
+                        name="MB",
+                        element_type=ElementType.MODULE,
+                        parent_id="course_neg2",
+                    ),
+                ],
+            ),
+        )
+        with self.core.onto:
+            a = self.core.onto.search_one(iri="*mod_neg2_a")
+            b = self.core.onto.search_one(iri="*mod_neg2_b")
+            p_ab = self.core.onto.AccessPolicy("p_neg2_ab")
+            p_ab.rule_type = ["completion_required"]
+            p_ab.is_active = [True]
+            p_ab.targets_element = [b]
+            a.has_access_policy = [p_ab]
+            p_ba = self.core.onto.AccessPolicy("p_neg2_ba")
+            p_ba.rule_type = ["completion_required"]
+            p_ba.is_active = [True]
+            p_ba.targets_element = [a]
+            b.has_access_policy = [p_ba]
+        self.core.save()
+
+        report = self.verification.verify("course_neg2").to_dict()
+        self.assertEqual(report["properties"]["acyclicity"]["status"], "failed")
+        cycles = report["properties"]["acyclicity"]["violations"]
+        self.assertTrue(cycles)
+        nodes = {n for c in cycles for n in c.get("path", [])}
+        self.assertTrue({"mod_neg2_a", "mod_neg2_b"}.issubset(nodes))
+
+
+if __name__ == "__main__":
+    unittest.main()

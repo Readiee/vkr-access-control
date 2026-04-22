@@ -22,23 +22,43 @@ class CourseElementMeta(BaseModel):
     is_required: bool = Field(default=True, description="Является ли элемент обязательным")
 
 
+class Group(BaseModel):
+    """Студенческая группа для group_restricted."""
+    id: str = Field(..., description="ID группы (напр. 'grp_advanced')")
+    name: str = Field(..., description="Название группы")
+
+
 class OntologyMeta(BaseModel):
     """Метаданные онтологии для фронтенда."""
     rule_types: List[RuleType] = Field(..., description="Список поддерживаемых типов правил")
     statuses: List[ProgressStatus] = Field(..., description="Список статусов отслеживания")
     competencies: List[Competency] = Field(..., description="Список доступных компетенций")
     course_elements: List[CourseElementMeta] = Field(..., description="Список элементов структуры курса")
+    groups: List[Group] = Field(default_factory=list, description="Список доступных групп студентов")
+
+
+class AggregateFunction(str, Enum):
+    """Допустимые функции агрегата для aggregate_required."""
+    AVG = "AVG"
+    SUM = "SUM"
+    COUNT = "COUNT"
 
 
 class PolicyBase(BaseModel):
     """Базовые поля политики доступа."""
     model_config = ConfigDict(use_enum_values=True)
-    
-    source_element_id: str = Field(..., description="ID защищаемого элемента")
+
+    source_element_id: Optional[str] = Field(
+        None,
+        description=(
+            "ID защищаемого элемента. Пусто → политика существует как "
+            "подполитика композита и не привязана к элементу напрямую."
+        ),
+    )
     rule_type: RuleType = Field(..., description="Тип применяемого правила")
-    target_element_id: Optional[str] = Field(None, description="ID целевого элемента (для grade/completion)")
-    target_competency_id: Optional[str] = Field(None, description="ID целевой компетенции (для competency)")
-    passing_threshold: Optional[float] = Field(None, description="Пороговая оценка для grade_required")
+    target_element_id: Optional[str] = Field(None, description="ID целевого элемента (для grade/completion/viewed)")
+    target_competency_id: Optional[str] = Field(None, description="ID целевой компетенции (для competency_required)")
+    passing_threshold: Optional[float] = Field(None, description="Пороговая оценка для grade_required/aggregate_required")
     valid_from: Optional[datetime] = Field(
         None,
         description="Дата открытия доступа (date_restricted)",
@@ -53,6 +73,17 @@ class PolicyBase(BaseModel):
         validation_alias=AliasChoices("valid_until", "available_until"),
         serialization_alias="valid_until",
     )
+    restricted_to_group_id: Optional[str] = Field(None, description="ID группы студентов для group_restricted")
+    subpolicy_ids: Optional[List[str]] = Field(
+        None,
+        description="ID подполитик для and_combination/or_combination (минимум 2, различные)",
+    )
+    aggregate_function: Optional[AggregateFunction] = Field(
+        None, description="AVG/SUM/COUNT для aggregate_required"
+    )
+    aggregate_element_ids: Optional[List[str]] = Field(
+        None, description="ID элементов, по которым считается агрегат"
+    )
     author_id: str = Field(..., description="ID методиста, создавшего правило")
 
 
@@ -61,9 +92,40 @@ class PolicyCreate(PolicyBase):
     is_active: bool = Field(True, description="Флаг активности (по умолчанию: True)")
 
     @model_validator(mode='after')
-    def validate_grade_threshold(self) -> 'PolicyCreate':
-        if self.rule_type == RuleType.GRADE.value and self.passing_threshold is None:
-            raise ValueError("Пороговая оценка (passing_threshold) обязательна для правил типа GRADE.")
+    def validate_by_rule_type(self) -> 'PolicyCreate':
+        rt = self.rule_type if isinstance(self.rule_type, str) else self.rule_type.value
+
+        if rt in {RuleType.COMPLETION.value, RuleType.VIEWED.value}:
+            if not self.target_element_id:
+                raise ValueError(f"Для {rt} обязателен target_element_id.")
+        elif rt == RuleType.GRADE.value:
+            if not self.target_element_id:
+                raise ValueError("Для grade_required обязателен target_element_id.")
+            if self.passing_threshold is None:
+                raise ValueError("Для grade_required обязателен passing_threshold.")
+        elif rt == RuleType.COMPETENCY.value:
+            if not self.target_competency_id:
+                raise ValueError("Для competency_required обязателен target_competency_id.")
+        elif rt == RuleType.DATE.value:
+            if self.valid_from is None or self.valid_until is None:
+                raise ValueError("Для date_restricted обязательны valid_from и valid_until.")
+            if self.valid_from > self.valid_until:
+                raise ValueError("valid_from должно быть раньше valid_until.")
+        elif rt in {RuleType.AND.value, RuleType.OR.value}:
+            if not self.subpolicy_ids or len(self.subpolicy_ids) < 2:
+                raise ValueError(f"Для {rt} нужно минимум 2 подполитики.")
+            if len(set(self.subpolicy_ids)) != len(self.subpolicy_ids):
+                raise ValueError("subpolicy_ids должны быть уникальны.")
+        elif rt == RuleType.GROUP.value:
+            if not self.restricted_to_group_id:
+                raise ValueError("Для group_restricted обязателен restricted_to_group_id.")
+        elif rt == RuleType.AGGREGATE.value:
+            if self.aggregate_function is None:
+                raise ValueError("Для aggregate_required обязателен aggregate_function.")
+            if not self.aggregate_element_ids:
+                raise ValueError("Для aggregate_required обязателен aggregate_element_ids.")
+            if self.passing_threshold is None:
+                raise ValueError("Для aggregate_required обязателен passing_threshold.")
         return self
 
 

@@ -1,77 +1,228 @@
+"""Split-node DiGraph над структурой курса и политиками доступа.
+
+Интра-элементные, иерархические и политические дуги. Политические дуги строятся
+по rule_type: completion/grade/aggregate/competency → tgt.complete → src.access,
+viewed_required → tgt.access → src.access, date/group → не добавляют дуг,
+and/or → рекурсия по has_subpolicy.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Set
+
 import networkx as nx
-from typing import List, Any
+
+from core.enums import RuleType
+from utils.owl_utils import get_owl_prop
+
+
+@dataclass
+class ProbePolicy:
+    """Описание «пробной» политики для детектора циклов в UC-3."""
+    rule_type: str
+    source_id: str
+    target_element_id: Optional[str] = None
+    target_competency_id: Optional[str] = None
+    subpolicy_ids: List[str] = field(default_factory=list)
+    aggregate_element_ids: List[str] = field(default_factory=list)
+
 
 class GraphValidator:
-    """Валидатор графа зависимостей и иерархии курса."""
+    """Детектор циклов по split-node графу зависимостей."""
 
-    @staticmethod
-    def check_for_cycles(onto: Any, new_source_id: str, new_target_id: str) -> List[str]:
-        """
-        Проверка цикла в графе зависимостей (Split-Node DiGraph).
-        
-        Каждый элемент разделен на узел доступа (_access) и завершения (_complete).
-        Это позволяет корректно обрабатывать транзитивные циклы в иерархии.
-        """
-        G = nx.DiGraph()
+    _MAX_RECURSION_DEPTH = 32  # защита от циклической композиции has_subpolicy
 
-        # Построение базовой иерархии и внутренних связей
-        for el in onto.CourseStructure.instances():
-            eid = el.name
-            # Чтобы завершить элемент, нужно сначала получить к нему доступ
-            G.add_edge(f"{eid}_access", f"{eid}_complete")
+    @classmethod
+    def check_for_cycles(
+        cls,
+        onto: Any,
+        new_source_id: str,
+        new_target_id: Optional[str] = None,
+        rule_type: str = RuleType.COMPLETION.value,
+        probe: Optional[ProbePolicy] = None,
+    ) -> List[str]:
+        """Проверить, порождает ли пробная политика цикл (UC-3). Вернуть путь или []."""
+        if probe is None:
+            probe = ProbePolicy(
+                rule_type=rule_type,
+                source_id=new_source_id,
+                target_element_id=new_target_id,
+            )
+        graph = cls.build_dependency_graph(onto)
+        cls._add_probe_edges(graph, onto, probe)
+        return cls._find_first_cycle_path(graph)
 
-            children = (
-                list(getattr(el, "has_module", []))
-                + list(getattr(el, "contains_element", []))
+    @classmethod
+    def find_all_cycles(cls, onto: Any) -> List[List[str]]:
+        """Вернуть все циклы в графе зависимостей онтологии (UC-6)."""
+        graph = cls.build_dependency_graph(onto)
+        cycles: List[List[str]] = []
+        for component in nx.strongly_connected_components(graph):
+            if len(component) < 2:
+                node = next(iter(component))
+                if graph.has_edge(node, node):
+                    cycles.append([cls._strip_suffix(node)])
+                continue
+            subgraph = graph.subgraph(component).copy()
+            try:
+                edges = nx.find_cycle(subgraph, orientation="original")
+            except nx.NetworkXNoCycle:
+                continue
+            cycles.append(cls._reconstruct_path(edges))
+        return cycles
+
+    @classmethod
+    def build_dependency_graph(cls, onto: Any) -> nx.DiGraph:
+        """Собрать split-node DiGraph по всей онтологии."""
+        graph = nx.DiGraph()
+
+        for elem in onto.CourseStructure.instances():
+            eid = elem.name
+            graph.add_edge(f"{eid}_access", f"{eid}_complete")
+            children = list(getattr(elem, "has_module", []) or []) + list(
+                getattr(elem, "contains_element", []) or []
             )
             for child in children:
                 cid = child.name
-                # Доступ к дочернему элементу требует доступа к родителю
-                G.add_edge(f"{eid}_access", f"{cid}_access")
-                # Завершение родителя требует завершения всех детей
-                G.add_edge(f"{cid}_complete", f"{eid}_complete")
+                graph.add_edge(f"{eid}_access", f"{cid}_access")
+                graph.add_edge(f"{cid}_complete", f"{eid}_complete")
 
-        # Добавление активных политик доступа
         for policy in onto.AccessPolicy.instances():
-            is_active = getattr(policy, "is_active", [True])
-            if is_active and is_active[0] is False:
+            if get_owl_prop(policy, "is_active", True) is False:
                 continue
-                
-            source_elements = onto.search(has_access_policy=policy)
-            targets = getattr(policy, "targets_element", [])
-            
-            if not targets or not source_elements:
-                continue
-                
-            target_id = targets[0].name
-            for source in source_elements:
-                # Завершение target разблокирует доступ к source
-                G.add_edge(f"{target_id}_complete", f"{source.name}_access")
+            sources = onto.search(has_access_policy=policy) or []
+            for source in sources:
+                cls._add_policy_edges(graph, onto, policy, source.name, depth=0)
 
-        # Добавление проверяемой политики
-        G.add_edge(f"{new_target_id}_complete", f"{new_source_id}_access")
+        return graph
 
+    @classmethod
+    def _add_policy_edges(
+        cls,
+        graph: nx.DiGraph,
+        onto: Any,
+        policy: Any,
+        source_id: str,
+        depth: int,
+    ) -> None:
+        if depth > cls._MAX_RECURSION_DEPTH:
+            raise RuntimeError(
+                f"Превышена глубина has_subpolicy ({depth}); вероятна циклическая композиция"
+            )
+
+        rule_type = get_owl_prop(policy, "rule_type", "")
+        if rule_type in {RuleType.DATE.value, RuleType.GROUP.value}:
+            return
+
+        if rule_type in {RuleType.COMPLETION.value, RuleType.GRADE.value}:
+            target = get_owl_prop(policy, "targets_element")
+            if target is not None:
+                graph.add_edge(f"{target.name}_complete", f"{source_id}_access")
+            return
+
+        if rule_type == RuleType.VIEWED.value:
+            target = get_owl_prop(policy, "targets_element")
+            if target is not None:
+                graph.add_edge(f"{target.name}_access", f"{source_id}_access")
+            return
+
+        if rule_type == RuleType.COMPETENCY.value:
+            competency = get_owl_prop(policy, "targets_competency")
+            if competency is None:
+                return
+            for assessor in onto.search(assesses=competency) or []:
+                graph.add_edge(f"{assessor.name}_complete", f"{source_id}_access")
+            for sub in cls._subcompetencies(onto, competency):
+                for assessor in onto.search(assesses=sub) or []:
+                    graph.add_edge(f"{assessor.name}_complete", f"{source_id}_access")
+            return
+
+        if rule_type in {RuleType.AND.value, RuleType.OR.value}:
+            for sub in getattr(policy, "has_subpolicy", []) or []:
+                cls._add_policy_edges(graph, onto, sub, source_id, depth + 1)
+            return
+
+        if rule_type == RuleType.AGGREGATE.value:
+            for elem in getattr(policy, "aggregate_elements", []) or []:
+                graph.add_edge(f"{elem.name}_complete", f"{source_id}_access")
+            return
+
+    @classmethod
+    def _add_probe_edges(cls, graph: nx.DiGraph, onto: Any, probe: ProbePolicy) -> None:
+        rt = probe.rule_type
+        src = probe.source_id
+        if rt in {RuleType.DATE.value, RuleType.GROUP.value}:
+            return
+        if rt in {RuleType.COMPLETION.value, RuleType.GRADE.value} and probe.target_element_id:
+            graph.add_edge(f"{probe.target_element_id}_complete", f"{src}_access")
+            return
+        if rt == RuleType.VIEWED.value and probe.target_element_id:
+            graph.add_edge(f"{probe.target_element_id}_access", f"{src}_access")
+            return
+        if rt == RuleType.COMPETENCY.value and probe.target_competency_id:
+            competency = onto.search_one(type=onto.Competency, iri=f"*{probe.target_competency_id}")
+            if competency is None:
+                return
+            for assessor in onto.search(assesses=competency) or []:
+                graph.add_edge(f"{assessor.name}_complete", f"{src}_access")
+            return
+        if rt == RuleType.AGGREGATE.value:
+            for eid in probe.aggregate_element_ids:
+                graph.add_edge(f"{eid}_complete", f"{src}_access")
+            return
+        if rt in {RuleType.AND.value, RuleType.OR.value}:
+            for sub_id in probe.subpolicy_ids:
+                sub = onto.search_one(type=onto.AccessPolicy, iri=f"*{sub_id}")
+                if sub is not None:
+                    cls._add_policy_edges(graph, onto, sub, src, depth=0)
+
+    @staticmethod
+    def _subcompetencies(onto: Any, parent: Any) -> Set[Any]:
+        seen: Set[Any] = set()
+        frontier = [parent]
+        while frontier:
+            node = frontier.pop()
+            for child in onto.search(is_subcompetency_of=node) or []:
+                if child not in seen:
+                    seen.add(child)
+                    frontier.append(child)
+        return seen
+
+    @classmethod
+    def _find_first_cycle_path(cls, graph: nx.DiGraph) -> List[str]:
         try:
-            cycle_edges = nx.find_cycle(G, orientation="original")
-            path: List[str] = []
-            for u, _, _ in cycle_edges:
-                base_id = u.replace("_access", "").replace("_complete", "")
-                if not path or path[-1] != base_id:
-                    path.append(base_id)
-            return path
+            edges = nx.find_cycle(graph, orientation="original")
         except nx.NetworkXNoCycle:
             return []
+        return cls._reconstruct_path(edges)
+
+    @staticmethod
+    def _reconstruct_path(edges: Any) -> List[str]:
+        path: List[str] = []
+        for edge in edges:
+            u = edge[0]
+            base = GraphValidator._strip_suffix(u)
+            if not path or path[-1] != base:
+                path.append(base)
+        return path
+
+    @staticmethod
+    def _strip_suffix(node: str) -> str:
+        if node.endswith("_access"):
+            return node[: -len("_access")]
+        if node.endswith("_complete"):
+            return node[: -len("_complete")]
+        return node
 
     @staticmethod
     def get_parent_of(onto: Any, element_id: str) -> Any:
-        """Поиск родительского объекта в иерархии курса."""
-        el = onto.search_one(iri=f"*{element_id}")
-        if not el:
+        """Найти родителя элемента по has_module/contains_element (совместимость)."""
+        element = onto.search_one(iri=f"*{element_id}")
+        if not element:
             return None
-            
         for candidate in onto.CourseStructure.instances():
-            if el in getattr(candidate, "has_module", []):
+            if element in (getattr(candidate, "has_module", []) or []):
                 return candidate
-            if el in getattr(candidate, "contains_element", []):
+            if element in (getattr(candidate, "contains_element", []) or []):
                 return candidate
         return None

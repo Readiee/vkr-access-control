@@ -1,0 +1,322 @@
+"""Integration: AND/OR/aggregate_required через реальный Pellet + двухуровневую SWRL."""
+from __future__ import annotations
+
+import os
+import shutil
+import sys
+import unittest
+from datetime import datetime
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+from owlready2 import World  # noqa: E402
+
+from core.config import DEFAULT_ONTOLOGY_PATH  # noqa: E402
+from core.enums import ElementType, RuleType  # noqa: E402
+from schemas.schemas import (  # noqa: E402
+    AggregateFunction,
+    CourseElement,
+    CourseSyncPayload,
+    PolicyCreate,
+)
+from services.course_service import CourseService  # noqa: E402
+from services.ontology_core import OntologyCore  # noqa: E402
+from services.policy_service import PolicyService  # noqa: E402
+
+
+class CompositeAndAggregateEndToEndTests(unittest.TestCase):
+    """Each test gets a fresh World — Pellet видит только свои индивиды."""
+
+    def setUp(self):
+        self.test_owl = f"test_composite_agg_{id(self)}.owl"
+        shutil.copy(DEFAULT_ONTOLOGY_PATH, self.test_owl)
+        self.world = World()
+        self.core = OntologyCore(self.test_owl, world=self.world)
+        self.course_service = CourseService(self.core)
+        self.policy_service = PolicyService(self.core)
+
+        elements = [
+            CourseElement(
+                element_id="mod_cmp",
+                name="Composite module",
+                element_type=ElementType.MODULE,
+                parent_id="course_cmp",
+            ),
+            CourseElement(
+                element_id="quiz_a",
+                name="Quiz A",
+                element_type=ElementType.TEST,
+                parent_id="mod_cmp",
+            ),
+            CourseElement(
+                element_id="quiz_b",
+                name="Quiz B",
+                element_type=ElementType.TEST,
+                parent_id="mod_cmp",
+            ),
+            CourseElement(
+                element_id="final_cmp",
+                name="Final",
+                element_type=ElementType.TEST,
+                parent_id="mod_cmp",
+            ),
+            CourseElement(
+                element_id="target_cmp",
+                name="Target",
+                element_type=ElementType.LECTURE,
+                parent_id="mod_cmp",
+            ),
+        ]
+        self.course_service.sync_course_structure(
+            "course_cmp",
+            CourseSyncPayload(course_name="Composite+Aggregate course", elements=elements),
+        )
+
+    def tearDown(self):
+        self.world.close()
+        if os.path.exists(self.test_owl):
+            os.remove(self.test_owl)
+
+    def _create_policy(self, **kwargs) -> dict:
+        payload = PolicyCreate(author_id="methodologist_smirnov", **kwargs)
+        return self.policy_service.create_policy(payload)
+
+    # --- AND composite ---------------------------------------------------
+
+    def test_and_combination_satisfies_when_both_subs_met(self):
+        """AND композит: оба sub-условия выполнены → satisfies → is_available_for."""
+        sub_a = self._create_policy(
+            rule_type=RuleType.COMPLETION,
+            target_element_id="quiz_a",
+        )
+        sub_b = self._create_policy(
+            rule_type=RuleType.COMPLETION,
+            target_element_id="quiz_b",
+        )
+        composite = self._create_policy(
+            source_element_id="target_cmp",
+            rule_type=RuleType.AND,
+            subpolicy_ids=[sub_a["id"], sub_b["id"]],
+        )
+
+        with self.core.onto:
+            student = self.core.onto.Student("student_cmp_and")
+            quiz_a = self.core.onto.search_one(iri="*quiz_a")
+            quiz_b = self.core.onto.search_one(iri="*quiz_b")
+
+            pr_a = self.core.onto.ProgressRecord("pr_cmp_and_a")
+            pr_a.refers_to_element = [quiz_a]
+            pr_a.has_status = [self.core.onto.status_completed]
+            student.has_progress_record.append(pr_a)
+
+            pr_b = self.core.onto.ProgressRecord("pr_cmp_and_b")
+            pr_b.refers_to_element = [quiz_b]
+            pr_b.has_status = [self.core.onto.status_completed]
+            student.has_progress_record.append(pr_b)
+        self.core.save()
+
+        result = self.core.run_reasoner()
+        self.assertEqual(result.status, "ok")
+
+        target = self.core.onto.search_one(iri="*target_cmp")
+        composite_node = self.core.onto.search_one(iri=f"*{composite['id']}")
+        self.assertIn(composite_node, getattr(student, "satisfies", []) or [])
+        self.assertIn(student, getattr(target, "is_available_for", []) or [])
+
+    def test_and_combination_denies_when_one_sub_missing(self):
+        """AND: один sub не выполнен → satisfies не выводится."""
+        sub_a = self._create_policy(
+            rule_type=RuleType.COMPLETION,
+            target_element_id="quiz_a",
+        )
+        sub_b = self._create_policy(
+            rule_type=RuleType.COMPLETION,
+            target_element_id="quiz_b",
+        )
+        self._create_policy(
+            source_element_id="target_cmp",
+            rule_type=RuleType.AND,
+            subpolicy_ids=[sub_a["id"], sub_b["id"]],
+        )
+
+        with self.core.onto:
+            student = self.core.onto.Student("student_cmp_and_partial")
+            quiz_a = self.core.onto.search_one(iri="*quiz_a")
+            pr_a = self.core.onto.ProgressRecord("pr_cmp_and_partial_a")
+            pr_a.refers_to_element = [quiz_a]
+            pr_a.has_status = [self.core.onto.status_completed]
+            student.has_progress_record.append(pr_a)
+            # quiz_b намеренно пропущен
+        self.core.save()
+
+        self.core.run_reasoner()
+        target = self.core.onto.search_one(iri="*target_cmp")
+        self.assertNotIn(student, getattr(target, "is_available_for", []) or [])
+
+    # --- OR composite ----------------------------------------------------
+
+    def test_or_combination_satisfies_when_one_branch_met(self):
+        """OR: достаточно одной sub-политики."""
+        sub_a = self._create_policy(
+            rule_type=RuleType.COMPLETION,
+            target_element_id="quiz_a",
+        )
+        sub_b = self._create_policy(
+            rule_type=RuleType.GRADE,
+            target_element_id="quiz_b",
+            passing_threshold=90.0,
+        )
+        self._create_policy(
+            source_element_id="target_cmp",
+            rule_type=RuleType.OR,
+            subpolicy_ids=[sub_a["id"], sub_b["id"]],
+        )
+
+        with self.core.onto:
+            student = self.core.onto.Student("student_cmp_or")
+            quiz_a = self.core.onto.search_one(iri="*quiz_a")
+            pr_a = self.core.onto.ProgressRecord("pr_cmp_or_a")
+            pr_a.refers_to_element = [quiz_a]
+            pr_a.has_status = [self.core.onto.status_completed]
+            student.has_progress_record.append(pr_a)
+        self.core.save()
+
+        self.core.run_reasoner()
+        target = self.core.onto.search_one(iri="*target_cmp")
+        self.assertIn(student, getattr(target, "is_available_for", []) or [])
+
+    def test_or_combination_denies_when_no_branch_met(self):
+        """OR: ни одна sub-политика не сработала."""
+        sub_a = self._create_policy(
+            rule_type=RuleType.COMPLETION,
+            target_element_id="quiz_a",
+        )
+        sub_b = self._create_policy(
+            rule_type=RuleType.COMPLETION,
+            target_element_id="quiz_b",
+        )
+        self._create_policy(
+            source_element_id="target_cmp",
+            rule_type=RuleType.OR,
+            subpolicy_ids=[sub_a["id"], sub_b["id"]],
+        )
+
+        with self.core.onto:
+            student = self.core.onto.Student("student_cmp_or_empty")
+            # никакого прогресса
+        self.core.save()
+
+        self.core.run_reasoner()
+        target = self.core.onto.search_one(iri="*target_cmp")
+        self.assertNotIn(student, getattr(target, "is_available_for", []) or [])
+
+    # --- aggregate_required ----------------------------------------------
+
+    def test_aggregate_avg_meets_threshold(self):
+        """aggregate_required: AVG оценок ≥ threshold → satisfies."""
+        self._create_policy(
+            source_element_id="target_cmp",
+            rule_type=RuleType.AGGREGATE,
+            aggregate_function=AggregateFunction.AVG,
+            aggregate_element_ids=["quiz_a", "quiz_b"],
+            passing_threshold=70.0,
+        )
+
+        with self.core.onto:
+            student = self.core.onto.Student("student_agg_pass")
+            quiz_a = self.core.onto.search_one(iri="*quiz_a")
+            quiz_b = self.core.onto.search_one(iri="*quiz_b")
+
+            pr_a = self.core.onto.ProgressRecord("pr_agg_a")
+            pr_a.refers_to_element = [quiz_a]
+            pr_a.has_grade = [80.0]
+            pr_a.has_status = [self.core.onto.status_completed]
+            student.has_progress_record.append(pr_a)
+
+            pr_b = self.core.onto.ProgressRecord("pr_agg_b")
+            pr_b.refers_to_element = [quiz_b]
+            pr_b.has_grade = [70.0]
+            pr_b.has_status = [self.core.onto.status_completed]
+            student.has_progress_record.append(pr_b)
+        self.core.save()
+
+        result = self.core.run_reasoner()
+        self.assertEqual(result.status, "ok")
+        self.assertGreaterEqual(result.aggregate_facts, 1)
+
+        target = self.core.onto.search_one(iri="*target_cmp")
+        self.assertIn(student, getattr(target, "is_available_for", []) or [])
+
+    def test_aggregate_avg_below_threshold_denies(self):
+        """aggregate_required: AVG ниже threshold → satisfies не выводится."""
+        self._create_policy(
+            source_element_id="target_cmp",
+            rule_type=RuleType.AGGREGATE,
+            aggregate_function=AggregateFunction.AVG,
+            aggregate_element_ids=["quiz_a", "quiz_b"],
+            passing_threshold=80.0,
+        )
+
+        with self.core.onto:
+            student = self.core.onto.Student("student_agg_fail")
+            quiz_a = self.core.onto.search_one(iri="*quiz_a")
+            quiz_b = self.core.onto.search_one(iri="*quiz_b")
+
+            pr_a = self.core.onto.ProgressRecord("pr_agg_fail_a")
+            pr_a.refers_to_element = [quiz_a]
+            pr_a.has_grade = [60.0]
+            pr_a.has_status = [self.core.onto.status_completed]
+            student.has_progress_record.append(pr_a)
+
+            pr_b = self.core.onto.ProgressRecord("pr_agg_fail_b")
+            pr_b.refers_to_element = [quiz_b]
+            pr_b.has_grade = [70.0]
+            pr_b.has_status = [self.core.onto.status_completed]
+            student.has_progress_record.append(pr_b)
+        self.core.save()
+
+        self.core.run_reasoner()
+        target = self.core.onto.search_one(iri="*target_cmp")
+        self.assertNotIn(student, getattr(target, "is_available_for", []) or [])
+
+    # --- валидация композита/агрегата через PolicyCreate -----------------
+
+    def test_and_combination_requires_two_unique_subs(self):
+        with self.assertRaises(ValueError):
+            PolicyCreate(
+                source_element_id="target_cmp",
+                rule_type=RuleType.AND,
+                subpolicy_ids=["p_x"],
+                author_id="methodologist_smirnov",
+            )
+        with self.assertRaises(ValueError):
+            PolicyCreate(
+                source_element_id="target_cmp",
+                rule_type=RuleType.AND,
+                subpolicy_ids=["p_x", "p_x"],
+                author_id="methodologist_smirnov",
+            )
+
+    def test_aggregate_requires_function_and_elements(self):
+        with self.assertRaises(ValueError):
+            PolicyCreate(
+                source_element_id="target_cmp",
+                rule_type=RuleType.AGGREGATE,
+                passing_threshold=70.0,
+                aggregate_element_ids=["quiz_a"],
+                # aggregate_function не задан
+                author_id="methodologist_smirnov",
+            )
+        with self.assertRaises(ValueError):
+            PolicyCreate(
+                source_element_id="target_cmp",
+                rule_type=RuleType.AGGREGATE,
+                passing_threshold=70.0,
+                aggregate_function=AggregateFunction.AVG,
+                # aggregate_element_ids пуст
+                author_id="methodologist_smirnov",
+            )
+
+
+if __name__ == "__main__":
+    unittest.main()

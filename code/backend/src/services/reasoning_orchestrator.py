@@ -152,7 +152,10 @@ class ReasoningOrchestrator:
 
         subprocess.run = patched_run
         try:
+            # Первый аргумент: онтология/мир. Без него Pellet берёт default_world
+            # и пропускает индивидов из изолированных World (тесты, многопоточка).
             sync_reasoner_pellet(
+                self.onto.world,
                 infer_property_values=True,
                 infer_data_property_values=True,
             )

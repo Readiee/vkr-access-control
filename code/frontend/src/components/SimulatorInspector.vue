@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { reactive, watch, computed } from 'vue';
+import { reactive, ref, watch, computed } from 'vue';
 import { useSandboxStore } from '@/stores/sandbox';
 import { useOntologyStore } from '@/stores/ontology';
 import { ProgressStatusMap, ProgressStatusColorMap, ElementTypeMap, findNodeNameById } from '@/utils/formatters';
 import { RuleType, ElementType, ProgressStatus } from '@/types/enums';
+import BlockingExplanation from './BlockingExplanation.vue';
 
 const props = defineProps<{
   selectedNode: any;
@@ -61,6 +62,13 @@ const formatDate = (dateString: string) => {
   return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
+const explanationVisible = ref(false);
+const sandboxStudentId = 'sandbox';
+
+const openExplanation = () => {
+  explanationVisible.value = true;
+};
+
 // Отправка результата симуляции
 const submitSimulation = async () => {
   if (!props.selectedNode) return;
@@ -96,9 +104,19 @@ const submitSimulation = async () => {
 
     <!-- Блок блокировки -->
     <div v-if="selectedNode.data.is_locked" class="p-6 bg-gray-100 rounded-lg border border-gray-200 mt-2">
-      <div class="flex items-center gap-3 text-gray-700 font-bold mb-2">
-        <i class="pi pi-lock text-xl text-gray-500"></i>
-        <span>Элемент заблокирован политиками доступа</span>
+      <div class="flex items-center justify-between gap-3 text-gray-700 font-bold mb-2">
+        <span class="flex items-center gap-3">
+          <i class="pi pi-lock text-xl text-gray-500"></i>
+          Элемент заблокирован политиками доступа
+        </span>
+        <Button
+          icon="pi pi-info-circle"
+          label="Объяснить"
+          size="small"
+          severity="secondary"
+          variant="outlined"
+          @click="openExplanation"
+        />
       </div>
       <p class="text-sm text-gray-600 mb-3">
         Для получения доступа необходимо выполнить требования:
@@ -209,14 +227,21 @@ const submitSimulation = async () => {
           severity="secondary" 
         />
       </div>
-      <Button 
-        label="Сбросить" 
-        severity="danger" 
+      <Button
+        label="Сбросить"
+        severity="danger"
         variant="text"
-        icon="pi pi-refresh" 
-        @click="sandboxStore.rollbackProgress(selectedNode.data.id)" 
-        :loading="sandboxStore.isLoading" 
+        icon="pi pi-refresh"
+        @click="sandboxStore.rollbackProgress(selectedNode.data.id)"
+        :loading="sandboxStore.isLoading"
       />
     </div>
+
+    <BlockingExplanation
+      v-if="selectedNode"
+      v-model:visible="explanationVisible"
+      :student-id="sandboxStudentId"
+      :element-id="selectedNode.data.id"
+    />
   </div>
 </template>

@@ -1,10 +1,16 @@
-import { RuleType, ElementType, ProgressStatus } from './enums';
+import { RuleType, ElementType, ProgressStatus, AggregateFunction, VerificationPropertyStatus } from './enums';
 
-export { RuleType, ElementType, ProgressStatus };
+export { RuleType, ElementType, ProgressStatus, AggregateFunction, VerificationPropertyStatus };
 
 export type EventType = 'viewed' | 'completed' | 'graded' | 'failed';
 
 export interface Competency {
+  id: string;
+  name: string;
+  parent_id?: string | null;
+}
+
+export interface Group {
   id: string;
   name: string;
 }
@@ -13,17 +19,22 @@ export interface OntologyMeta {
   rule_types: RuleType[];
   statuses: string[];
   competencies: Competency[];
-  course_elements?: CourseElement[]; // Добавлено для согласованности с хранилищем (МБ это можно удалить)
+  course_elements?: CourseElement[];
+  groups?: Group[];
 }
 
 export interface PolicyBase {
-  source_element_id: string;
+  source_element_id?: string | null;
   rule_type: RuleType;
   target_element_id?: string | null;
   target_competency_id?: string | null;
   passing_threshold?: number | null;
-  available_from?: string | null; // ISO Date string
-  available_until?: string | null; // ISO Date string
+  valid_from?: string | null;
+  valid_until?: string | null;
+  restricted_to_group_id?: string | null;
+  subpolicy_ids?: string[] | null;
+  aggregate_function?: AggregateFunction | null;
+  aggregate_element_ids?: string[] | null;
   author_id: string;
 }
 
@@ -67,4 +78,75 @@ export interface CourseTreeNode {
   label?: string;
   data: CourseElement & { policies?: PolicyResponse[] };
   children?: CourseTreeNode[];
+}
+
+// ---- Verification (UC-6) ----
+
+export interface PropertyViolation {
+  code: string;
+  message?: string;
+  // acyclicity
+  path?: string[];
+  policies?: string[];
+  // reachability
+  element_id?: string;
+  policy_id?: string;
+  rule_type?: string;
+  reason?: string;
+  // subsumption/redundancy
+  dominant?: string;
+  dominated?: string;
+  element?: string;
+  witness?: string;
+}
+
+export interface PropertyReport {
+  status: VerificationPropertyStatus | string;
+  violations?: PropertyViolation[];
+}
+
+export interface VerificationReport {
+  course_id: string;
+  run_id: string;
+  timestamp: string;
+  duration_ms: number;
+  partial: boolean;
+  properties: Record<string, PropertyReport>;
+  summary?: string;
+}
+
+// ---- UC-9 BlockingExplanation ----
+
+export interface ApplicablePolicyTrace {
+  policy_id: string;
+  rule_type: string;
+  satisfied: boolean;
+  failure_reason?: string | null;
+  witness?: Record<string, any>;
+}
+
+export interface JustificationBodyFact {
+  predicate: string;
+  subject?: string | null;
+  object?: unknown;
+}
+
+export interface JustificationNode {
+  status: 'satisfied' | 'unsatisfied' | 'available' | 'unavailable';
+  rule_template: string;
+  policy_id?: string | null;
+  variable_bindings?: Record<string, unknown>;
+  body_facts?: JustificationBodyFact[];
+  note?: string | null;
+  children?: JustificationNode[];
+}
+
+export interface BlockingExplanation {
+  element_id: string;
+  student_id: string;
+  is_available: boolean;
+  cascade_blocker?: string | null;
+  cascade_reason?: string | null;
+  applicable_policies: ApplicablePolicyTrace[];
+  justification?: JustificationNode | null;
 }

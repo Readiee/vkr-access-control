@@ -17,6 +17,11 @@ const router = createRouter({
           path: 'simulator',
           name: 'simulator',
           component: () => import('@/views/StudentSimulator.vue')
+        },
+        {
+          path: 'verify',
+          name: 'verify',
+          component: () => import('@/views/VerificationReport.vue')
         }
       ]
     }

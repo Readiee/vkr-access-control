@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
-import { RuleType } from '@/types';
+import { computed, onMounted, ref } from 'vue';
+import { AggregateFunction, RuleType } from '@/types';
 import type { PolicyCreate, PolicyResponse, CourseTreeNode } from '@/types';
 import { useOntologyStore } from '@/stores/ontology';
 import { ruleTypeOptions, RuleTypeMap, findNodeNameById, formatPolicyBadgeText } from '@/utils/formatters';
 import { useTreeHelpers } from '@/composables/useTreeHelpers';
 import { usePolicyForm } from '@/composables/usePolicyForm';
 import { useConfirm } from 'primevue/useconfirm';
-import { createPolicy, updatePolicy, deletePolicy } from '@/api';
+import { createPolicy, getPolicies, updatePolicy, deletePolicy } from '@/api';
 import { toastService } from '@/utils/toastService';
 
 
@@ -92,11 +92,69 @@ const isFormValid = computed(() => {
   const f = form.value;
   if (f.rule_type === RuleType.COMPETENCY_REQUIRED) return !!f.target_competency_id;
   if (f.rule_type === RuleType.DATE_RESTRICTED) {
-    if (!f.available_from && !f.available_until) return false;
-    if (f.available_from && f.available_until) return f.available_from < f.available_until;
-    return true;
+    if (!f.valid_from || !f.valid_until) return false;
+    return f.valid_from < f.valid_until;
+  }
+  if (f.rule_type === RuleType.GROUP_RESTRICTED) return !!f.restricted_to_group_id;
+  if (f.rule_type === RuleType.AND_COMBINATION || f.rule_type === RuleType.OR_COMBINATION) {
+    return Array.isArray(f.subpolicy_ids) && new Set(f.subpolicy_ids).size >= 2;
+  }
+  if (f.rule_type === RuleType.AGGREGATE_REQUIRED) {
+    return !!f.aggregate_function
+      && Array.isArray(f.aggregate_element_ids)
+      && f.aggregate_element_ids.length >= 1
+      && f.passing_threshold != null;
+  }
+  if (f.rule_type === RuleType.GRADE_REQUIRED) {
+    return !!f.target_element_id && f.passing_threshold != null;
   }
   return !!f.target_element_id;
+});
+
+const isGroupRule = computed(() => form.value.rule_type === RuleType.GROUP_RESTRICTED);
+const isCompositeRule = computed(
+  () => form.value.rule_type === RuleType.AND_COMBINATION
+    || form.value.rule_type === RuleType.OR_COMBINATION,
+);
+const isAggregateRule = computed(() => form.value.rule_type === RuleType.AGGREGATE_REQUIRED);
+
+const aggregateFunctionOptions = Object.values(AggregateFunction).map((fn) => ({
+  label: fn,
+  value: fn,
+}));
+
+const availableSubpolicies = ref<PolicyResponse[]>([]);
+
+const flattenElements = (nodes: CourseTreeNode[] | undefined): { id: string; name: string }[] => {
+  const out: { id: string; name: string }[] = [];
+  const walk = (arr: CourseTreeNode[] | undefined) => {
+    (arr || []).forEach((n) => {
+      if (n.data?.id) out.push({ id: n.data.id, name: n.data.name });
+      if (n.children?.length) walk(n.children as any);
+    });
+  };
+  walk(nodes);
+  return out;
+};
+
+const courseElementOptions = computed(() => flattenElements(props.treeData));
+
+onMounted(async () => {
+  try {
+    availableSubpolicies.value = await getPolicies();
+  } catch {
+    availableSubpolicies.value = [];
+  }
+});
+
+const subpolicyOptions = computed(() => {
+  const selfId = props.initialData?.id;
+  return availableSubpolicies.value
+    .filter((p) => p.id !== selfId)
+    .map((p) => ({
+      id: p.id,
+      label: `${p.id} · ${RuleTypeMap[p.rule_type]?.label ?? p.rule_type}`,
+    }));
 });
 
 const expandedKeys = computed(() => getExpandedKeys(props.treeData ?? [], props.targetNode?.data?.id));
@@ -209,11 +267,74 @@ const isDateRule = computed(() => form.value.rule_type === RuleType.DATE_RESTRIC
            <div v-if="isDateRule" class="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2 border-t border-surface-50">
               <div class="flex flex-col gap-1">
                 <label class="text-[11px] font-bold text-surface-500 uppercase">Доступно С</label>
-                <DatePicker v-model="form.available_from" manualInput showTime hourFormat="24" dateFormat="dd.mm.yy" class="w-full" />
+                <DatePicker v-model="form.valid_from" manualInput showTime hourFormat="24" dateFormat="dd.mm.yy" class="w-full" />
               </div>
               <div class="flex flex-col gap-1">
                 <label class="text-[11px] font-bold text-surface-500 uppercase">Доступно ПО</label>
-                <DatePicker v-model="form.available_until" manualInput showTime hourFormat="24" dateFormat="dd.mm.yy" class="w-full" />
+                <DatePicker v-model="form.valid_until" manualInput showTime hourFormat="24" dateFormat="dd.mm.yy" class="w-full" />
+              </div>
+           </div>
+
+           <div v-if="isGroupRule" class="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2 border-t border-surface-50">
+              <div class="flex flex-col gap-1 col-span-2">
+                <label class="text-[11px] font-bold text-surface-500 uppercase">Группа студентов</label>
+                <Select
+                  v-model="form.restricted_to_group_id"
+                  :options="store.groups"
+                  optionLabel="name"
+                  optionValue="id"
+                  placeholder="Выберите группу"
+                  emptyMessage="Нет групп в онтологии"
+                  class="w-full"
+                />
+              </div>
+           </div>
+
+           <div v-if="isCompositeRule" class="flex flex-col gap-3 pt-2 border-t border-surface-50">
+              <label class="text-[11px] font-bold text-surface-500 uppercase">Подполитики (минимум 2)</label>
+              <MultiSelect
+                v-model="form.subpolicy_ids"
+                :options="subpolicyOptions"
+                optionLabel="label"
+                optionValue="id"
+                placeholder="Выберите существующие правила"
+                display="chip"
+                filter
+                class="w-full"
+              />
+              <p class="text-xs text-surface-400">
+                Пустые родительские правила (без целевого элемента) можно создать заранее —
+                они будут доступны здесь для AND/OR-композиции.
+              </p>
+           </div>
+
+           <div v-if="isAggregateRule" class="grid grid-cols-1 md:grid-cols-3 gap-5 pt-2 border-t border-surface-50">
+              <div class="flex flex-col gap-1">
+                <label class="text-[11px] font-bold text-surface-500 uppercase">Функция</label>
+                <Select
+                  v-model="form.aggregate_function"
+                  :options="aggregateFunctionOptions"
+                  optionLabel="label"
+                  optionValue="value"
+                  class="w-full"
+                />
+              </div>
+              <div class="flex flex-col gap-1">
+                <label class="text-[11px] font-bold text-surface-500 uppercase">Порог</label>
+                <InputNumber v-model="form.passing_threshold" :min="0" :max="100" placeholder="0-100" class="w-full" />
+              </div>
+              <div class="flex flex-col gap-1 col-span-3">
+                <label class="text-[11px] font-bold text-surface-500 uppercase">Элементы для агрегата</label>
+                <MultiSelect
+                  v-model="form.aggregate_element_ids"
+                  :options="courseElementOptions"
+                  optionLabel="name"
+                  optionValue="id"
+                  placeholder="Выберите элементы"
+                  display="chip"
+                  filter
+                  class="w-full"
+                />
               </div>
            </div>
 

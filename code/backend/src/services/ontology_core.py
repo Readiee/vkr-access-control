@@ -1,7 +1,7 @@
 import logging
 import redis
 from typing import Optional, Any
-from owlready2 import get_ontology
+from owlready2 import World, default_world, get_ontology
 from repositories.ontology_repositories import StudentRepository, CourseRepository, ProgressRepository, PolicyRepository
 from services.cache_service import CacheService
 from services.reasoning_orchestrator import ReasoningOrchestrator, ReasoningResult
@@ -11,14 +11,15 @@ logger = logging.getLogger(__name__)
 class OntologyCore:
     """Управляет операциями с семантическим графом, ризонером и кэшем Redis."""
 
-    def __init__(self, onto_path: str | None = None) -> None:
+    def __init__(self, onto_path: str | None = None, world: Optional[World] = None) -> None:
         from core.config import DEFAULT_ONTOLOGY_PATH
         if onto_path is None:
             onto_path = DEFAULT_ONTOLOGY_PATH
         """Загружает онтологию в память и подключается к Redis."""
         self.onto_file: str = onto_path
         logger.info("Загрузка онтологии из %s...", onto_path)
-        self.onto = get_ontology(onto_path).load()
+        self.world: World = world or default_world
+        self.onto = self.world.get_ontology(onto_path).load()
         logger.info("Онтология успешно загружена.")
         self.redis_client: Optional[redis.Redis] = self._connect_redis()
         
@@ -32,9 +33,10 @@ class OntologyCore:
 
 
     def _connect_redis(self) -> Optional[redis.Redis]:
-        """Устанавливает соединение с Redis. Возвращает None при недоступности."""
+        """Подключение к Redis по URL из настроек. None при недоступности."""
+        from core.config import settings
         try:
-            client = redis.Redis(host="localhost", port=6379, db=0, decode_responses=True)
+            client = redis.Redis.from_url(settings.REDIS_URL, decode_responses=True)
             client.ping()
             logger.info("Подключение к Redis установлено.")
             return client
