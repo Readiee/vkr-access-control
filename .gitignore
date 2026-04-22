@@ -10,6 +10,9 @@ __pycache__/
 .venv/
 venv/
 env/
+.coverage
+.coverage.*
+htmlcov/
 
 # ── Node / Vue frontend ────────────────────────────────────────────────
 node_modules/
@@ -47,3 +50,6 @@ diagrams/c4/exports/static/
 /_*.json
 /_*.html
 /_*.txt
+
+# ── Claude Code рабочие артефакты ────────────────────────────────────
+.claude/scheduled_tasks.lock
