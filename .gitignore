@@ -27,6 +27,9 @@ yarn-error.log
 Thumbs.db
 desktop.ini
 .vscode/
+# перекрываем общий .vscode/: разрешаем один файл с рабочей конфигурацией IDE
+!code/frontend/.vscode/
+!code/frontend/.vscode/settings.json
 .idea/
 *.swp
 *.swo
