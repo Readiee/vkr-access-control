@@ -11,6 +11,7 @@ import {
 import type { SandboxProgressEntry, SandboxProgressPayload } from '@/types';
 import { useOntologyStore } from '@/stores/ontology';
 import { toastService } from '@/utils/toastService';
+import { findNodeNameById } from '@/utils/formatters';
 
 export const useSandboxStore = defineStore('sandbox', () => {
   const ontologyStore = useOntologyStore();
@@ -69,12 +70,15 @@ export const useSandboxStore = defineStore('sandbox', () => {
     }
   };
 
+  const elementLabel = (id: string): string =>
+    findNodeNameById(ontologyStore.currentCourseTree, id) ?? id;
+
   const simulateProgress = async (payload: SandboxProgressPayload) => {
     isLoading.value = true;
     try {
       await simulateSandboxProgress(payload);
       await refreshCourseData();
-      toastService.showSuccess(`Статус элемента ${payload.element_id} обновлен`);
+      toastService.showSuccess(`Статус элемента «${elementLabel(payload.element_id)}» обновлён`);
     } finally {
       isLoading.value = false;
     }
@@ -85,7 +89,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
     try {
       await rollbackSandboxProgress(elementId);
       await refreshCourseData();
-      toastService.showSuccess(`Прогресс для ${elementId} откачен`);
+      toastService.showSuccess(`Прогресс для «${elementLabel(elementId)}» откачен`);
     } finally {
       isLoading.value = false;
     }
