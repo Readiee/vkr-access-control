@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from core.enums import ProgressStatus
 from services.access import AccessService
@@ -11,16 +11,15 @@ from services.reasoning import ReasoningOrchestrator
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_SANDBOX_ID = "sandbox_new"
+SANDBOX_STUDENT_ID = "student_sandbox"
 
 
 class SandboxService:
     """Песочница методиста (UC-7a/b/c).
 
-    По DSL §38 + §110–§111: SandboxService работает с ABox через OntologyCore,
-    пересчитывает reasoning через ReasoningOrchestrator и переиспользует
-    AccessService для чтения карты доступа. Запись прогресса и roll-up —
-    через ProgressService (разрешённое исключение слоистости — DSL §117).
+    Работает с единственным SandboxStudent-ом: методист дёргает один и тот же
+    профиль для проверки правил. Пул тестовых студентов убран — смысл
+    симулятора в быстрой проверке правила, а не в репрезентативной выборке.
     """
 
     def __init__(
@@ -36,51 +35,30 @@ class SandboxService:
         self.access = access
         self.progress = progress
 
-    def list_sandbox_students(self) -> List[Dict[str, str]]:
-        """Все индивиды класса SandboxStudent — для выбора в UI."""
+    def _sandbox_student(self):
+        """Единственный sandbox-студент. Создаёт индивида, если его ещё нет."""
         cls = getattr(self.core.onto, "SandboxStudent", None)
         if cls is None:
-            return []
-        result = []
-        for s in cls.instances():
-            label = s.label[0] if getattr(s, "label", None) else s.name
-            result.append({"id": s.name, "name": label})
-        return sorted(result, key=lambda x: x["id"])
-
-    def _resolve_student(self, student_id: Optional[str]):
-        """Возвращает индивида-песочницу по id. None/пусто → первый доступный.
-        Защита: запрещаем трогать НЕ-SandboxStudent (реальных студентов методист
-        не должен редактировать через симулятор)."""
-        cls = getattr(self.core.onto, "SandboxStudent", None)
-        if student_id:
-            ind = self.core.onto.search_one(iri=f"*{student_id}")
-            if ind is not None and cls is not None and isinstance(ind, cls):
-                return ind
-            raise ValueError(
-                f"Студент {student_id} не является sandbox-студентом — симулятор "
-                "не может менять прогресс реальных студентов курса."
-            )
-        # fallback: любой существующий sandbox, или создаём новый
-        instances = list(cls.instances()) if cls else []
-        if instances:
-            return instances[0]
-        student = cls(DEFAULT_SANDBOX_ID) if cls else self.core.students.get_or_create(DEFAULT_SANDBOX_ID)
+            return self.core.students.get_or_create(SANDBOX_STUDENT_ID)
+        existing = self.core.onto.search_one(type=cls, iri=f"*{SANDBOX_STUDENT_ID}")
+        if existing is not None:
+            return existing
+        student = cls(SANDBOX_STUDENT_ID)
+        student.label = ["Песочница"]
         return student
 
-    def get_sandbox_state(self, course_id: str, student_id: Optional[str] = None) -> dict:
-        """Получает состояние песочницы (доступы и прогресс)"""
-        student = self._resolve_student(student_id)
+    def get_sandbox_state(self, course_id: str) -> dict:
+        student = self._sandbox_student()
         sandbox_user_id = student.name
 
         access_data = self.access.get_course_access(sandbox_user_id, course_id)
         available_elements = access_data.get("available_elements", [])
 
-        # 2. Получаем текущий прогресс
-        progress_dict = {}
+        progress_dict: dict[str, dict[str, Any]] = {}
         records = self.core.progress.find_all_for_student(student)
         for r in records:
             element_id = r.refers_to_element[0].name if getattr(r, "refers_to_element", []) else None
-            # ДОБАВЛЕНО: Поиск приоритетного статуса (completed важнее viewed)
+            # Статус "completed" важнее "viewed" — если есть оба, берём первый
             status = None
             for s in getattr(r, "has_status", []):
                 s_name = s.name.replace("status_", "")
@@ -88,19 +66,16 @@ class SandboxService:
                     status = "completed"
                     break
                 status = s_name
-                
+
             grade = r.has_grade[0] if getattr(r, "has_grade", []) else None
-            
+
             if element_id and status:
                 progress_dict[element_id] = {
                     "status": status,
-                    "grade": grade
+                    "grade": grade,
                 }
 
-        # 3. Получаем активные компетенции
-        active_comps = []
-        for comp in getattr(student, "has_competency", []):
-            active_comps.append(comp.name)
+        active_comps = [comp.name for comp in getattr(student, "has_competency", [])]
 
         return {
             "student_id": sandbox_user_id,
@@ -117,12 +92,10 @@ class SandboxService:
                 parent_record = self.core.progress.find_record(student, p)
                 if parent_record:
                     self.core.progress.delete_record(student, parent_record)
-                    # Рекурсивно идем выше
                     self._cascade_delete_parent_records(student, p)
 
-    def simulate_progress(self, payload, student_id: Optional[str] = None) -> dict:
-        """Эмулирует прохождение элемента"""
-        student = self._resolve_student(student_id)
+    def simulate_progress(self, payload) -> dict:
+        student = self._sandbox_student()
         sandbox_user_id = student.name
 
         # Даунгрейд (viewed/failed) — сносим родительские рекорды, чтобы Roll-up пересчитал их
@@ -144,9 +117,8 @@ class SandboxService:
         self.access.rebuild_student_access(sandbox_user_id)
         return {"status": "success", "message": f"Прогресс для {payload.element_id} обновлен"}
 
-    def rollback_progress(self, element_id: str, student_id: Optional[str] = None) -> dict:
-        """'Скальпель': удаляет ProgressRecord конкретного элемента и его родителей (откат Roll-up)"""
-        student = self._resolve_student(student_id)
+    def rollback_progress(self, element_id: str) -> dict:
+        student = self._sandbox_student()
         element = self.core.courses.find_by_id(element_id)
         if not element:
             raise ValueError(f"Элемент {element_id} не найден")
@@ -162,14 +134,13 @@ class SandboxService:
         return {"status": "success", "message": f"Откат {element_id} завершен"}
 
     def _clear_inferred_access(self, student):
-        """Удаляет все выведенные доступы, чтобы ризонер собрал их заново (фикс монотонности)."""
+        """Чистит выведенные доступы, чтобы ризонер собрал их заново (OWL монотонен)."""
         for elem in self.core.courses.get_all_elements():
             if student in getattr(elem, "is_available_for", []):
                 elem.is_available_for.remove(student)
 
-    def reset_all(self, student_id: Optional[str] = None) -> dict:
-        """'Ядерная кнопка': удаляет все ProgressRecord и компетенции студента"""
-        student = self._resolve_student(student_id)
+    def reset_all(self) -> dict:
+        student = self._sandbox_student()
 
         student.has_competency = []
         records = self.core.progress.find_all_for_student(student)
@@ -182,9 +153,8 @@ class SandboxService:
         self.access.rebuild_student_access(student.name)
         return {"status": "success", "message": "Песочница полностью очищена"}
 
-    def set_competencies(self, competency_ids: list[str], student_id: Optional[str] = None) -> dict:
-        """Перезаписывает весь список компетенций студента и обновляет граф."""
-        student = self._resolve_student(student_id)
+    def set_competencies(self, competency_ids: list[str]) -> dict:
+        student = self._sandbox_student()
         student.has_competency = []
         for cid in competency_ids:
             comp = self.core.courses.find_by_id(cid)
