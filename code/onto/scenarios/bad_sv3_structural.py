@@ -13,19 +13,23 @@ def build(onto):
     with onto:
         methodologist = onto.Methodologist("methodologist_smirnov")
         course = onto.Course("course_triangle")
-        module_one = onto.Module("module_one"); module_one.is_required = [True]
+        module_one = onto.Module("module_one")
+        module_one.is_mandatory = True
         course.has_module = [module_one]
-        a = onto.Lecture("elem_A"); a.is_required = [True]
-        b = onto.Lecture("elem_B"); b.is_required = [True]
-        c = onto.Lecture("elem_C"); c.is_required = [True]
-        module_one.contains_element = [a, b, c]
+        a = onto.Lecture("elem_a")
+        a.is_mandatory = True
+        b = onto.Lecture("elem_b")
+        b.is_mandatory = True
+        c = onto.Lecture("elem_c")
+        c.is_mandatory = True
+        module_one.contains_activity = [a, b, c]
 
         def guard(guarded, prereq, pid):
             p = onto.AccessPolicy(pid)
-            p.rule_type = ["completion_required"]
-            p.is_active = [True]
-            p.has_author = [methodologist]
-            p.targets_element = [prereq]
+            p.rule_type = "completion_required"
+            p.is_active = True
+            p.has_author = methodologist
+            p.targets_element = prereq
             guarded.has_access_policy = [p]
 
         guard(a, b, "p_triangle_a_needs_b")

@@ -7,11 +7,15 @@ ReasoningOrchestrator, соседние сервисы). Чтобы не пов�
 """
 from __future__ import annotations
 
+import os
+import shutil
+import tempfile
 from dataclasses import dataclass
 from typing import Optional
 
 from owlready2 import World
 
+from core.config import DEFAULT_ONTOLOGY_PATH
 from services.access import AccessService
 from services.cache_manager import CacheManager
 from services.integration_service import IntegrationService
@@ -22,6 +26,17 @@ from services.reasoning import ReasoningOrchestrator
 from services.rollup_service import RollupService
 from services.sandbox_service import SandboxService
 from services.verification import VerificationService
+
+
+def make_temp_onto_copy(prefix: str = "vkr_test_") -> str:
+    """Копия базовой онтологии в системный tmp-dir. Путь возвращается вызывающему,
+    чистка — на его tearDown. CWD не засоряется, крашнутый прогон оставит файл
+    в %TMP%, а не в дереве репозитория.
+    """
+    fd, path = tempfile.mkstemp(suffix=".owl", prefix=prefix)
+    os.close(fd)
+    shutil.copy(DEFAULT_ONTOLOGY_PATH, path)
+    return path
 
 
 @dataclass

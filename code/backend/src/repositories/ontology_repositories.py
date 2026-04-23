@@ -13,11 +13,11 @@ class StudentRepository:
         создастся второй Student с префиксом, прогресс и вывод
         is_available_for разъедутся на разных индивидов с одним именем.
         """
-        direct = self.onto.search_one(iri=f"*{student_id}")
+        direct = self.onto.search_one(type=self.onto.Student, iri=f"*{student_id}")
         if direct is not None:
             return direct
         node_id = student_id if student_id.startswith("student_") else f"student_{student_id}"
-        student = self.onto.search_one(iri=f"*{node_id}")
+        student = self.onto.search_one(type=self.onto.Student, iri=f"*{node_id}")
         if not student:
             student = self.onto.Student(node_id)
         return student
@@ -31,8 +31,8 @@ class CourseRepository:
         return self.onto.CourseStructure.instances()
 
     def find_by_id(self, element_id: str):
-        """Находит элемент структуры курса по ID."""
-        return self.onto.search_one(iri=f"*{element_id}")
+        """Находит элемент структуры курса (Course/Module/Lecture/Test/...) по ID."""
+        return self.onto.search_one(type=self.onto.CourseStructure, iri=f"*{element_id}")
 
     def get_or_create_element(self, element_id: str, element_class_name: str):
         """Безопасное создание элементов курса (Module, Lecture и т.д.)"""
@@ -63,8 +63,8 @@ class ProgressRepository:
         """Создает новую запись о прогрессе."""
         pr_id = f"pr_{uuid.uuid4().hex[:8]}"
         record = self.onto.ProgressRecord(pr_id)
-        record.refers_to_student = [student]
-        record.refers_to_element = [element]
+        record.refers_to_student = student
+        record.refers_to_element = element
         if record not in getattr(student, "has_progress_record", []):
             student.has_progress_record.append(record)
         return record
@@ -90,7 +90,7 @@ class PolicyRepository:
 
     def find_by_id(self, policy_id: str):
         """Находит политику по ID."""
-        return self.onto.search_one(iri=f"*{policy_id}")
+        return self.onto.search_one(type=self.onto.AccessPolicy, iri=f"*{policy_id}")
 
     def find_by_source_element(self, policy_node):
         """Находит элементы, которые ссылаются на данную политику."""

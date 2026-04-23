@@ -113,7 +113,7 @@ class VerificationScenariosTests(unittest.TestCase):
         spec, report = self._run("bad_sv3_structural")
         self._assert_property(report, "reachability", "failed")
         elements = {v.get("element_id") for v in report.properties["reachability"].violations}
-        self.assertTrue({"elem_A", "elem_B", "elem_C"} & elements)
+        self.assertTrue({"elem_a", "elem_b", "elem_c"} & elements)
 
     def test_bad_sv4_redundant_reports_weak_dominates_strong(self):
         spec, report = self._run("bad_sv4_redundant")

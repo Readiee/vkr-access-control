@@ -12,22 +12,24 @@ def build(onto):
     with onto:
         methodologist = onto.Methodologist("methodologist_smirnov")
         course = onto.Course("course_cycle")
-        module_a = onto.Module("module_A"); module_a.is_required = [True]
-        module_b = onto.Module("module_B"); module_b.is_required = [True]
+        module_a = onto.Module("module_a")
+        module_a.is_mandatory = True
+        module_b = onto.Module("module_b")
+        module_b.is_mandatory = True
         course.has_module = [module_a, module_b]
 
         p_ab = onto.AccessPolicy("p_cycle_ab")
-        p_ab.rule_type = ["completion_required"]
-        p_ab.is_active = [True]
-        p_ab.has_author = [methodologist]
-        p_ab.targets_element = [module_b]
+        p_ab.rule_type = "completion_required"
+        p_ab.is_active = True
+        p_ab.has_author = methodologist
+        p_ab.targets_element = module_b
         module_a.has_access_policy = [p_ab]
 
         p_ba = onto.AccessPolicy("p_cycle_ba")
-        p_ba.rule_type = ["completion_required"]
-        p_ba.is_active = [True]
-        p_ba.has_author = [methodologist]
-        p_ba.targets_element = [module_a]
+        p_ba.rule_type = "completion_required"
+        p_ba.is_active = True
+        p_ba.has_author = methodologist
+        p_ba.targets_element = module_a
         module_b.has_access_policy = [p_ba]
 
 

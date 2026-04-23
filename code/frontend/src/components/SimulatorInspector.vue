@@ -159,7 +159,7 @@ const submitSimulation = async () => {
         </div>
         <div class="flex gap-2 items-center">
           <Tag :value="ElementTypeMap[selectedNode.data.type as ElementType]" severity="secondary" class="uppercase font text-[10px]" />
-          <Badge v-if="selectedNode.data.is_required" value="Обязательный" severity="secondary" />
+          <Badge v-if="selectedNode.data.is_mandatory" value="Обязательный" severity="secondary" />
           <Badge v-else value="Необязательный" severity="secondary" />
           <span class="text-xs text-gray-400">ID: {{ selectedNode.data.id }}</span>
         </div>

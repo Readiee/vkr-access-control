@@ -8,8 +8,8 @@ import type { CourseTreeNode, PolicyCreate, PolicyResponse } from '@/types';
 import {
   ruleTypeOptions,
   AggregateFunctionLabels,
-  GRADABLE_ELEMENT_TYPES,
   findNodeNameById,
+  buildCompetencyTree,
 } from '@/utils/formatters';
 import { useTreeHelpers } from '@/composables/useTreeHelpers';
 import { SANDBOX_AUTHOR_ID } from '@/utils/auth';
@@ -27,6 +27,13 @@ const emit = defineEmits<{
 
 const isEditMode = computed(() => !!props.initialData?.id);
 
+// При create всегда AND — для ИЛИ методист создаёт два простых правила,
+// между которыми уже работает неявный OR через мета-правило SWRL.
+// При edit сохраняем rule_type из initialData (может быть OR у legacy-правил).
+const compositeRuleType = computed<RuleType>(() =>
+  (props.initialData?.rule_type as RuleType) ?? RuleType.AND_COMBINATION,
+);
+
 const store = useOntologyStore();
 const { getBlockedIds, getExpandedKeys, buildSelectableTree } = useTreeHelpers();
 const isSaving = ref(false);
@@ -41,6 +48,8 @@ const selectableTreeFor = (ruleType: RuleType) => {
   return buildSelectableTree(props.treeData, blocked, ruleType, props.targetNode?.data?.id);
 };
 
+const aggregateSelectableTree = computed(() => selectableTreeFor(RuleType.AGGREGATE_REQUIRED));
+
 const pickTargetElement = (c: ChildDraft, val: any) => {
   if (!val || typeof val !== 'object') {
     c.target_element_id = null;
@@ -50,6 +59,45 @@ const pickTargetElement = (c: ChildDraft, val: any) => {
     ([, v]) => v === true || (v as any)?.checked === true,
   );
   c.target_element_id = picked ? picked[0] : null;
+};
+
+const aggregateModelFor = (c: ChildDraft): Record<string, { checked: boolean; partialChecked: boolean }> => {
+  const map: Record<string, { checked: boolean; partialChecked: boolean }> = {};
+  (c.aggregate_element_ids ?? []).forEach((id) => {
+    map[id] = { checked: true, partialChecked: false };
+  });
+  return map;
+};
+
+const pickAggregateElements = (c: ChildDraft, val: any) => {
+  if (!val || typeof val !== 'object') {
+    c.aggregate_element_ids = [];
+    return;
+  }
+  c.aggregate_element_ids = Object.entries(val)
+    .filter(([, v]) => v === true || (v as any)?.checked === true)
+    .map(([k]) => k);
+};
+
+const competencyTree = computed(() => buildCompetencyTree(store.competencies));
+
+const competencyModelFor = (c: ChildDraft): Record<string, boolean> | null =>
+  c.target_competency_id ? { [c.target_competency_id]: true } : null;
+
+const pickCompetency = (c: ChildDraft, val: any) => {
+  if (!val || typeof val !== 'object') {
+    c.target_competency_id = null;
+    return;
+  }
+  const picked = Object.entries(val).find(
+    ([, v]) => v === true || (v as any)?.checked === true,
+  );
+  c.target_competency_id = picked ? picked[0] : null;
+};
+
+const competencyNameById = (id: string): string | null => {
+  const item = store.competencies.find((x) => x.id === id);
+  return item ? item.name : null;
 };
 
 type ChildDraft = {
@@ -94,14 +142,8 @@ const initialChildren = (): ChildDraft[] => {
 
 const children = ref<ChildDraft[]>(initialChildren());
 
-// composite тип (AND/OR) при edit берём из initialData, иначе дефолт AND
-const compositeRuleType = ref<RuleType>(
-  (props.initialData?.rule_type as RuleType) ?? RuleType.AND_COMBINATION,
-);
-
 watch(() => props.initialData?.id, () => {
   children.value = initialChildren();
-  compositeRuleType.value = (props.initialData?.rule_type as RuleType) ?? RuleType.AND_COMBINATION;
 });
 
 const atomicRuleTypeOptions = ruleTypeOptions.filter(
@@ -112,28 +154,6 @@ const aggregateFunctionOptions = Object.values(AggregateFunction).map((fn) => ({
   label: AggregateFunctionLabels[fn] ?? fn,
   value: fn,
 }));
-
-type ElementOption = { id: string; name: string; type: string };
-
-const flattenElements = (nodes: CourseTreeNode[] | undefined): ElementOption[] => {
-  const out: ElementOption[] = [];
-  const walk = (arr: CourseTreeNode[] | undefined) => {
-    (arr || []).forEach((n) => {
-      if (n.data?.id) {
-        out.push({ id: n.data.id, name: n.data.name, type: (n.data.type || '').toLowerCase() });
-      }
-      if (n.children?.length) walk(n.children as any);
-    });
-  };
-  walk(nodes);
-  return out;
-};
-
-// Плоский список с элементами, где есть оценка — нужен только для агрегата (MultiSelect).
-// Для completion/viewed/grade TreeSelect использует selectableTreeFor + useTreeHelpers.
-const gradableElementOptions = computed(() =>
-  flattenElements(props.treeData).filter((el) => GRADABLE_ELEMENT_TYPES.has(el.type)),
-);
 
 const addChild = () => children.value.push(newChild());
 const removeChild = (key: number) => {
@@ -198,7 +218,7 @@ const childHint = (c: ChildDraft): string => {
     case RuleType.AGGREGATE_REQUIRED:
       if (!c.aggregate_function) return 'выберите функцию';
       if (!c.aggregate_element_ids?.length) return 'выберите элементы';
-      if (c.passing_threshold == null) return 'задайте порог';
+      if (c.passing_threshold == null) return 'задайте балл';
       return '';
     default:
       return 'заполните поля';
@@ -256,24 +276,22 @@ const submit = async () => {
 </script>
 
 <template>
-  <Card class="border border-surface-200 shadow-none overflow-hidden">
-    <template #content>
-      <div class="flex flex-col gap-5">
-        <div class="flex justify-between items-center border-b border-surface-100 pb-3 gap-3">
-          <span class="font-bold text-xs text-surface-600 uppercase tracking-widest flex items-center gap-2 shrink-0">
+  <div class="flex flex-col gap-5">
+        <div class="flex justify-between items-center border-b border-surface-100 pb-3">
+          <div class="flex flex-col gap-1"></div>
+          <span class="font-bold text-xs text-surface-600 uppercase tracking-widest flex items-center gap-2">
             <i class="pi pi-sitemap"></i>
-            {{ isEditMode ? 'Редактирование составного условия' : 'Новое составное условие' }}
+            {{ isEditMode
+              ? (compositeRuleType === RuleType.OR_COMBINATION
+                  ? 'Редактирование составного условия (ИЛИ)'
+                  : 'Редактирование составного условия (И)')
+              : 'Новое составное условие (И)' }}
           </span>
-          <Select
-            v-model="compositeRuleType"
-            :options="[
-              { label: 'И — выполнены все', value: RuleType.AND_COMBINATION },
-              { label: 'ИЛИ — хотя бы одно', value: RuleType.OR_COMBINATION }
-            ]"
-            optionLabel="label"
-            optionValue="value"
-            class="w-64"
-          />
+          <p class="text-xs text-surface-500">
+            {{ compositeRuleType === RuleType.OR_COMBINATION
+              ? 'Достаточно одного условия ниже'
+              : 'Все условия ниже должны быть выполнены' }}
+          </p>
           <Button icon="pi pi-times" text rounded size="small" @click="$emit('cancelled')" />
         </div>
 
@@ -302,8 +320,8 @@ const submit = async () => {
             />
           </div>
 
-          <div class="grid grid-cols-3 gap-4">
-            <div class="flex flex-col gap-1">
+          <div :class="child.rule_type === RuleType.AGGREGATE_REQUIRED ? 'flex items-end gap-4' : 'grid grid-cols-3 gap-4'">
+            <div class="flex flex-col gap-1" :class="{ 'w-48 shrink-0': child.rule_type === RuleType.AGGREGATE_REQUIRED }">
               <label class="text-[11px] font-bold text-surface-500 uppercase">Тип</label>
               <Select
                 v-model="child.rule_type"
@@ -340,19 +358,26 @@ const submit = async () => {
 
             <div v-if="child.rule_type === RuleType.GRADE_REQUIRED" class="flex flex-col gap-1">
               <label class="text-[11px] font-bold text-surface-500 uppercase">Мин. балл</label>
-              <InputNumber v-model="child.passing_threshold" :min="0" :max="100" class="w-full" />
+              <InputNumber v-model="child.passing_threshold" :min="0" :max="100" class="w-20" inputClass="w-full" />
             </div>
 
             <div v-if="child.rule_type === RuleType.COMPETENCY_REQUIRED" class="flex flex-col gap-1 col-span-2">
               <label class="text-[11px] font-bold text-surface-500 uppercase">Компетенция</label>
-              <Select
-                v-model="child.target_competency_id"
-                :options="store.competencies"
-                optionLabel="name"
-                optionValue="id"
-                placeholder="Выберите..."
+              <TreeSelect
+                :modelValue="competencyModelFor(child)"
+                @update:modelValue="(val: any) => pickCompetency(child, val)"
+                :options="competencyTree"
+                placeholder="Выберите компетенцию"
                 class="w-full"
-              />
+                selection-mode="single"
+              >
+                <template #value>
+                  <span v-if="child.target_competency_id">
+                    {{ competencyNameById(child.target_competency_id) ?? child.target_competency_id }}
+                  </span>
+                  <span v-else class="text-surface-400">Выбор...</span>
+                </template>
+              </TreeSelect>
             </div>
 
             <div v-if="child.rule_type === RuleType.DATE_RESTRICTED" class="flex flex-col gap-1 col-span-2">
@@ -381,7 +406,7 @@ const submit = async () => {
             </div>
 
             <template v-if="child.rule_type === RuleType.AGGREGATE_REQUIRED">
-              <div class="flex flex-col gap-1">
+              <div class="flex flex-col gap-1 flex-1 min-w-0">
                 <label class="text-[11px] font-bold text-surface-500 uppercase">Функция</label>
                 <Select
                   v-model="child.aggregate_function"
@@ -391,24 +416,24 @@ const submit = async () => {
                   class="w-full"
                 />
               </div>
-              <div class="flex flex-col gap-1">
-                <label class="text-[11px] font-bold text-surface-500 uppercase">Порог</label>
-                <InputNumber v-model="child.passing_threshold" :min="0" :max="100" class="w-full" />
-              </div>
-              <div class="flex flex-col gap-1 col-span-3">
-                <label class="text-[11px] font-bold text-surface-500 uppercase">Элементы с оценками</label>
-                <MultiSelect
-                  v-model="child.aggregate_element_ids"
-                  :options="gradableElementOptions"
-                  optionLabel="name"
-                  optionValue="id"
-                  placeholder="Выберите тесты/практики"
-                  filter
-                  display="chip"
-                  class="w-full"
-                />
+              <div class="flex flex-col gap-1 shrink-0">
+                <label class="text-[11px] font-bold text-surface-500 uppercase">Мин. балл</label>
+                <InputNumber v-model="child.passing_threshold" :min="0" :max="100" class="w-20" inputClass="w-full" />
               </div>
             </template>
+          </div>
+          <div v-if="child.rule_type === RuleType.AGGREGATE_REQUIRED" class="flex flex-col gap-1">
+            <label class="text-[11px] font-bold text-surface-500 uppercase">Элементы с оценками</label>
+            <TreeSelect
+              :modelValue="aggregateModelFor(child)"
+              @update:modelValue="(val: any) => pickAggregateElements(child, val)"
+              :options="aggregateSelectableTree"
+              :expandedKeys="expandedKeys"
+              selectionMode="checkbox"
+              placeholder="Выберите тесты/практики"
+              display="chip"
+              class="w-full"
+            />
           </div>
           </div>
         </template>
@@ -423,23 +448,21 @@ const submit = async () => {
           @click="addChild"
         />
 
-        <div class="flex justify-between items-center pt-2 border-t border-surface-100">
-          <span v-if="validationHint" class="text-xs text-surface-500 italic">
-            {{ validationHint }}
-          </span>
-          <div class="flex gap-4">
-              <Button label="Отмена" severity="secondary" variant="text" size="small" @click="$emit('cancelled')" />
-              <Button
-                :label="isEditMode ? 'Сохранить' : 'Создать составное правило'"
-                icon="pi pi-check"
-                size="small"
-                :loading="isSaving"
-                :disabled="!isFormValid"
-                @click="submit"
-              />
-            </div>
-          </div>
-        </div>
-    </template>
-  </Card>
+    <div class="flex justify-between items-center pt-2 border-t border-surface-100">
+      <span v-if="validationHint" class="text-xs text-surface-500 italic">
+        {{ validationHint }}
+      </span>
+      <div class="flex gap-4">
+        <Button label="Отмена" severity="secondary" variant="text" size="small" @click="$emit('cancelled')" />
+        <Button
+          :label="isEditMode ? 'Сохранить' : 'Создать составное правило'"
+          icon="pi pi-check"
+          size="small"
+          :loading="isSaving"
+          :disabled="!isFormValid"
+          @click="submit"
+        />
+      </div>
+    </div>
+  </div>
 </template>

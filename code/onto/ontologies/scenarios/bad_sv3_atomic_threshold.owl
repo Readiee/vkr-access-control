@@ -22,14 +22,14 @@
 </owl:ObjectProperty>
 
 <owl:ObjectProperty rdf:about="#is_contained_in_module">
-  <rdfs:domain rdf:resource="#EducationalElement"/>
+  <rdfs:domain rdf:resource="#LearningActivity"/>
   <rdfs:range rdf:resource="#Module"/>
-  <owl:inverseOf rdf:resource="#contains_element"/>
+  <owl:inverseOf rdf:resource="#contains_activity"/>
 </owl:ObjectProperty>
 
-<owl:ObjectProperty rdf:about="#contains_element">
+<owl:ObjectProperty rdf:about="#contains_activity">
   <rdfs:domain rdf:resource="#Module"/>
-  <rdfs:range rdf:resource="#EducationalElement"/>
+  <rdfs:range rdf:resource="#LearningActivity"/>
   <owl:inverseOf rdf:resource="#is_contained_in_module"/>
 </owl:ObjectProperty>
 
@@ -40,17 +40,20 @@
 </owl:ObjectProperty>
 
 <owl:ObjectProperty rdf:about="#refers_to_student">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#ProgressRecord"/>
   <rdfs:range rdf:resource="#Student"/>
   <owl:inverseOf rdf:resource="#has_progress_record"/>
 </owl:ObjectProperty>
 
 <owl:ObjectProperty rdf:about="#refers_to_element">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#ProgressRecord"/>
   <rdfs:range rdf:resource="#CourseStructure"/>
 </owl:ObjectProperty>
 
 <owl:ObjectProperty rdf:about="#has_status">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#ProgressRecord"/>
   <rdfs:range rdf:resource="#Status"/>
 </owl:ObjectProperty>
@@ -82,11 +85,13 @@
 </owl:ObjectProperty>
 
 <owl:ObjectProperty rdf:about="#targets_element">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#AccessPolicy"/>
   <rdfs:range rdf:resource="#CourseStructure"/>
 </owl:ObjectProperty>
 
 <owl:ObjectProperty rdf:about="#has_author">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#AccessPolicy"/>
   <rdfs:range rdf:resource="#Methodologist"/>
 </owl:ObjectProperty>
@@ -102,6 +107,7 @@
 </owl:ObjectProperty>
 
 <owl:ObjectProperty rdf:about="#restricted_to_group">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#AccessPolicy"/>
   <rdfs:range rdf:resource="#Group"/>
 </owl:ObjectProperty>
@@ -134,56 +140,67 @@
 </owl:ObjectProperty>
 
 <owl:DatatypeProperty rdf:about="#is_active">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#AccessPolicy"/>
   <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#boolean"/>
 </owl:DatatypeProperty>
 
-<owl:DatatypeProperty rdf:about="#is_required">
+<owl:DatatypeProperty rdf:about="#is_mandatory">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#CourseStructure"/>
   <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#boolean"/>
 </owl:DatatypeProperty>
 
 <owl:DatatypeProperty rdf:about="#order_index">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#CourseStructure"/>
   <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
 </owl:DatatypeProperty>
 
 <owl:DatatypeProperty rdf:about="#rule_type">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#AccessPolicy"/>
   <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
 </owl:DatatypeProperty>
 
 <owl:DatatypeProperty rdf:about="#passing_threshold">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#AccessPolicy"/>
   <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
 </owl:DatatypeProperty>
 
 <owl:DatatypeProperty rdf:about="#valid_from">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#AccessPolicy"/>
   <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#dateTime"/>
 </owl:DatatypeProperty>
 
 <owl:DatatypeProperty rdf:about="#valid_until">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#AccessPolicy"/>
   <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#dateTime"/>
 </owl:DatatypeProperty>
 
 <owl:DatatypeProperty rdf:about="#has_grade">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#ProgressRecord"/>
   <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
 </owl:DatatypeProperty>
 
 <owl:DatatypeProperty rdf:about="#failed_attempts_count">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#ProgressRecord"/>
   <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
 </owl:DatatypeProperty>
 
 <owl:DatatypeProperty rdf:about="#started_at">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#ProgressRecord"/>
   <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#dateTime"/>
 </owl:DatatypeProperty>
 
 <owl:DatatypeProperty rdf:about="#completed_at">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#ProgressRecord"/>
   <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#dateTime"/>
 </owl:DatatypeProperty>
@@ -214,7 +231,7 @@
   <rdfs:subClassOf rdf:resource="#CourseStructure"/>
 </owl:Class>
 
-<owl:Class rdf:about="#EducationalElement">
+<owl:Class rdf:about="#LearningActivity">
   <rdfs:subClassOf rdf:resource="#CourseStructure"/>
 </owl:Class>
 
@@ -266,20 +283,24 @@
   <rdfs:subClassOf rdf:resource="#User"/>
 </owl:Class>
 
+<owl:Class rdf:about="#SandboxStudent">
+  <rdfs:subClassOf rdf:resource="#Student"/>
+</owl:Class>
+
 <owl:Class rdf:about="#Lecture">
-  <rdfs:subClassOf rdf:resource="#EducationalElement"/>
+  <rdfs:subClassOf rdf:resource="#LearningActivity"/>
 </owl:Class>
 
 <owl:Class rdf:about="#Test">
-  <rdfs:subClassOf rdf:resource="#EducationalElement"/>
+  <rdfs:subClassOf rdf:resource="#LearningActivity"/>
 </owl:Class>
 
 <owl:Class rdf:about="#Assignment">
-  <rdfs:subClassOf rdf:resource="#EducationalElement"/>
+  <rdfs:subClassOf rdf:resource="#LearningActivity"/>
 </owl:Class>
 
 <owl:Class rdf:about="#Practice">
-  <rdfs:subClassOf rdf:resource="#EducationalElement"/>
+  <rdfs:subClassOf rdf:resource="#LearningActivity"/>
 </owl:Class>
 
 <owl:NamedIndividual rdf:about="#status_passed">
@@ -309,20 +330,20 @@
 
 <owl:NamedIndividual rdf:about="#module_one">
   <rdf:type rdf:resource="#Module"/>
-  <contains_element rdf:resource="#guarded_element"/>
-  <contains_element rdf:resource="#quiz_prereq"/>
-  <is_required rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_required>
+  <contains_activity rdf:resource="#quiz_prereq"/>
+  <contains_activity rdf:resource="#guarded_element"/>
+  <is_mandatory rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_mandatory>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#quiz_prereq">
   <rdf:type rdf:resource="#Test"/>
-  <is_required rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_required>
+  <is_mandatory rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_mandatory>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#guarded_element">
   <rdf:type rdf:resource="#Lecture"/>
   <has_access_policy rdf:resource="#p_unreach_threshold"/>
-  <is_required rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_required>
+  <is_mandatory rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_mandatory>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#p_unreach_threshold">
@@ -403,7 +424,7 @@
   <owl:members rdf:parseType="Collection">
     <rdf:Description rdf:about="#Course"/>
     <rdf:Description rdf:about="#Module"/>
-    <rdf:Description rdf:about="#EducationalElement"/>
+    <rdf:Description rdf:about="#LearningActivity"/>
   </owl:members>
 </owl:AllDisjointClasses>
 
@@ -456,6 +477,108 @@
           <swrl:propertyPredicate rdf:resource="#has_competency"/>
           <swrl:argument1 rdf:resource="urn:swrl#s"/>
           <swrl:argument2 rdf:resource="urn:swrl#parent"/>
+        </swrl:IndividualPropertyAtom>
+      </rdf:first>
+      <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+    </rdf:Description>
+  </swrl:head>
+</swrl:Imp>
+
+<swrl:Imp>
+  <swrl:body>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:ClassAtom>
+          <swrl:classPredicate rdf:resource="#AccessPolicy"/>
+          <swrl:argument1 rdf:resource="urn:swrl#p"/>
+        </swrl:ClassAtom>
+      </rdf:first>
+      <rdf:rest>
+        <rdf:Description>
+          <rdf:first>
+            <swrl:DatavaluedPropertyAtom>
+              <swrl:propertyPredicate rdf:resource="#is_active"/>
+              <swrl:argument1 rdf:resource="urn:swrl#p"/>
+              <swrl:argument2 rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</swrl:argument2>
+            </swrl:DatavaluedPropertyAtom>
+          </rdf:first>
+          <rdf:rest>
+            <rdf:Description>
+              <rdf:first>
+                <swrl:DatavaluedPropertyAtom>
+                  <swrl:propertyPredicate rdf:resource="#rule_type"/>
+                  <swrl:argument1 rdf:resource="urn:swrl#p"/>
+                  <swrl:argument2 rdf:datatype="http://www.w3.org/2001/XMLSchema#string">viewed_required</swrl:argument2>
+                </swrl:DatavaluedPropertyAtom>
+              </rdf:first>
+              <rdf:rest>
+                <rdf:Description>
+                  <rdf:first>
+                    <swrl:IndividualPropertyAtom>
+                      <swrl:propertyPredicate rdf:resource="#targets_element"/>
+                      <swrl:argument1 rdf:resource="urn:swrl#p"/>
+                      <swrl:argument2 rdf:resource="urn:swrl#target"/>
+                    </swrl:IndividualPropertyAtom>
+                  </rdf:first>
+                  <rdf:rest>
+                    <rdf:Description>
+                      <rdf:first>
+                        <swrl:ClassAtom>
+                          <swrl:classPredicate rdf:resource="#Student"/>
+                          <swrl:argument1 rdf:resource="urn:swrl#s"/>
+                        </swrl:ClassAtom>
+                      </rdf:first>
+                      <rdf:rest>
+                        <rdf:Description>
+                          <rdf:first>
+                            <swrl:IndividualPropertyAtom>
+                              <swrl:propertyPredicate rdf:resource="#has_progress_record"/>
+                              <swrl:argument1 rdf:resource="urn:swrl#s"/>
+                              <swrl:argument2 rdf:resource="urn:swrl#pr"/>
+                            </swrl:IndividualPropertyAtom>
+                          </rdf:first>
+                          <rdf:rest>
+                            <rdf:Description>
+                              <rdf:first>
+                                <swrl:IndividualPropertyAtom>
+                                  <swrl:propertyPredicate rdf:resource="#refers_to_element"/>
+                                  <swrl:argument1 rdf:resource="urn:swrl#pr"/>
+                                  <swrl:argument2 rdf:resource="urn:swrl#target"/>
+                                </swrl:IndividualPropertyAtom>
+                              </rdf:first>
+                              <rdf:rest>
+                                <rdf:Description>
+                                  <rdf:first>
+                                    <swrl:IndividualPropertyAtom>
+                                      <swrl:propertyPredicate rdf:resource="#has_status"/>
+                                      <swrl:argument1 rdf:resource="urn:swrl#pr"/>
+                                      <swrl:argument2 rdf:resource="#status_completed"/>
+                                    </swrl:IndividualPropertyAtom>
+                                  </rdf:first>
+                                  <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                                </rdf:Description>
+                              </rdf:rest>
+                            </rdf:Description>
+                          </rdf:rest>
+                        </rdf:Description>
+                      </rdf:rest>
+                    </rdf:Description>
+                  </rdf:rest>
+                </rdf:Description>
+              </rdf:rest>
+            </rdf:Description>
+          </rdf:rest>
+        </rdf:Description>
+      </rdf:rest>
+    </rdf:Description>
+  </swrl:body>
+  <swrl:head>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:IndividualPropertyAtom>
+          <swrl:propertyPredicate rdf:resource="#satisfies"/>
+          <swrl:argument1 rdf:resource="urn:swrl#s"/>
+          <swrl:argument2 rdf:resource="urn:swrl#p"/>
         </swrl:IndividualPropertyAtom>
       </rdf:first>
       <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>

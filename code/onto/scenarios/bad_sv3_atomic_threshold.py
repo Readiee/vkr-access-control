@@ -12,18 +12,18 @@ def build(onto):
     with onto:
         methodologist = onto.Methodologist("methodologist_smirnov")
         course = onto.Course("course_unreach")
-        module_one = onto.Module("module_one"); module_one.is_required = [True]
+        module_one = onto.Module("module_one"); module_one.is_mandatory = True
         course.has_module = [module_one]
-        quiz_prereq = onto.Test("quiz_prereq"); quiz_prereq.is_required = [True]
-        guarded = onto.Lecture("guarded_element"); guarded.is_required = [True]
-        module_one.contains_element = [quiz_prereq, guarded]
+        quiz_prereq = onto.Test("quiz_prereq"); quiz_prereq.is_mandatory = True
+        guarded = onto.Lecture("guarded_element"); guarded.is_mandatory = True
+        module_one.contains_activity = [quiz_prereq, guarded]
 
         p = onto.AccessPolicy("p_unreach_threshold")
-        p.rule_type = ["grade_required"]
-        p.is_active = [True]
-        p.has_author = [methodologist]
-        p.targets_element = [quiz_prereq]
-        p.passing_threshold = [150.0]
+        p.rule_type = "grade_required"
+        p.is_active = True
+        p.has_author = methodologist
+        p.targets_element = quiz_prereq
+        p.passing_threshold = 150.0
         guarded.has_access_policy = [p]
 
         onto.Student("student_any")

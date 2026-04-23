@@ -10,17 +10,17 @@ def build(onto):
     with onto:
         methodologist = onto.Methodologist("methodologist_smirnov")
         course = onto.Course("course_empty_window")
-        module_one = onto.Module("module_one"); module_one.is_required = [True]
+        module_one = onto.Module("module_one"); module_one.is_mandatory = True
         course.has_module = [module_one]
-        guarded = onto.Lecture("guarded_by_empty_window"); guarded.is_required = [True]
-        module_one.contains_element = [guarded]
+        guarded = onto.Lecture("guarded_by_empty_window"); guarded.is_mandatory = True
+        module_one.contains_activity = [guarded]
 
         p = onto.AccessPolicy("p_unreach_date")
-        p.rule_type = ["date_restricted"]
-        p.is_active = [True]
-        p.has_author = [methodologist]
-        p.valid_from = [datetime.datetime(2026, 6, 1)]
-        p.valid_until = [datetime.datetime(2026, 5, 1)]
+        p.rule_type = "date_restricted"
+        p.is_active = True
+        p.has_author = methodologist
+        p.valid_from = datetime.datetime(2026, 6, 1)
+        p.valid_until = datetime.datetime(2026, 5, 1)
         guarded.has_access_policy = [p]
 
         onto.Student("student_any")

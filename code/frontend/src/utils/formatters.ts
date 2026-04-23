@@ -90,6 +90,32 @@ export const formatDateShort = (value: string | Date | null | undefined): string
 };
 
 // ---------------------------------------------------------------------------
+// Иерархическое дерево компетенций из плоского списка (для TreeSelect)
+// ---------------------------------------------------------------------------
+
+interface CompetencyTreeNode {
+  key: string;
+  label: string;
+  data: Competency;
+  children: CompetencyTreeNode[];
+}
+
+export const buildCompetencyTree = (flat: Competency[]): CompetencyTreeNode[] => {
+  const map = new Map<string, CompetencyTreeNode>();
+  flat.forEach((c) => {
+    map.set(c.id, { key: c.id, label: c.name, data: c, children: [] });
+  });
+  const roots: CompetencyTreeNode[] = [];
+  flat.forEach((c) => {
+    const node = map.get(c.id)!;
+    const parent = c.parent_id ? map.get(c.parent_id) : null;
+    if (parent) parent.children.push(node);
+    else roots.push(node);
+  });
+  return roots;
+};
+
+// ---------------------------------------------------------------------------
 // Рекурсивный поиск названия узла по ID в дереве
 // ---------------------------------------------------------------------------
 

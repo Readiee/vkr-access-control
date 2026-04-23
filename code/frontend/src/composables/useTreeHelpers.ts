@@ -108,13 +108,14 @@ export function useTreeHelpers() {
       // Проверка по общей карте допустимых типов (опционально для расширения)
       const selectableTypes: Record<string, string[]> = {
         [RuleType.GRADE_REQUIRED]: [ElementType.TEST, ElementType.ASSIGNMENT, ElementType.PRACTICE],
+        [RuleType.AGGREGATE_REQUIRED]: [ElementType.TEST, ElementType.ASSIGNMENT, ElementType.PRACTICE],
         [RuleType.VIEWED_REQUIRED]: [ElementType.LECTURE, ElementType.PRACTICE],
         [RuleType.COMPLETION_REQUIRED]: [
-          ElementType.LECTURE, 
-          ElementType.TEST, 
-          ElementType.ASSIGNMENT, 
-          ElementType.PRACTICE, 
-          ElementType.MODULE, 
+          ElementType.LECTURE,
+          ElementType.TEST,
+          ElementType.ASSIGNMENT,
+          ElementType.PRACTICE,
+          ElementType.MODULE,
           ElementType.COURSE
         ],
       };

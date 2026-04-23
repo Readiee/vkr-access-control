@@ -58,7 +58,8 @@ export interface CourseElement {
   id: string;
   name: string;
   type: string;
-  is_required?: boolean;
+  is_mandatory?: boolean;
+  assesses?: Array<{ id: string; name: string }>;
 }
 
 export interface CourseStructureResponse {
@@ -102,6 +103,8 @@ export interface SandboxState {
   available_elements: string[];
   progress: Record<string, SandboxProgressEntry>;
   active_competencies: string[];
+  group_id?: string | null;
+  group_name?: string | null;
 }
 
 export interface SandboxActionResult {

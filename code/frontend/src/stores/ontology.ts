@@ -1,7 +1,21 @@
 import { defineStore } from 'pinia';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { getMeta, getCourseTree } from '@/api';
-import type { Competency, CourseElement, CourseTreeNode, Group, PolicyResponse } from '@/types';
+import type {
+  Competency,
+  CourseElement,
+  CourseTreeNode,
+  Group,
+  PolicyResponse,
+  VerificationReport,
+} from '@/types';
+
+interface StoredVerification {
+  courseId: string;
+  report: VerificationReport;
+  savedAt: number;
+  policiesVersionAtSave: number;
+}
 
 export const useOntologyStore = defineStore('ontology', () => {
   // --- State ---
@@ -16,6 +30,32 @@ export const useOntologyStore = defineStore('ontology', () => {
   const isLoading = ref<boolean>(false);
   const error = ref<string | null>(null);
   const isLoaded = ref<boolean>(false);
+
+  // Счётчик изменений политик — bump при каждом CRUD. Отчёт верификации
+  // хранит версию, при которой был построен; расхождение → отчёт устарел.
+  const policiesVersion = ref(0);
+  const lastVerification = ref<StoredVerification | null>(null);
+
+  const verificationForCurrentCourse = computed<StoredVerification | null>(() => {
+    const v = lastVerification.value;
+    if (!v || v.courseId !== currentCourseId.value) return null;
+    return v;
+  });
+
+  const verificationStale = computed<boolean>(() => {
+    const v = verificationForCurrentCourse.value;
+    if (!v) return false;
+    return v.policiesVersionAtSave !== policiesVersion.value;
+  });
+
+  const saveVerification = (courseId: string, report: VerificationReport) => {
+    lastVerification.value = {
+      courseId,
+      report,
+      savedAt: Date.now(),
+      policiesVersionAtSave: policiesVersion.value,
+    };
+  };
 
   // --- Actions ---
 
@@ -91,6 +131,7 @@ export const useOntologyStore = defineStore('ontology', () => {
     const idx = policies.findIndex((p) => p.id === policy.id);
     if (idx >= 0) policies.splice(idx, 1, policy);
     else policies.push(policy);
+    policiesVersion.value++;
   };
 
   const removePolicyFromTree = (policyId: string) => {
@@ -109,7 +150,9 @@ export const useOntologyStore = defineStore('ontology', () => {
       }
       return false;
     };
-    walk(currentCourseTree.value);
+    if (walk(currentCourseTree.value)) {
+      policiesVersion.value++;
+    }
   };
 
   return {
@@ -123,9 +166,13 @@ export const useOntologyStore = defineStore('ontology', () => {
     isLoading,
     error,
     isLoaded,
+    policiesVersion,
+    verificationForCurrentCourse,
+    verificationStale,
     fetchMeta,
     fetchCourseTree,
     upsertPolicyInTree,
     removePolicyFromTree,
+    saveVerification,
   };
 });

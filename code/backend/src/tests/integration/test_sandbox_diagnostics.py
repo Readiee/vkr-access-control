@@ -65,7 +65,7 @@ def run_diagnostics():
         # Диагностика почему не сработало:
         pr = core.onto.search_one(type=core.onto.ProgressRecord, refers_to_element=core.onto.test_1_syntax)
         if pr:
-            logger.info(f"Дамп прогресса: Статус={getattr(pr, 'has_status', [])}, Оценка={getattr(pr, 'has_grade', [])}")
+            logger.info(f"Дамп прогресса: Статус={getattr(pr, "has_status", None)}, Оценка={getattr(pr, "has_grade", None)}")
         else:
             logger.info("Дамп прогресса: Прогресс не найден!")
     else:
@@ -80,7 +80,7 @@ def run_diagnostics():
     policy = core.onto.search_one(iri="*policy*module2*")
     if policy:
         logger.info(f"Найдена политика: {policy.name}")
-        policy.is_active = [False]
+        policy.is_active = False
         core.save()
         core.run_reasoner()
         # Мы не можем вызвать invalidate_student_cache так как это метод в progress_service

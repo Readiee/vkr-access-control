@@ -24,8 +24,8 @@ from services.ontology_core import OntologyCore  # noqa: E402
 
 class DateAndGroupReasoningTests(unittest.TestCase):
     def setUp(self):
-        self.test_owl = "test_date_group.owl"
-        shutil.copy(DEFAULT_ONTOLOGY_PATH, self.test_owl)
+        from tests._factory import make_temp_onto_copy
+        self.test_owl = make_temp_onto_copy(prefix="vkr_date_group_")
         self.core = OntologyCore(self.test_owl)
         from services.cache_manager import CacheManager
         from services.reasoning import ReasoningOrchestrator
@@ -77,17 +77,17 @@ class DateAndGroupReasoningTests(unittest.TestCase):
 
             # date-policy: окно в будущем (2099), сейчас вне окна
             self.p_date_future = self.core.onto.AccessPolicy("policy_dg_date_future")
-            self.p_date_future.rule_type = ["date_restricted"]
-            self.p_date_future.is_active = [True]
-            self.p_date_future.valid_from = [datetime(2099, 1, 1)]
-            self.p_date_future.valid_until = [datetime(2099, 12, 31)]
+            self.p_date_future.rule_type = "date_restricted"
+            self.p_date_future.is_active = True
+            self.p_date_future.valid_from = datetime(2099, 1, 1)
+            self.p_date_future.valid_until = datetime(2099, 12, 31)
             self.lec_date.has_access_policy = [self.p_date_future]
 
             # group-policy: только grp_dg_in
             self.p_group = self.core.onto.AccessPolicy("policy_dg_group_only")
-            self.p_group.rule_type = ["group_restricted"]
-            self.p_group.is_active = [True]
-            self.p_group.restricted_to_group = [self.grp_in]
+            self.p_group.rule_type = "group_restricted"
+            self.p_group.is_active = True
+            self.p_group.restricted_to_group = self.grp_in
             self.lec_group.has_access_policy = [self.p_group]
 
         self.core.save()
@@ -110,8 +110,8 @@ class DateAndGroupReasoningTests(unittest.TestCase):
     def test_date_inside_window_opens_element(self):
         """Когда окно включает «сейчас» — элемент открыт через SWRL-шаблон 5."""
         with self.core.onto:
-            self.p_date_future.valid_from = [datetime(2020, 1, 1)]
-            self.p_date_future.valid_until = [datetime(2099, 12, 31)]
+            self.p_date_future.valid_from = datetime(2020, 1, 1)
+            self.p_date_future.valid_until = datetime(2099, 12, 31)
         self.core.save()
         result = self.reasoner.reason()
         self.assertEqual(result.status, "ok")

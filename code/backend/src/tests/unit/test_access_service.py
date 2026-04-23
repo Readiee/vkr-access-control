@@ -54,12 +54,12 @@ class AccessServiceTests(unittest.TestCase):
             self.lec_free = self.onto.Lecture(self._track("lec_acc_free"))
             self.lec_guarded = self.onto.Lecture(self._track("lec_acc_guarded"))
             self.course.has_module = [self.module]
-            self.module.contains_element = [self.lec_free, self.lec_guarded]
+            self.module.contains_activity = [self.lec_free, self.lec_guarded]
 
             self.policy = self.onto.AccessPolicy(self._track("p_acc_guard"))
-            self.policy.rule_type = ["completion_required"]
-            self.policy.is_active = [True]
-            self.policy.targets_element = [self.lec_free]
+            self.policy.rule_type = "completion_required"
+            self.policy.is_active = True
+            self.policy.targets_element = self.lec_free
             self.lec_guarded.has_access_policy = [self.policy]
 
         # Стаб OntologyCore: только то, что реально зовёт AccessService.
@@ -106,9 +106,9 @@ class AccessServiceTests(unittest.TestCase):
         # Вешаем на module_acc активную политику, которую студент не удовлетворяет
         with self.onto:
             parent_policy = self.onto.AccessPolicy(self._track("p_acc_parent"))
-            parent_policy.rule_type = ["completion_required"]
-            parent_policy.is_active = [True]
-            parent_policy.targets_element = [self.lec_guarded]
+            parent_policy.rule_type = "completion_required"
+            parent_policy.is_active = True
+            parent_policy.targets_element = self.lec_guarded
             self.module.has_access_policy = [parent_policy]
 
         result = self.service.rebuild_student_access("acc_ivan")
@@ -145,9 +145,9 @@ class AccessServiceTests(unittest.TestCase):
         """Когда родитель закрыт — в отчёте указан cascade_blocker."""
         with self.onto:
             parent_policy = self.onto.AccessPolicy(self._track("p_acc_cascade"))
-            parent_policy.rule_type = ["completion_required"]
-            parent_policy.is_active = [True]
-            parent_policy.targets_element = [self.lec_guarded]
+            parent_policy.rule_type = "completion_required"
+            parent_policy.is_active = True
+            parent_policy.targets_element = self.lec_guarded
             self.module.has_access_policy = [parent_policy]
 
         report = self.service.explain_blocking("acc_ivan", "lec_acc_free")

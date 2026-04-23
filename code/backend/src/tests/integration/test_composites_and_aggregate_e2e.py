@@ -28,8 +28,8 @@ class CompositeAndAggregateEndToEndTests(unittest.TestCase):
     """Each test gets a fresh World — Pellet видит только свои индивиды."""
 
     def setUp(self):
-        self.test_owl = f"test_composite_agg_{id(self)}.owl"
-        shutil.copy(DEFAULT_ONTOLOGY_PATH, self.test_owl)
+        from tests._factory import make_temp_onto_copy
+        self.test_owl = make_temp_onto_copy(prefix="vkr_composite_agg_")
         self.world = World()
         self.core = OntologyCore(self.test_owl, world=self.world)
         from services.cache_manager import CacheManager
@@ -115,13 +115,13 @@ class CompositeAndAggregateEndToEndTests(unittest.TestCase):
             quiz_b = self.core.onto.search_one(iri="*quiz_b")
 
             pr_a = self.core.onto.ProgressRecord("pr_cmp_and_a")
-            pr_a.refers_to_element = [quiz_a]
-            pr_a.has_status = [self.core.onto.status_completed]
+            pr_a.refers_to_element = quiz_a
+            pr_a.has_status = self.core.onto.status_completed
             student.has_progress_record.append(pr_a)
 
             pr_b = self.core.onto.ProgressRecord("pr_cmp_and_b")
-            pr_b.refers_to_element = [quiz_b]
-            pr_b.has_status = [self.core.onto.status_completed]
+            pr_b.refers_to_element = quiz_b
+            pr_b.has_status = self.core.onto.status_completed
             student.has_progress_record.append(pr_b)
         self.core.save()
 
@@ -153,8 +153,8 @@ class CompositeAndAggregateEndToEndTests(unittest.TestCase):
             student = self.core.onto.Student("student_cmp_and_partial")
             quiz_a = self.core.onto.search_one(iri="*quiz_a")
             pr_a = self.core.onto.ProgressRecord("pr_cmp_and_partial_a")
-            pr_a.refers_to_element = [quiz_a]
-            pr_a.has_status = [self.core.onto.status_completed]
+            pr_a.refers_to_element = quiz_a
+            pr_a.has_status = self.core.onto.status_completed
             student.has_progress_record.append(pr_a)
             # quiz_b намеренно пропущен
         self.core.save()
@@ -186,8 +186,8 @@ class CompositeAndAggregateEndToEndTests(unittest.TestCase):
             student = self.core.onto.Student("student_cmp_or")
             quiz_a = self.core.onto.search_one(iri="*quiz_a")
             pr_a = self.core.onto.ProgressRecord("pr_cmp_or_a")
-            pr_a.refers_to_element = [quiz_a]
-            pr_a.has_status = [self.core.onto.status_completed]
+            pr_a.refers_to_element = quiz_a
+            pr_a.has_status = self.core.onto.status_completed
             student.has_progress_record.append(pr_a)
         self.core.save()
 
@@ -238,15 +238,15 @@ class CompositeAndAggregateEndToEndTests(unittest.TestCase):
             quiz_b = self.core.onto.search_one(iri="*quiz_b")
 
             pr_a = self.core.onto.ProgressRecord("pr_agg_a")
-            pr_a.refers_to_element = [quiz_a]
-            pr_a.has_grade = [80.0]
-            pr_a.has_status = [self.core.onto.status_completed]
+            pr_a.refers_to_element = quiz_a
+            pr_a.has_grade = 80.0
+            pr_a.has_status = self.core.onto.status_completed
             student.has_progress_record.append(pr_a)
 
             pr_b = self.core.onto.ProgressRecord("pr_agg_b")
-            pr_b.refers_to_element = [quiz_b]
-            pr_b.has_grade = [70.0]
-            pr_b.has_status = [self.core.onto.status_completed]
+            pr_b.refers_to_element = quiz_b
+            pr_b.has_grade = 70.0
+            pr_b.has_status = self.core.onto.status_completed
             student.has_progress_record.append(pr_b)
         self.core.save()
 
@@ -273,15 +273,15 @@ class CompositeAndAggregateEndToEndTests(unittest.TestCase):
             quiz_b = self.core.onto.search_one(iri="*quiz_b")
 
             pr_a = self.core.onto.ProgressRecord("pr_agg_fail_a")
-            pr_a.refers_to_element = [quiz_a]
-            pr_a.has_grade = [60.0]
-            pr_a.has_status = [self.core.onto.status_completed]
+            pr_a.refers_to_element = quiz_a
+            pr_a.has_grade = 60.0
+            pr_a.has_status = self.core.onto.status_completed
             student.has_progress_record.append(pr_a)
 
             pr_b = self.core.onto.ProgressRecord("pr_agg_fail_b")
-            pr_b.refers_to_element = [quiz_b]
-            pr_b.has_grade = [70.0]
-            pr_b.has_status = [self.core.onto.status_completed]
+            pr_b.refers_to_element = quiz_b
+            pr_b.has_grade = 70.0
+            pr_b.has_status = self.core.onto.status_completed
             student.has_progress_record.append(pr_b)
         self.core.save()
 
@@ -352,6 +352,17 @@ class CompositeAndAggregateEndToEndTests(unittest.TestCase):
 
         old_sub_ids = set(composite["subpolicy_ids"] or [])
         self.assertEqual(len(old_sub_ids), 2)
+
+        # subpolicies_detail должен приходить сразу после create — иначе
+        # фронт показывает «2 подусловий» вместо имён правил и не может
+        # открыть composite в editor с заполненными целевыми элементами.
+        details = composite.get("subpolicies_detail") or []
+        self.assertEqual(len(details), 2)
+        self.assertTrue(all("name" in d and d["name"] for d in details))
+        self.assertEqual(
+            {d["target_element_id"] for d in details},
+            {"quiz_a", "quiz_b"},
+        )
 
         updated = self.policy_service.update_policy(
             composite["id"],

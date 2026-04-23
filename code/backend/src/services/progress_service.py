@@ -54,12 +54,12 @@ class ProgressService:
             else event_data.event_type
         )
         if event_type in {ProgressStatus.COMPLETED.value, "completed"}:
-            progress_record.has_status = [self.core.progress.get_owl_status("completed")]
+            progress_record.has_status = self.core.progress.get_owl_status("completed")
         elif event_type in {ProgressStatus.FAILED.value, "failed"}:
-            progress_record.has_status = [self.core.progress.get_owl_status("failed")]
+            progress_record.has_status = self.core.progress.get_owl_status("failed")
 
         if event_data.grade is not None:
-            progress_record.has_grade = [float(event_data.grade)]
+            progress_record.has_grade = float(event_data.grade)
 
         self.core.save()
 
@@ -91,13 +91,9 @@ class ProgressService:
 
         val = status if isinstance(status, str) else status.value
         owl_status = self.core.progress.get_owl_status(val)
-        statuses = [owl_status] if owl_status else []
-        if val == ProgressStatus.COMPLETED.value or val == "completed":
-            viewed_status = self.core.progress.get_owl_status("viewed")
-            if viewed_status:
-                statuses.append(viewed_status)
-
-        record.has_status = statuses
+        # has_status functional: completed покрывает viewed через SWRL rule 3b,
+        # явно хранить оба статуса не нужно.
+        record.has_status = owl_status
         self.core.save()
         logger.info("Статус %s для %s обновлён до %s", element_id, student.name, val)
 

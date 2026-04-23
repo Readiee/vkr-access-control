@@ -80,7 +80,7 @@ class GraphValidator:
             eid = elem.name
             graph.add_edge(f"{eid}_access", f"{eid}_complete")
             children = list(getattr(elem, "has_module", []) or []) + list(
-                getattr(elem, "contains_element", []) or []
+                getattr(elem, "contains_activity", []) or []
             )
             for child in children:
                 cid = child.name
@@ -163,8 +163,14 @@ class GraphValidator:
             competency = onto.search_one(type=onto.Competency, iri=f"*{probe.target_competency_id}")
             if competency is None:
                 return
+            # Те же дуги, что и в _add_policy_edges: прямые + assessors всех
+            # subcompetencies, иначе probe-детектор не видит цикл через
+            # транзитивную иерархию компетенций, а верификация видит.
             for assessor in onto.search(assesses=competency) or []:
                 graph.add_edge(f"{assessor.name}_complete", f"{src}_access")
+            for sub in cls._subcompetencies(onto, competency):
+                for assessor in onto.search(assesses=sub) or []:
+                    graph.add_edge(f"{assessor.name}_complete", f"{src}_access")
             return
         if rt == RuleType.AGGREGATE.value:
             for eid in probe.aggregate_element_ids:
@@ -216,13 +222,13 @@ class GraphValidator:
 
     @staticmethod
     def get_parent_of(onto: Any, element_id: str) -> Any:
-        """Найти родителя элемента по has_module/contains_element (совместимость)."""
-        element = onto.search_one(iri=f"*{element_id}")
+        """Найти родителя элемента по has_module/contains_activity (совместимость)."""
+        element = onto.search_one(type=onto.CourseStructure, iri=f"*{element_id}")
         if not element:
             return None
         for candidate in onto.CourseStructure.instances():
             if element in (getattr(candidate, "has_module", []) or []):
                 return candidate
-            if element in (getattr(candidate, "contains_element", []) or []):
+            if element in (getattr(candidate, "contains_activity", []) or []):
                 return candidate
         return None

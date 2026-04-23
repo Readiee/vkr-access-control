@@ -9,7 +9,7 @@ import {
   findNodeNameById,
   formatPolicyBadgeText,
   AggregateFunctionLabels,
-  GRADABLE_ELEMENT_TYPES,
+  buildCompetencyTree,
 } from '@/utils/formatters';
 import { useTreeHelpers } from '@/composables/useTreeHelpers';
 import { usePolicyForm } from '@/composables/usePolicyForm';
@@ -128,7 +128,7 @@ const validationHint = computed<string>(() => {
       if (!f.aggregate_function) return 'Выберите функцию агрегирования';
       if (!Array.isArray(f.aggregate_element_ids) || !f.aggregate_element_ids.length)
         return 'Выберите хотя бы один элемент с оценкой';
-      if (f.passing_threshold == null) return 'Задайте порог';
+      if (f.passing_threshold == null) return 'Задайте минимальный балл (0–100)';
       return '';
     default:
       return '';
@@ -155,32 +155,6 @@ const aggregateFunctionOptions = Object.values(AggregateFunction).map((fn) => ({
 
 const availableSubpolicies = ref<PolicyResponse[]>([]);
 
-type ElementOption = { id: string; name: string; type: string };
-
-const flattenElements = (nodes: CourseTreeNode[] | undefined): ElementOption[] => {
-  const out: ElementOption[] = [];
-  const walk = (arr: CourseTreeNode[] | undefined) => {
-    (arr || []).forEach((n) => {
-      if (n.data?.id) {
-        out.push({
-          id: n.data.id,
-          name: n.data.name,
-          type: (n.data.type || '').toLowerCase(),
-        });
-      }
-      if (n.children?.length) walk(n.children as any);
-    });
-  };
-  walk(nodes);
-  return out;
-};
-
-const courseElementOptions = computed(() => flattenElements(props.treeData));
-
-const gradableElementOptions = computed(() =>
-  courseElementOptions.value.filter((el) => GRADABLE_ELEMENT_TYPES.has(el.type)),
-);
-
 onMounted(async () => {
   try {
     availableSubpolicies.value = await getPolicies();
@@ -206,6 +180,52 @@ const selectableTreeNodes = computed(() => {
   const blocked = getBlockedIds(props.treeData, props.targetNode?.data?.id ?? '');
   return buildSelectableTree(props.treeData, blocked, form.value.rule_type, props.targetNode?.data?.id);
 });
+
+const aggregateSelectableTreeNodes = computed(() => {
+  if (!props.treeData) return [];
+  const blocked = getBlockedIds(props.treeData, props.targetNode?.data?.id ?? '');
+  return buildSelectableTree(props.treeData, blocked, RuleType.AGGREGATE_REQUIRED, props.targetNode?.data?.id);
+});
+
+const aggregateTreeModel = computed<Record<string, { checked: boolean; partialChecked: boolean }>>(() => {
+  const map: Record<string, { checked: boolean; partialChecked: boolean }> = {};
+  (form.value.aggregate_element_ids ?? []).forEach((id) => {
+    map[id] = { checked: true, partialChecked: false };
+  });
+  return map;
+});
+
+const pickAggregateElements = (val: any) => {
+  if (!val || typeof val !== 'object') {
+    form.value.aggregate_element_ids = [];
+    return;
+  }
+  form.value.aggregate_element_ids = Object.entries(val)
+    .filter(([, v]) => v === true || (v as any)?.checked === true)
+    .map(([k]) => k);
+};
+
+const competencyTree = computed(() => buildCompetencyTree(store.competencies));
+
+const competencyModel = computed<Record<string, boolean> | null>(() =>
+  form.value.target_competency_id ? { [form.value.target_competency_id]: true } : null,
+);
+
+const pickCompetency = (val: any) => {
+  if (!val || typeof val !== 'object') {
+    form.value.target_competency_id = null;
+    return;
+  }
+  const picked = Object.entries(val).find(
+    ([, v]) => v === true || (v as any)?.checked === true,
+  );
+  form.value.target_competency_id = picked ? picked[0] : null;
+};
+
+const competencyNameById = (id: string): string | null => {
+  const c = store.competencies.find((x) => x.id === id);
+  return c ? c.name : null;
+};
 
 const requiresTargetElement = computed(() => {
   return [RuleType.COMPLETION_REQUIRED, RuleType.GRADE_REQUIRED, RuleType.VIEWED_REQUIRED].includes(form.value.rule_type as RuleType);
@@ -246,13 +266,11 @@ const isDateRule = computed(() => form.value.rule_type === RuleType.DATE_RESTRIC
            </div>
         </div>
 
-        <!-- Редактирование составного условия — полноценная форма с детальными
-             подусловиями, а не MultiSelect по id — иначе методист не может
-             менять содержание composite, только переназначать ссылки. -->
+        <!-- Редактирование составного условия -->
         <CompositePolicyEditor
           v-else-if="editMode && initialData && (initialData.rule_type === RuleType.AND_COMBINATION || initialData.rule_type === RuleType.OR_COMBINATION)"
           :target-node="targetNode"
-          :tree-data="treeData"
+          :tree-data="treeData ?? []"
           :initial-data="initialData"
           @saved="isEditing = false; $emit('saved');"
           @cancelled="isEditing = false"
@@ -268,9 +286,10 @@ const isDateRule = computed(() => form.value.rule_type === RuleType.DATE_RESTRIC
              <Button v-if="editMode" icon="pi pi-times" text rounded size="small" @click="isEditing = false" />
            </div>
 
-               <!-- Форма -->
-           <div class="grid grid-cols-3 gap-5">
-              <div class="flex flex-col gap-1">
+               <!-- Форма. Для агрегата layout через flex, чтобы Функция
+                    растягивалась на свободное место, а Мин. балл оставался w-20. -->
+           <div :class="isAggregateRule ? 'flex items-end gap-5' : 'grid grid-cols-3 gap-5'">
+              <div class="flex flex-col gap-1" :class="{ 'w-48 shrink-0': isAggregateRule }">
                 <label class="text-[11px] font-bold text-surface-500 uppercase">Тип условия</label>
                 <Select
                   v-model="form.rule_type"
@@ -302,17 +321,52 @@ const isDateRule = computed(() => form.value.rule_type === RuleType.DATE_RESTRIC
 
               <div v-if="isCompetencyRule" class="flex flex-col gap-1 col-span-2">
                 <label class="text-[11px] font-bold text-surface-500 uppercase">Требуемая компетенция</label>
+                <TreeSelect
+                  :modelValue="competencyModel"
+                  @update:modelValue="pickCompetency"
+                  :options="competencyTree"
+                  placeholder="Выберите компетенцию"
+                  class="w-full"
+                  selection-mode="single"
+                >
+                  <template #value>
+                    <span v-if="form.target_competency_id">
+                      {{ competencyNameById(form.target_competency_id) ?? form.target_competency_id }}
+                    </span>
+                    <span v-else class="text-surface-400">Выбор...</span>
+                  </template>
+                </TreeSelect>
+              </div>
+
+              <div v-if="isGroupRule" class="flex flex-col gap-1 col-span-2">
+                <label class="text-[11px] font-bold text-surface-500 uppercase">Группа студентов</label>
                 <Select
-                  v-model="form.target_competency_id"
-                  :options="store.competencies"
+                  v-model="form.restricted_to_group_id"
+                  :options="store.groups"
                   optionLabel="name"
                   optionValue="id"
-                  placeholder="Выберите..."
+                  placeholder="Выберите группу"
+                  emptyMessage="Нет групп в онтологии"
                   class="w-full"
                 />
               </div>
 
               <div v-if="isGradeRule" class="flex flex-col gap-1">
+                <label class="text-[11px] font-bold text-surface-500 uppercase">Мин. балл</label>
+                <InputNumber v-model="form.passing_threshold" :min="0" :max="100" placeholder="0-100" class="w-20" inputClass="w-full" />
+              </div>
+
+              <div v-if="isAggregateRule" class="flex flex-col gap-1 flex-1 min-w-0">
+                <label class="text-[11px] font-bold text-surface-500 uppercase">Функция</label>
+                <Select
+                  v-model="form.aggregate_function"
+                  :options="aggregateFunctionOptions"
+                  optionLabel="label"
+                  optionValue="value"
+                  class="w-full"
+                />
+              </div>
+              <div v-if="isAggregateRule" class="flex flex-col gap-1 shrink-0">
                 <label class="text-[11px] font-bold text-surface-500 uppercase">Мин. балл</label>
                 <InputNumber v-model="form.passing_threshold" :min="0" :max="100" placeholder="0-100" class="w-20" inputClass="w-full" />
               </div>
@@ -329,21 +383,6 @@ const isDateRule = computed(() => form.value.rule_type === RuleType.DATE_RESTRIC
                   v-model="form.valid_until"
                   manualInput showTime hourFormat="24" dateFormat="dd.mm.yy"
                   :minDate="form.valid_from || undefined"
-                  class="w-full"
-                />
-              </div>
-           </div>
-
-           <div v-if="isGroupRule" class="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2 border-t border-surface-50">
-              <div class="flex flex-col gap-1 col-span-2">
-                <label class="text-[11px] font-bold text-surface-500 uppercase">Группа студентов</label>
-                <Select
-                  v-model="form.restricted_to_group_id"
-                  :options="store.groups"
-                  optionLabel="name"
-                  optionValue="id"
-                  placeholder="Выберите группу"
-                  emptyMessage="Нет групп в онтологии"
                   class="w-full"
                 />
               </div>
@@ -366,39 +405,23 @@ const isDateRule = computed(() => form.value.rule_type === RuleType.DATE_RESTRIC
               />
            </div>
 
-           <div v-if="isAggregateRule" class="grid grid-cols-1 md:grid-cols-3 gap-5 pt-2 border-t border-surface-50">
-              <div class="flex flex-col gap-1">
-                <label class="text-[11px] font-bold text-surface-500 uppercase">Функция</label>
-                <Select
-                  v-model="form.aggregate_function"
-                  :options="aggregateFunctionOptions"
-                  optionLabel="label"
-                  optionValue="value"
-                  class="w-full"
-                />
-              </div>
-              <div class="flex flex-col gap-1">
-                <label class="text-[11px] font-bold text-surface-500 uppercase">Порог</label>
-                <InputNumber v-model="form.passing_threshold" :min="0" :max="100" placeholder="0-100" class="w-full" />
-              </div>
-              <div class="flex flex-col gap-1 col-span-3">
-                <label class="text-[11px] font-bold text-surface-500 uppercase">
-                  Элементы с оценками
-                </label>
-                <MultiSelect
-                  v-model="form.aggregate_element_ids"
-                  :options="gradableElementOptions"
-                  optionLabel="name"
-                  optionValue="id"
-                  placeholder="Выберите тесты/практики"
-                  display="chip"
-                  filter
-                  class="w-full"
-                />
-                <p class="text-[11px] text-surface-400 mt-1">
-                  Доступны только тесты, практики и задания (элементы, за которые ставится оценка).
-                </p>
-              </div>
+           <div v-if="isAggregateRule" class="flex flex-col gap-1 pt-2 border-t border-surface-50">
+              <label class="text-[11px] font-bold text-surface-500 uppercase">
+                Элементы с оценками
+              </label>
+              <TreeSelect
+                :modelValue="aggregateTreeModel"
+                @update:modelValue="pickAggregateElements"
+                :options="aggregateSelectableTreeNodes"
+                :expandedKeys="expandedKeys"
+                selectionMode="checkbox"
+                placeholder="Выберите тесты/практики"
+                display="chip"
+                class="w-full"
+              />
+              <p class="text-[11px] text-surface-400 mt-1">
+                Доступны только тесты, практики и задания (элементы, за которые ставится оценка).
+              </p>
            </div>
 
            <div class="flex justify-between items-center pt-2 border-t border-surface-50">

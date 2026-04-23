@@ -22,14 +22,14 @@
 </owl:ObjectProperty>
 
 <owl:ObjectProperty rdf:about="#is_contained_in_module">
-  <rdfs:domain rdf:resource="#EducationalElement"/>
+  <rdfs:domain rdf:resource="#LearningActivity"/>
   <rdfs:range rdf:resource="#Module"/>
-  <owl:inverseOf rdf:resource="#contains_element"/>
+  <owl:inverseOf rdf:resource="#contains_activity"/>
 </owl:ObjectProperty>
 
-<owl:ObjectProperty rdf:about="#contains_element">
+<owl:ObjectProperty rdf:about="#contains_activity">
   <rdfs:domain rdf:resource="#Module"/>
-  <rdfs:range rdf:resource="#EducationalElement"/>
+  <rdfs:range rdf:resource="#LearningActivity"/>
   <owl:inverseOf rdf:resource="#is_contained_in_module"/>
 </owl:ObjectProperty>
 
@@ -40,17 +40,20 @@
 </owl:ObjectProperty>
 
 <owl:ObjectProperty rdf:about="#refers_to_student">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#ProgressRecord"/>
   <rdfs:range rdf:resource="#Student"/>
   <owl:inverseOf rdf:resource="#has_progress_record"/>
 </owl:ObjectProperty>
 
 <owl:ObjectProperty rdf:about="#refers_to_element">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#ProgressRecord"/>
   <rdfs:range rdf:resource="#CourseStructure"/>
 </owl:ObjectProperty>
 
 <owl:ObjectProperty rdf:about="#has_status">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#ProgressRecord"/>
   <rdfs:range rdf:resource="#Status"/>
 </owl:ObjectProperty>
@@ -82,11 +85,13 @@
 </owl:ObjectProperty>
 
 <owl:ObjectProperty rdf:about="#targets_element">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#AccessPolicy"/>
   <rdfs:range rdf:resource="#CourseStructure"/>
 </owl:ObjectProperty>
 
 <owl:ObjectProperty rdf:about="#has_author">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#AccessPolicy"/>
   <rdfs:range rdf:resource="#Methodologist"/>
 </owl:ObjectProperty>
@@ -102,6 +107,7 @@
 </owl:ObjectProperty>
 
 <owl:ObjectProperty rdf:about="#restricted_to_group">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#AccessPolicy"/>
   <rdfs:range rdf:resource="#Group"/>
 </owl:ObjectProperty>
@@ -134,56 +140,67 @@
 </owl:ObjectProperty>
 
 <owl:DatatypeProperty rdf:about="#is_active">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#AccessPolicy"/>
   <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#boolean"/>
 </owl:DatatypeProperty>
 
-<owl:DatatypeProperty rdf:about="#is_required">
+<owl:DatatypeProperty rdf:about="#is_mandatory">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#CourseStructure"/>
   <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#boolean"/>
 </owl:DatatypeProperty>
 
 <owl:DatatypeProperty rdf:about="#order_index">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#CourseStructure"/>
   <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
 </owl:DatatypeProperty>
 
 <owl:DatatypeProperty rdf:about="#rule_type">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#AccessPolicy"/>
   <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
 </owl:DatatypeProperty>
 
 <owl:DatatypeProperty rdf:about="#passing_threshold">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#AccessPolicy"/>
   <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
 </owl:DatatypeProperty>
 
 <owl:DatatypeProperty rdf:about="#valid_from">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#AccessPolicy"/>
   <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#dateTime"/>
 </owl:DatatypeProperty>
 
 <owl:DatatypeProperty rdf:about="#valid_until">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#AccessPolicy"/>
   <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#dateTime"/>
 </owl:DatatypeProperty>
 
 <owl:DatatypeProperty rdf:about="#has_grade">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#ProgressRecord"/>
   <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
 </owl:DatatypeProperty>
 
 <owl:DatatypeProperty rdf:about="#failed_attempts_count">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#ProgressRecord"/>
   <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
 </owl:DatatypeProperty>
 
 <owl:DatatypeProperty rdf:about="#started_at">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#ProgressRecord"/>
   <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#dateTime"/>
 </owl:DatatypeProperty>
 
 <owl:DatatypeProperty rdf:about="#completed_at">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#ProgressRecord"/>
   <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#dateTime"/>
 </owl:DatatypeProperty>
@@ -214,7 +231,7 @@
   <rdfs:subClassOf rdf:resource="#CourseStructure"/>
 </owl:Class>
 
-<owl:Class rdf:about="#EducationalElement">
+<owl:Class rdf:about="#LearningActivity">
   <rdfs:subClassOf rdf:resource="#CourseStructure"/>
 </owl:Class>
 
@@ -271,19 +288,19 @@
 </owl:Class>
 
 <owl:Class rdf:about="#Lecture">
-  <rdfs:subClassOf rdf:resource="#EducationalElement"/>
+  <rdfs:subClassOf rdf:resource="#LearningActivity"/>
 </owl:Class>
 
 <owl:Class rdf:about="#Test">
-  <rdfs:subClassOf rdf:resource="#EducationalElement"/>
+  <rdfs:subClassOf rdf:resource="#LearningActivity"/>
 </owl:Class>
 
 <owl:Class rdf:about="#Assignment">
-  <rdfs:subClassOf rdf:resource="#EducationalElement"/>
+  <rdfs:subClassOf rdf:resource="#LearningActivity"/>
 </owl:Class>
 
 <owl:Class rdf:about="#Practice">
-  <rdfs:subClassOf rdf:resource="#EducationalElement"/>
+  <rdfs:subClassOf rdf:resource="#LearningActivity"/>
 </owl:Class>
 
 <owl:NamedIndividual rdf:about="#status_passed">
@@ -372,8 +389,8 @@
 <owl:NamedIndividual rdf:about="#student_sidorov">
   <rdf:type rdf:resource="#Student"/>
   <belongs_to_group rdf:resource="#grp_advanced"/>
-  <has_competency rdf:resource="#comp_basic_syntax"/>
   <has_competency rdf:resource="#comp_oop"/>
+  <has_competency rdf:resource="#comp_basic_syntax"/>
   <has_competency rdf:resource="#comp_functions"/>
   <has_progress_record rdf:resource="#pr_sidorov_l0_viewed"/>
   <has_progress_record rdf:resource="#pr_sidorov_l1_completed"/>
@@ -398,10 +415,10 @@
 
 <owl:NamedIndividual rdf:about="#course_python_basics">
   <rdf:type rdf:resource="#Course"/>
-  <has_module rdf:resource="#module_2_functions"/>
-  <has_module rdf:resource="#module_1_syntax"/>
-  <has_module rdf:resource="#module_0_intro"/>
   <has_module rdf:resource="#module_3_oop"/>
+  <has_module rdf:resource="#module_2_functions"/>
+  <has_module rdf:resource="#module_0_intro"/>
+  <has_module rdf:resource="#module_1_syntax"/>
   <has_module rdf:resource="#module_extras"/>
   <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Основы Python</rdfs:label>
   <order_index rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</order_index>
@@ -409,56 +426,56 @@
 
 <owl:NamedIndividual rdf:about="#module_0_intro">
   <rdf:type rdf:resource="#Module"/>
-  <contains_element rdf:resource="#lecture_0_welcome"/>
+  <contains_activity rdf:resource="#lecture_0_welcome"/>
   <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Модуль 0. Введение</rdfs:label>
-  <is_required rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">false</is_required>
+  <is_mandatory rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">false</is_mandatory>
   <order_index rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</order_index>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#module_1_syntax">
   <rdf:type rdf:resource="#Module"/>
-  <contains_element rdf:resource="#lecture_1_variables"/>
-  <contains_element rdf:resource="#practice_1"/>
-  <contains_element rdf:resource="#lecture_2_operators"/>
-  <contains_element rdf:resource="#quiz_1"/>
+  <contains_activity rdf:resource="#lecture_2_operators"/>
+  <contains_activity rdf:resource="#practice_1"/>
+  <contains_activity rdf:resource="#lecture_1_variables"/>
+  <contains_activity rdf:resource="#quiz_1"/>
   <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Модуль 1. Синтаксис</rdfs:label>
-  <is_required rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_required>
+  <is_mandatory rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_mandatory>
   <order_index rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">1</order_index>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#module_2_functions">
   <rdf:type rdf:resource="#Module"/>
-  <contains_element rdf:resource="#quiz_2"/>
-  <contains_element rdf:resource="#lecture_3_functions"/>
-  <contains_element rdf:resource="#practice_2"/>
+  <contains_activity rdf:resource="#quiz_2"/>
+  <contains_activity rdf:resource="#lecture_3_functions"/>
+  <contains_activity rdf:resource="#practice_2"/>
   <has_access_policy rdf:resource="#p2_module2_requires_quiz1_grade"/>
   <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Модуль 2. Функции</rdfs:label>
-  <is_required rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_required>
+  <is_mandatory rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_mandatory>
   <order_index rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">2</order_index>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#module_3_oop">
   <rdf:type rdf:resource="#Module"/>
-  <contains_element rdf:resource="#quiz_3"/>
-  <contains_element rdf:resource="#practice_3"/>
-  <contains_element rdf:resource="#lecture_4_classes"/>
+  <contains_activity rdf:resource="#practice_3"/>
+  <contains_activity rdf:resource="#quiz_3"/>
+  <contains_activity rdf:resource="#lecture_4_classes"/>
   <has_access_policy rdf:resource="#p4_module3_requires_comp_functions"/>
   <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Модуль 3. ООП</rdfs:label>
-  <is_required rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_required>
+  <is_mandatory rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_mandatory>
   <order_index rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">3</order_index>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#lecture_0_welcome">
   <rdf:type rdf:resource="#Lecture"/>
   <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Приветственная лекция</rdfs:label>
-  <is_required rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_required>
+  <is_mandatory rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_mandatory>
   <order_index rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</order_index>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#lecture_1_variables">
   <rdf:type rdf:resource="#Lecture"/>
   <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Лекция. Переменные и типы</rdfs:label>
-  <is_required rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_required>
+  <is_mandatory rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_mandatory>
   <order_index rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</order_index>
 </owl:NamedIndividual>
 
@@ -466,7 +483,7 @@
   <rdf:type rdf:resource="#Lecture"/>
   <has_access_policy rdf:resource="#p1_lecture2_requires_lecture1"/>
   <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Лекция. Операторы</rdfs:label>
-  <is_required rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_required>
+  <is_mandatory rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_mandatory>
   <order_index rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">1</order_index>
 </owl:NamedIndividual>
 
@@ -475,7 +492,7 @@
   <assesses rdf:resource="#comp_basic_syntax"/>
   <has_access_policy rdf:resource="#p3_quiz1_requires_viewed_lecture1"/>
   <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Квиз. Синтаксис</rdfs:label>
-  <is_required rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_required>
+  <is_mandatory rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_mandatory>
   <order_index rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">2</order_index>
 </owl:NamedIndividual>
 
@@ -483,14 +500,14 @@
   <rdf:type rdf:resource="#Practice"/>
   <assesses rdf:resource="#comp_basic_syntax"/>
   <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Практика. Синтаксис</rdfs:label>
-  <is_required rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_required>
+  <is_mandatory rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_mandatory>
   <order_index rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">3</order_index>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#lecture_3_functions">
   <rdf:type rdf:resource="#Lecture"/>
   <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Лекция. Функции</rdfs:label>
-  <is_required rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_required>
+  <is_mandatory rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_mandatory>
   <order_index rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</order_index>
 </owl:NamedIndividual>
 
@@ -498,7 +515,7 @@
   <rdf:type rdf:resource="#Test"/>
   <assesses rdf:resource="#comp_functions"/>
   <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Квиз. Функции</rdfs:label>
-  <is_required rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_required>
+  <is_mandatory rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_mandatory>
   <order_index rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">1</order_index>
 </owl:NamedIndividual>
 
@@ -506,14 +523,14 @@
   <rdf:type rdf:resource="#Practice"/>
   <assesses rdf:resource="#comp_functions"/>
   <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Практика. Функции</rdfs:label>
-  <is_required rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_required>
+  <is_mandatory rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_mandatory>
   <order_index rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">2</order_index>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#lecture_4_classes">
   <rdf:type rdf:resource="#Lecture"/>
   <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Лекция. Классы</rdfs:label>
-  <is_required rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_required>
+  <is_mandatory rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_mandatory>
   <order_index rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</order_index>
 </owl:NamedIndividual>
 
@@ -521,7 +538,7 @@
   <rdf:type rdf:resource="#Test"/>
   <has_access_policy rdf:resource="#p7_quiz3_or"/>
   <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Квиз. ООП</rdfs:label>
-  <is_required rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_required>
+  <is_mandatory rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_mandatory>
   <order_index rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">1</order_index>
 </owl:NamedIndividual>
 
@@ -529,17 +546,17 @@
   <rdf:type rdf:resource="#Practice"/>
   <has_access_policy rdf:resource="#p6_practice3_and"/>
   <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Практика. ООП</rdfs:label>
-  <is_required rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_required>
+  <is_mandatory rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_mandatory>
   <order_index rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">2</order_index>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#module_extras">
   <rdf:type rdf:resource="#Module"/>
-  <contains_element rdf:resource="#extra_material"/>
-  <contains_element rdf:resource="#final_exam"/>
-  <contains_element rdf:resource="#seasonal_workshop"/>
+  <contains_activity rdf:resource="#extra_material"/>
+  <contains_activity rdf:resource="#seasonal_workshop"/>
+  <contains_activity rdf:resource="#final_exam"/>
   <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Дополнительно</rdfs:label>
-  <is_required rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">false</is_required>
+  <is_mandatory rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">false</is_mandatory>
   <order_index rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">4</order_index>
 </owl:NamedIndividual>
 
@@ -547,7 +564,7 @@
   <rdf:type rdf:resource="#Lecture"/>
   <has_access_policy rdf:resource="#p5_seasonal_workshop_date_window"/>
   <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Семинар (ограничен по времени)</rdfs:label>
-  <is_required rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">false</is_required>
+  <is_mandatory rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">false</is_mandatory>
   <order_index rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">0</order_index>
 </owl:NamedIndividual>
 
@@ -555,7 +572,7 @@
   <rdf:type rdf:resource="#Lecture"/>
   <has_access_policy rdf:resource="#p8_extra_material_advanced"/>
   <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Материал для продвинутого потока</rdfs:label>
-  <is_required rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">false</is_required>
+  <is_mandatory rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">false</is_mandatory>
   <order_index rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">1</order_index>
 </owl:NamedIndividual>
 
@@ -563,7 +580,7 @@
   <rdf:type rdf:resource="#Test"/>
   <has_access_policy rdf:resource="#p9_final_exam_avg_prereq"/>
   <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Итоговый экзамен</rdfs:label>
-  <is_required rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_required>
+  <is_mandatory rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</is_mandatory>
   <order_index rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">2</order_index>
 </owl:NamedIndividual>
 
@@ -686,56 +703,56 @@
   <rdf:type rdf:resource="#ProgressRecord"/>
   <refers_to_element rdf:resource="#lecture_0_welcome"/>
   <has_status rdf:resource="#status_viewed"/>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.939</started_at>
+  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T23:41:25.387</started_at>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#pr_petrov_l0_viewed">
   <rdf:type rdf:resource="#ProgressRecord"/>
   <refers_to_element rdf:resource="#lecture_0_welcome"/>
   <has_status rdf:resource="#status_viewed"/>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.939</started_at>
+  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T23:41:25.388</started_at>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#pr_sidorov_l0_viewed">
   <rdf:type rdf:resource="#ProgressRecord"/>
   <refers_to_element rdf:resource="#lecture_0_welcome"/>
   <has_status rdf:resource="#status_viewed"/>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.939</started_at>
+  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T23:41:25.388</started_at>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#pr_ivanov_l1_completed">
   <rdf:type rdf:resource="#ProgressRecord"/>
   <refers_to_element rdf:resource="#lecture_1_variables"/>
   <has_status rdf:resource="#status_completed"/>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.939</started_at>
+  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T23:41:25.388</started_at>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#pr_petrov_l1_viewed">
   <rdf:type rdf:resource="#ProgressRecord"/>
   <refers_to_element rdf:resource="#lecture_1_variables"/>
   <has_status rdf:resource="#status_viewed"/>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.940</started_at>
+  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T23:41:25.388</started_at>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#pr_sidorov_l1_completed">
   <rdf:type rdf:resource="#ProgressRecord"/>
   <refers_to_element rdf:resource="#lecture_1_variables"/>
   <has_status rdf:resource="#status_completed"/>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.940</started_at>
+  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T23:41:25.388</started_at>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#pr_ivanov_l2_completed">
   <rdf:type rdf:resource="#ProgressRecord"/>
   <refers_to_element rdf:resource="#lecture_2_operators"/>
   <has_status rdf:resource="#status_completed"/>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.940</started_at>
+  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T23:41:25.388</started_at>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#pr_sidorov_l2_completed">
   <rdf:type rdf:resource="#ProgressRecord"/>
   <refers_to_element rdf:resource="#lecture_2_operators"/>
   <has_status rdf:resource="#status_completed"/>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.940</started_at>
+  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T23:41:25.388</started_at>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#pr_ivanov_q1">
@@ -743,7 +760,7 @@
   <refers_to_element rdf:resource="#quiz_1"/>
   <has_status rdf:resource="#status_completed"/>
   <has_grade rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">80.0</has_grade>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.940</started_at>
+  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T23:41:25.388</started_at>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#pr_petrov_q1">
@@ -751,7 +768,7 @@
   <refers_to_element rdf:resource="#quiz_1"/>
   <has_status rdf:resource="#status_failed"/>
   <has_grade rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">50.0</has_grade>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.940</started_at>
+  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T23:41:25.388</started_at>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#pr_sidorov_q1">
@@ -759,7 +776,7 @@
   <refers_to_element rdf:resource="#quiz_1"/>
   <has_status rdf:resource="#status_completed"/>
   <has_grade rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">95.0</has_grade>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.940</started_at>
+  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T23:41:25.388</started_at>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#pr_ivanov_pr1">
@@ -767,7 +784,7 @@
   <refers_to_element rdf:resource="#practice_1"/>
   <has_status rdf:resource="#status_completed"/>
   <has_grade rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">70.0</has_grade>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.940</started_at>
+  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T23:41:25.388</started_at>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#pr_sidorov_pr1">
@@ -775,21 +792,21 @@
   <refers_to_element rdf:resource="#practice_1"/>
   <has_status rdf:resource="#status_completed"/>
   <has_grade rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">85.0</has_grade>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.940</started_at>
+  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T23:41:25.388</started_at>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#pr_ivanov_l3_completed">
   <rdf:type rdf:resource="#ProgressRecord"/>
   <refers_to_element rdf:resource="#lecture_3_functions"/>
   <has_status rdf:resource="#status_completed"/>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.940</started_at>
+  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T23:41:25.389</started_at>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#pr_sidorov_l3_completed">
   <rdf:type rdf:resource="#ProgressRecord"/>
   <refers_to_element rdf:resource="#lecture_3_functions"/>
   <has_status rdf:resource="#status_completed"/>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.940</started_at>
+  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T23:41:25.389</started_at>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#pr_ivanov_q2">
@@ -797,7 +814,7 @@
   <refers_to_element rdf:resource="#quiz_2"/>
   <has_status rdf:resource="#status_completed"/>
   <has_grade rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">75.0</has_grade>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.940</started_at>
+  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T23:41:25.389</started_at>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#pr_sidorov_q2">
@@ -805,7 +822,7 @@
   <refers_to_element rdf:resource="#quiz_2"/>
   <has_status rdf:resource="#status_completed"/>
   <has_grade rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">90.0</has_grade>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.940</started_at>
+  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T23:41:25.389</started_at>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#pr_ivanov_pr2">
@@ -813,7 +830,7 @@
   <refers_to_element rdf:resource="#practice_2"/>
   <has_status rdf:resource="#status_completed"/>
   <has_grade rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">65.0</has_grade>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.941</started_at>
+  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T23:41:25.389</started_at>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#pr_sidorov_pr2">
@@ -821,14 +838,14 @@
   <refers_to_element rdf:resource="#practice_2"/>
   <has_status rdf:resource="#status_completed"/>
   <has_grade rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">80.0</has_grade>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.941</started_at>
+  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T23:41:25.389</started_at>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#pr_sidorov_l4_completed">
   <rdf:type rdf:resource="#ProgressRecord"/>
   <refers_to_element rdf:resource="#lecture_4_classes"/>
   <has_status rdf:resource="#status_completed"/>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.941</started_at>
+  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T23:41:25.389</started_at>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#pr_sidorov_q3">
@@ -836,7 +853,7 @@
   <refers_to_element rdf:resource="#quiz_3"/>
   <has_status rdf:resource="#status_completed"/>
   <has_grade rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">75.0</has_grade>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.941</started_at>
+  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T23:41:25.389</started_at>
 </owl:NamedIndividual>
 
 <owl:NamedIndividual rdf:about="#pr_sidorov_pr3">
@@ -844,134 +861,13 @@
   <refers_to_element rdf:resource="#practice_3"/>
   <has_status rdf:resource="#status_completed"/>
   <has_grade rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">70.0</has_grade>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.941</started_at>
+  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T23:41:25.389</started_at>
 </owl:NamedIndividual>
 
-<owl:NamedIndividual rdf:about="#sandbox_new">
+<owl:NamedIndividual rdf:about="#student_sandbox">
   <rdf:type rdf:resource="#SandboxStudent"/>
   <belongs_to_group rdf:resource="#grp_standard"/>
-  <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Песочница — новичок</rdfs:label>
-</owl:NamedIndividual>
-
-<owl:NamedIndividual rdf:about="#sandbox_midway">
-  <rdf:type rdf:resource="#SandboxStudent"/>
-  <belongs_to_group rdf:resource="#grp_standard"/>
-  <has_progress_record rdf:resource="#pr_sb_mid_l0"/>
-  <has_progress_record rdf:resource="#pr_sb_mid_l1"/>
-  <has_progress_record rdf:resource="#pr_sb_mid_q1"/>
-  <has_progress_record rdf:resource="#pr_sb_mid_pr1"/>
-  <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Песочница — середняк</rdfs:label>
-</owl:NamedIndividual>
-
-<owl:NamedIndividual rdf:about="#pr_sb_mid_l0">
-  <rdf:type rdf:resource="#ProgressRecord"/>
-  <refers_to_element rdf:resource="#lecture_0_welcome"/>
-  <has_status rdf:resource="#status_viewed"/>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.941</started_at>
-</owl:NamedIndividual>
-
-<owl:NamedIndividual rdf:about="#pr_sb_mid_l1">
-  <rdf:type rdf:resource="#ProgressRecord"/>
-  <refers_to_element rdf:resource="#lecture_1_variables"/>
-  <has_status rdf:resource="#status_completed"/>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.941</started_at>
-</owl:NamedIndividual>
-
-<owl:NamedIndividual rdf:about="#pr_sb_mid_q1">
-  <rdf:type rdf:resource="#ProgressRecord"/>
-  <refers_to_element rdf:resource="#quiz_1"/>
-  <has_status rdf:resource="#status_completed"/>
-  <has_grade rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">78.0</has_grade>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.941</started_at>
-</owl:NamedIndividual>
-
-<owl:NamedIndividual rdf:about="#pr_sb_mid_pr1">
-  <rdf:type rdf:resource="#ProgressRecord"/>
-  <refers_to_element rdf:resource="#practice_1"/>
-  <has_status rdf:resource="#status_completed"/>
-  <has_grade rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">65.0</has_grade>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.941</started_at>
-</owl:NamedIndividual>
-
-<owl:NamedIndividual rdf:about="#sandbox_advanced">
-  <rdf:type rdf:resource="#SandboxStudent"/>
-  <belongs_to_group rdf:resource="#grp_advanced"/>
-  <has_competency rdf:resource="#comp_basic_syntax"/>
-  <has_competency rdf:resource="#comp_functions"/>
-  <has_progress_record rdf:resource="#pr_sb_adv_l0"/>
-  <has_progress_record rdf:resource="#pr_sb_adv_l1"/>
-  <has_progress_record rdf:resource="#pr_sb_adv_l2"/>
-  <has_progress_record rdf:resource="#pr_sb_adv_q1"/>
-  <has_progress_record rdf:resource="#pr_sb_adv_pr1"/>
-  <has_progress_record rdf:resource="#pr_sb_adv_l3"/>
-  <has_progress_record rdf:resource="#pr_sb_adv_q2"/>
-  <has_progress_record rdf:resource="#pr_sb_adv_pr2"/>
-  <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Песочница — отличник</rdfs:label>
-</owl:NamedIndividual>
-
-<owl:NamedIndividual rdf:about="#pr_sb_adv_l0">
-  <rdf:type rdf:resource="#ProgressRecord"/>
-  <refers_to_element rdf:resource="#lecture_0_welcome"/>
-  <has_status rdf:resource="#status_viewed"/>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.941</started_at>
-</owl:NamedIndividual>
-
-<owl:NamedIndividual rdf:about="#pr_sb_adv_l1">
-  <rdf:type rdf:resource="#ProgressRecord"/>
-  <refers_to_element rdf:resource="#lecture_1_variables"/>
-  <has_status rdf:resource="#status_completed"/>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.941</started_at>
-</owl:NamedIndividual>
-
-<owl:NamedIndividual rdf:about="#pr_sb_adv_l2">
-  <rdf:type rdf:resource="#ProgressRecord"/>
-  <refers_to_element rdf:resource="#lecture_2_operators"/>
-  <has_status rdf:resource="#status_completed"/>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.942</started_at>
-</owl:NamedIndividual>
-
-<owl:NamedIndividual rdf:about="#pr_sb_adv_q1">
-  <rdf:type rdf:resource="#ProgressRecord"/>
-  <refers_to_element rdf:resource="#quiz_1"/>
-  <has_status rdf:resource="#status_completed"/>
-  <has_grade rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">95.0</has_grade>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.942</started_at>
-</owl:NamedIndividual>
-
-<owl:NamedIndividual rdf:about="#pr_sb_adv_pr1">
-  <rdf:type rdf:resource="#ProgressRecord"/>
-  <refers_to_element rdf:resource="#practice_1"/>
-  <has_status rdf:resource="#status_completed"/>
-  <has_grade rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">90.0</has_grade>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.942</started_at>
-</owl:NamedIndividual>
-
-<owl:NamedIndividual rdf:about="#pr_sb_adv_l3">
-  <rdf:type rdf:resource="#ProgressRecord"/>
-  <refers_to_element rdf:resource="#lecture_3_functions"/>
-  <has_status rdf:resource="#status_completed"/>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.942</started_at>
-</owl:NamedIndividual>
-
-<owl:NamedIndividual rdf:about="#pr_sb_adv_q2">
-  <rdf:type rdf:resource="#ProgressRecord"/>
-  <refers_to_element rdf:resource="#quiz_2"/>
-  <has_status rdf:resource="#status_completed"/>
-  <has_grade rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">88.0</has_grade>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.942</started_at>
-</owl:NamedIndividual>
-
-<owl:NamedIndividual rdf:about="#pr_sb_adv_pr2">
-  <rdf:type rdf:resource="#ProgressRecord"/>
-  <refers_to_element rdf:resource="#practice_2"/>
-  <has_status rdf:resource="#status_completed"/>
-  <has_grade rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">82.0</has_grade>
-  <started_at rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T13:34:18.942</started_at>
-</owl:NamedIndividual>
-
-<owl:NamedIndividual rdf:about="#current_time_ind">
-  <rdf:type rdf:resource="#CurrentTime"/>
-  <has_value rdf:datatype="http://www.w3.org/2001/XMLSchema#dateTime">2026-04-23T10:34:18.942</has_value>
+  <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string">Песочница</rdfs:label>
 </owl:NamedIndividual>
 
 <swrl:Variable rdf:about="urn:swrl#s"/>
@@ -980,11 +876,15 @@
 
 <swrl:Variable rdf:about="urn:swrl#parent"/>
 
+<swrl:Variable rdf:about="urn:swrl#pr"/>
+
+<swrl:Variable rdf:about="urn:swrl#el"/>
+
+<swrl:Variable rdf:about="urn:swrl#c"/>
+
 <swrl:Variable rdf:about="urn:swrl#p"/>
 
 <swrl:Variable rdf:about="urn:swrl#target"/>
-
-<swrl:Variable rdf:about="urn:swrl#pr"/>
 
 <swrl:Variable rdf:about="urn:swrl#th"/>
 
@@ -1009,8 +909,6 @@
 <swrl:Variable rdf:about="urn:swrl#sub2"/>
 
 <swrl:Variable rdf:about="urn:swrl#sub3"/>
-
-<swrl:Variable rdf:about="urn:swrl#el"/>
 
 <owl:AllDifferent>
   <owl:distinctMembers rdf:parseType="Collection">
@@ -1046,7 +944,7 @@
   <owl:members rdf:parseType="Collection">
     <rdf:Description rdf:about="#Course"/>
     <rdf:Description rdf:about="#Module"/>
-    <rdf:Description rdf:about="#EducationalElement"/>
+    <rdf:Description rdf:about="#LearningActivity"/>
   </owl:members>
 </owl:AllDisjointClasses>
 
@@ -1099,6 +997,76 @@
           <swrl:propertyPredicate rdf:resource="#has_competency"/>
           <swrl:argument1 rdf:resource="urn:swrl#s"/>
           <swrl:argument2 rdf:resource="urn:swrl#parent"/>
+        </swrl:IndividualPropertyAtom>
+      </rdf:first>
+      <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+    </rdf:Description>
+  </swrl:head>
+</swrl:Imp>
+
+<swrl:Imp>
+  <swrl:body>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:ClassAtom>
+          <swrl:classPredicate rdf:resource="#Student"/>
+          <swrl:argument1 rdf:resource="urn:swrl#s"/>
+        </swrl:ClassAtom>
+      </rdf:first>
+      <rdf:rest>
+        <rdf:Description>
+          <rdf:first>
+            <swrl:IndividualPropertyAtom>
+              <swrl:propertyPredicate rdf:resource="#has_progress_record"/>
+              <swrl:argument1 rdf:resource="urn:swrl#s"/>
+              <swrl:argument2 rdf:resource="urn:swrl#pr"/>
+            </swrl:IndividualPropertyAtom>
+          </rdf:first>
+          <rdf:rest>
+            <rdf:Description>
+              <rdf:first>
+                <swrl:IndividualPropertyAtom>
+                  <swrl:propertyPredicate rdf:resource="#refers_to_element"/>
+                  <swrl:argument1 rdf:resource="urn:swrl#pr"/>
+                  <swrl:argument2 rdf:resource="urn:swrl#el"/>
+                </swrl:IndividualPropertyAtom>
+              </rdf:first>
+              <rdf:rest>
+                <rdf:Description>
+                  <rdf:first>
+                    <swrl:IndividualPropertyAtom>
+                      <swrl:propertyPredicate rdf:resource="#has_status"/>
+                      <swrl:argument1 rdf:resource="urn:swrl#pr"/>
+                      <swrl:argument2 rdf:resource="#status_completed"/>
+                    </swrl:IndividualPropertyAtom>
+                  </rdf:first>
+                  <rdf:rest>
+                    <rdf:Description>
+                      <rdf:first>
+                        <swrl:IndividualPropertyAtom>
+                          <swrl:propertyPredicate rdf:resource="#assesses"/>
+                          <swrl:argument1 rdf:resource="urn:swrl#el"/>
+                          <swrl:argument2 rdf:resource="urn:swrl#c"/>
+                        </swrl:IndividualPropertyAtom>
+                      </rdf:first>
+                      <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+                    </rdf:Description>
+                  </rdf:rest>
+                </rdf:Description>
+              </rdf:rest>
+            </rdf:Description>
+          </rdf:rest>
+        </rdf:Description>
+      </rdf:rest>
+    </rdf:Description>
+  </swrl:body>
+  <swrl:head>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:IndividualPropertyAtom>
+          <swrl:propertyPredicate rdf:resource="#has_competency"/>
+          <swrl:argument1 rdf:resource="urn:swrl#s"/>
+          <swrl:argument2 rdf:resource="urn:swrl#c"/>
         </swrl:IndividualPropertyAtom>
       </rdf:first>
       <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>

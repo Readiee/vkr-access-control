@@ -1,10 +1,10 @@
-"""IntegrationController (DSL §31): импорт структуры и правил из внешней СДО.
+"""IntegrationController: импорт структуры и правил из внешней СДО.
 
 UC-10 (sync структуры) + meta/tree эндпоинты для Web UI. Приём событий прогресса
-(UC-5) вынесен в отдельный ProgressController (api/routers/progress.py) по DSL.
-После импорта IntegrationService автоматически запускает VerificationService
-(стрелка DSL §118, решение 18.04).
+(UC-5) вынесен в отдельный ProgressController (api/routers/progress.py).
+После импорта IntegrationService автоматически запускает VerificationService.
 """
+import logging
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Path, status
@@ -12,6 +12,8 @@ from fastapi import APIRouter, Depends, HTTPException, Path, status
 from api.dependencies import get_integration_service
 from schemas.schemas import CourseSyncPayload, CourseTreeNode, OntologyMeta
 from services.integration_service import IntegrationService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1", tags=["Integration"])
 
@@ -29,10 +31,13 @@ async def sync_course(
     """Загрузить иерархию курса из СДО в онтологический граф + прогнать UC-6."""
     try:
         return service.sync_course_structure(course_id, payload)
-    except Exception as exc:
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    except Exception:
+        logger.exception("sync_course %s упал", course_id)
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Ошибка синхронизации: {exc}",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Внутренняя ошибка синхронизации",
         )
 
 
@@ -62,3 +67,19 @@ async def get_course_tree(
         return service.get_course_tree(course_id)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
+@router.put(
+    "/elements/{element_id}/competencies",
+    summary="Перезаписать список выдаваемых элементом компетенций (SWRL H-2)",
+)
+async def set_element_competencies(
+    payload: dict,
+    element_id: str = Path(..., description="ID элемента курса"),
+    service: IntegrationService = Depends(get_integration_service),
+) -> dict:
+    """Элемент курса через assesses выдаёт указанные компетенции при прохождении."""
+    try:
+        return service.set_element_competencies(element_id, payload.get("competency_ids", []))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))

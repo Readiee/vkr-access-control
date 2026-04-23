@@ -83,6 +83,9 @@ watch(() => store.currentCourseId, (newId) => {
                           'pi-eye': pol.rule_type === RuleType.VIEWED_REQUIRED,
                           'pi-calendar': pol.rule_type === RuleType.DATE_RESTRICTED,
                           'pi-graduation-cap': pol.rule_type === RuleType.COMPETENCY_REQUIRED,
+                          'pi-users': pol.rule_type === RuleType.GROUP_RESTRICTED,
+                          'pi-sitemap': pol.rule_type === RuleType.AND_COMBINATION || pol.rule_type === RuleType.OR_COMBINATION,
+                          'pi-percentage': pol.rule_type === RuleType.AGGREGATE_REQUIRED,
                           'opacity-40': pol.is_active === false
                         }"
                         v-tooltip.left="{ 

@@ -6,6 +6,7 @@ import { useCourseTree } from '@/composables/useCourseTree';
 import SimulatorInspector from '@/components/SimulatorInspector.vue';
 import { useConfirm } from 'primevue/useconfirm';
 import ConfirmDialog from 'primevue/confirmdialog';
+import { buildCompetencyTree } from '@/utils/formatters';
 
 // Сторы для работы с данными
 const ontologyStore = useOntologyStore();
@@ -40,27 +41,6 @@ watch(() => ontologyStore.currentCourseId, async (newId) => {
   }
 });
 
-// Хелпер: из плоского списка {id, name, parent_id} в иерархию {key, label, data, children}
-const buildCompetencyTree = (flatList: any[]) => {
-  const map = new Map();
-  const roots: any[] = [];
-
-  flatList.forEach(item => {
-    map.set(item.id, { key: item.id, label: item.name, data: item, children: [] });
-  });
-
-  flatList.forEach(item => {
-    const node = map.get(item.id);
-    if (item.parent_id && map.has(item.parent_id)) {
-      map.get(item.parent_id).children.push(node);
-    } else {
-      roots.push(node);
-    }
-  });
-
-  return roots;
-};
-
 // Реактивное дерево
 const competencyTree = computed(() => buildCompetencyTree(ontologyStore.competencies || []));
 
@@ -78,10 +58,6 @@ watch(() => sandboxStore.activeCompetencies, (newVal) => {
   selectedCompetenciesMap.value = newMap;
 }, { immediate: true, deep: true });
 
-// При выборе подкомпетенции автоматически отмечаем её предков —
-// семантика is_subcompetency_of: владение ребёнком подразумевает
-// владение родителем. SWRL H-1 всё равно добавит их в has_competency
-// на бэкенде, но в UI отметка сразу делает это наглядным.
 const collectAncestorIds = (compId: string): string[] => {
   const ancestors: string[] = [];
   let current = ontologyStore.competencies.find((c) => c.id === compId);
@@ -164,6 +140,21 @@ const confirmReset = (event: Event) => {
             display="chip"
             @node-select="onCompNodeSelect"
             @hide="onCompetenciesHide"
+          />
+        </div>
+
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Группа</label>
+          <Select
+            :modelValue="sandboxStore.currentGroupId"
+            :options="ontologyStore.groups"
+            optionLabel="name"
+            optionValue="id"
+            placeholder="Без группы"
+            emptyMessage="В онтологии нет групп"
+            showClear
+            class="w-56"
+            @update:modelValue="(id: string | null) => sandboxStore.setGroup(id ?? null)"
           />
         </div>
       </div>

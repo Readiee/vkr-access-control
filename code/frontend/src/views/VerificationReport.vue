@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useOntologyStore } from '@/stores/ontology';
 import { getVerificationReport } from '@/api';
-import type { PropertyReport, VerificationReport } from '@/types';
+import type { PropertyReport } from '@/types';
 import { VerificationPropertyStatus } from '@/types';
 
 const store = useOntologyStore();
-const report = ref<VerificationReport | null>(null);
 const isLoading = ref(false);
 
 const PROPERTY_TITLES: Record<string, string> = {
@@ -25,13 +24,26 @@ const PROPERTY_HINTS: Record<string, string> = {
   subsumption: 'Нет правил, доступных более узкой аудитории, чем уже разрешённые.',
 };
 
+const stored = computed(() => store.verificationForCurrentCourse);
+const report = computed(() => stored.value?.report ?? null);
+const isStale = computed(() => store.verificationStale);
+
 const orderedEntries = computed<[string, PropertyReport][]>(() => {
-  if (!report.value) return [];
+  const rep = report.value;
+  if (!rep) return [];
   const order = ['consistency', 'acyclicity', 'reachability', 'redundancy', 'subsumption'];
   return order
-    .filter((k) => report.value!.properties[k])
-    .map((k) => [k, report.value!.properties[k]] as [string, PropertyReport]);
+    .filter((k) => rep.properties[k])
+    .map((k) => [k, rep.properties[k]] as [string, PropertyReport]);
 });
+
+const passedCount = computed(() =>
+  orderedEntries.value.filter(([, p]) => p.status === VerificationPropertyStatus.PASSED).length,
+);
+const totalCount = computed(() => orderedEntries.value.length);
+const failedCount = computed(() =>
+  orderedEntries.value.filter(([, p]) => p.status === VerificationPropertyStatus.FAILED).length,
+);
 
 /** По умолчанию раскрываем только свойства с нарушениями или неопределённые —
  *  passed остаются свёрнутыми, методист сразу видит что требует внимания. */
@@ -53,13 +65,26 @@ const statusLabel = (status: string): string => {
   return 'Не определено';
 };
 
+const savedAtLabel = computed(() => {
+  const ts = stored.value?.savedAt;
+  if (!ts) return '';
+  return new Date(ts).toLocaleString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+});
+
 const runVerification = async () => {
   if (!store.currentCourseId) return;
   isLoading.value = true;
   try {
-    // Всегда включаем проверку всех 5 свойств. Сервер отдаёт кэш мгновенно,
-    // если ABox не менялся с прошлой проверки.
-    report.value = await getVerificationReport(store.currentCourseId, true);
+    // Сервер кэширует результат, если ABox не менялся с прошлой проверки —
+    // full=true запрашивает все 5 свойств сразу.
+    const result = await getVerificationReport(store.currentCourseId, true);
+    store.saveVerification(store.currentCourseId, result);
   } finally {
     isLoading.value = false;
   }
@@ -67,11 +92,6 @@ const runVerification = async () => {
 
 onMounted(async () => {
   await store.fetchMeta();
-});
-
-watch(() => store.currentCourseId, (id) => {
-  report.value = null;
-  if (id) runVerification();
 });
 </script>
 
@@ -94,7 +114,7 @@ watch(() => store.currentCourseId, (id) => {
       <div class="flex items-center gap-3">
         <Button
           icon="pi pi-play"
-          label="Запустить проверку"
+          :label="report ? 'Перезапустить' : 'Запустить проверку'"
           :loading="isLoading"
           :disabled="!store.currentCourseId"
           @click="runVerification"
@@ -119,33 +139,52 @@ watch(() => store.currentCourseId, (id) => {
       <p>Идёт верификация...</p>
     </div>
 
-    <template v-else-if="report">
-      <div
-        class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-wrap items-center justify-between gap-3"
-      >
-        <div class="flex flex-col gap-1">
-          <span class="text-xs font-semibold text-surface-400 uppercase tracking-wider">Сводка</span>
-          <span class="text-sm text-surface-700">
-            {{ report.summary }}
+    <div
+      v-else-if="!report"
+      class="bg-white p-12 text-center text-surface-500 rounded-xl shadow-sm border border-surface-100"
+    >
+      <i class="pi pi-shield text-4xl text-surface-300 mb-3"></i>
+      <p class="mb-4">Отчёт по этому курсу ещё не построен.</p>
+      <Button
+        icon="pi pi-play"
+        label="Запустить проверку"
+        @click="runVerification"
+        :loading="isLoading"
+      />
+    </div>
+
+    <div v-else class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="p-5 flex flex-wrap items-start justify-between gap-3 border-b border-surface-100">
+        <div class="flex flex-col gap-2">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-lg font-bold text-surface-800">
+              {{ passedCount }} из {{ totalCount }} свойств выполнены
+            </span>
+            <Tag
+              v-if="failedCount > 0"
+              severity="danger"
+              :value="`${failedCount} ${failedCount === 1 ? 'нарушение' : 'нарушений'}`"
+            />
             <Tag
               v-if="report.partial"
               severity="warn"
               value="частичная проверка"
-              class="ml-2"
             />
+            <Tag
+              v-if="isStale"
+              severity="warn"
+              icon="pi pi-exclamation-triangle"
+              value="Устарел — политики изменились"
+            />
+          </div>
+          <span class="text-sm text-surface-500">
+            {{ report.summary }}
+            <span v-if="savedAtLabel" class="ml-2 text-surface-400">· проверка от {{ savedAtLabel }}</span>
           </span>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <Tag
-            v-for="[key, prop] in orderedEntries"
-            :key="key"
-            :severity="statusSeverity(prop.status)"
-            :value="PROPERTY_TITLES[key]"
-          />
         </div>
       </div>
 
-      <Accordion :multiple="true" :value="expandedKeys">
+      <Accordion :multiple="true" :value="expandedKeys" class="border-none">
         <AccordionPanel
           v-for="[key, prop] in orderedEntries"
           :key="key"
@@ -200,6 +239,6 @@ watch(() => store.currentCourseId, (id) => {
           </AccordionContent>
         </AccordionPanel>
       </Accordion>
-    </template>
+    </div>
   </div>
 </template>

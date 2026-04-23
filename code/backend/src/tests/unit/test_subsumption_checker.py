@@ -37,16 +37,16 @@ class SubsumptionCheckerTests(unittest.TestCase):
             target = self.onto.Test(self._track("test_sub_target"))
 
             p_strong = self.onto.AccessPolicy(self._track("p_sub_strong"))
-            p_strong.rule_type = ["grade_required"]
-            p_strong.is_active = [True]
-            p_strong.passing_threshold = [80.0]
-            p_strong.targets_element = [target]
+            p_strong.rule_type = "grade_required"
+            p_strong.is_active = True
+            p_strong.passing_threshold = 80.0
+            p_strong.targets_element = target
 
             p_weak = self.onto.AccessPolicy(self._track("p_sub_weak"))
-            p_weak.rule_type = ["grade_required"]
-            p_weak.is_active = [True]
-            p_weak.passing_threshold = [60.0]
-            p_weak.targets_element = [target]
+            p_weak.rule_type = "grade_required"
+            p_weak.is_active = True
+            p_weak.passing_threshold = 60.0
+            p_weak.targets_element = target
 
             module.has_access_policy = [p_strong, p_weak]
 
@@ -68,14 +68,14 @@ class SubsumptionCheckerTests(unittest.TestCase):
 
             element = self.onto.Lecture(self._track("lec_sub_elem"))
             p_wide = self.onto.AccessPolicy(self._track("p_sub_wide"))
-            p_wide.rule_type = ["group_restricted"]
-            p_wide.is_active = [True]
-            p_wide.restricted_to_group = [g_wide]
+            p_wide.rule_type = "group_restricted"
+            p_wide.is_active = True
+            p_wide.restricted_to_group = g_wide
 
             p_narrow = self.onto.AccessPolicy(self._track("p_sub_narrow"))
-            p_narrow.rule_type = ["group_restricted"]
-            p_narrow.is_active = [True]
-            p_narrow.restricted_to_group = [g_narrow]
+            p_narrow.rule_type = "group_restricted"
+            p_narrow.is_active = True
+            p_narrow.restricted_to_group = g_narrow
 
             element.has_access_policy = [p_wide, p_narrow]
 
@@ -89,16 +89,16 @@ class SubsumptionCheckerTests(unittest.TestCase):
         with self.onto:
             element = self.onto.Lecture(self._track("lec_sub_date"))
             p_wide = self.onto.AccessPolicy(self._track("p_sub_date_wide"))
-            p_wide.rule_type = ["date_restricted"]
-            p_wide.is_active = [True]
-            p_wide.valid_from = [datetime(2026, 1, 1)]
-            p_wide.valid_until = [datetime(2026, 12, 31)]
+            p_wide.rule_type = "date_restricted"
+            p_wide.is_active = True
+            p_wide.valid_from = datetime(2026, 1, 1)
+            p_wide.valid_until = datetime(2026, 12, 31)
 
             p_narrow = self.onto.AccessPolicy(self._track("p_sub_date_narrow"))
-            p_narrow.rule_type = ["date_restricted"]
-            p_narrow.is_active = [True]
-            p_narrow.valid_from = [datetime(2026, 5, 1)]
-            p_narrow.valid_until = [datetime(2026, 6, 30)]
+            p_narrow.rule_type = "date_restricted"
+            p_narrow.is_active = True
+            p_narrow.valid_from = datetime(2026, 5, 1)
+            p_narrow.valid_until = datetime(2026, 6, 30)
 
             element.has_access_policy = [p_wide, p_narrow]
 
@@ -117,16 +117,16 @@ class SubsumptionCheckerTests(unittest.TestCase):
             t2 = self.onto.Test(self._track("test_sub_indep_b"))
 
             p1 = self.onto.AccessPolicy(self._track("p_sub_indep_a"))
-            p1.rule_type = ["grade_required"]
-            p1.is_active = [True]
-            p1.passing_threshold = [70.0]
-            p1.targets_element = [t1]
+            p1.rule_type = "grade_required"
+            p1.is_active = True
+            p1.passing_threshold = 70.0
+            p1.targets_element = t1
 
             p2 = self.onto.AccessPolicy(self._track("p_sub_indep_b"))
-            p2.rule_type = ["grade_required"]
-            p2.is_active = [True]
-            p2.passing_threshold = [70.0]
-            p2.targets_element = [t2]
+            p2.rule_type = "grade_required"
+            p2.is_active = True
+            p2.passing_threshold = 70.0
+            p2.targets_element = t2
 
             element.has_access_policy = [p1, p2]
 
@@ -142,16 +142,16 @@ class SubsumptionCheckerTests(unittest.TestCase):
             target = self.onto.Test(self._track("test_sub_inact"))
 
             p_inactive = self.onto.AccessPolicy(self._track("p_sub_inactive"))
-            p_inactive.rule_type = ["grade_required"]
-            p_inactive.is_active = [False]
-            p_inactive.passing_threshold = [60.0]
-            p_inactive.targets_element = [target]
+            p_inactive.rule_type = "grade_required"
+            p_inactive.is_active = False
+            p_inactive.passing_threshold = 60.0
+            p_inactive.targets_element = target
 
             p_active = self.onto.AccessPolicy(self._track("p_sub_active"))
-            p_active.rule_type = ["grade_required"]
-            p_active.is_active = [True]
-            p_active.passing_threshold = [80.0]
-            p_active.targets_element = [target]
+            p_active.rule_type = "grade_required"
+            p_active.is_active = True
+            p_active.passing_threshold = 80.0
+            p_active.targets_element = target
 
             element.has_access_policy = [p_inactive, p_active]
 
@@ -168,16 +168,16 @@ class SubsumptionCheckerTests(unittest.TestCase):
             target = self.onto.Test(self._track("test_sub_eq"))
 
             p1 = self.onto.AccessPolicy(self._track("p_sub_eq_1"))
-            p1.rule_type = ["grade_required"]
-            p1.is_active = [True]
-            p1.passing_threshold = [70.0]
-            p1.targets_element = [target]
+            p1.rule_type = "grade_required"
+            p1.is_active = True
+            p1.passing_threshold = 70.0
+            p1.targets_element = target
 
             p2 = self.onto.AccessPolicy(self._track("p_sub_eq_2"))
-            p2.rule_type = ["grade_required"]
-            p2.is_active = [True]
-            p2.passing_threshold = [70.0]
-            p2.targets_element = [target]
+            p2.rule_type = "grade_required"
+            p2.is_active = True
+            p2.passing_threshold = 70.0
+            p2.targets_element = target
 
             element.has_access_policy = [p1, p2]
 
@@ -193,25 +193,25 @@ class SubsumptionCheckerTests(unittest.TestCase):
             group = self.onto.Group(self._track("grp_sub_and"))
 
             wide = self.onto.AccessPolicy(self._track("p_sub_and_wide"))
-            wide.rule_type = ["grade_required"]
-            wide.is_active = [True]
-            wide.passing_threshold = [70.0]
-            wide.targets_element = [target]
+            wide.rule_type = "grade_required"
+            wide.is_active = True
+            wide.passing_threshold = 70.0
+            wide.targets_element = target
 
             sub_grade = self.onto.AccessPolicy(self._track("p_sub_and_sub_grade"))
-            sub_grade.rule_type = ["grade_required"]
-            sub_grade.is_active = [True]
-            sub_grade.passing_threshold = [70.0]
-            sub_grade.targets_element = [target]
+            sub_grade.rule_type = "grade_required"
+            sub_grade.is_active = True
+            sub_grade.passing_threshold = 70.0
+            sub_grade.targets_element = target
 
             sub_group = self.onto.AccessPolicy(self._track("p_sub_and_sub_group"))
-            sub_group.rule_type = ["group_restricted"]
-            sub_group.is_active = [True]
-            sub_group.restricted_to_group = [group]
+            sub_group.rule_type = "group_restricted"
+            sub_group.is_active = True
+            sub_group.restricted_to_group = group
 
             narrow = self.onto.AccessPolicy(self._track("p_sub_and_narrow"))
-            narrow.rule_type = ["and_combination"]
-            narrow.is_active = [True]
+            narrow.rule_type = "and_combination"
+            narrow.is_active = True
             narrow.has_subpolicy = [sub_grade, sub_group]
             AllDifferent([sub_grade, sub_group])
 

@@ -16,40 +16,43 @@ def build(onto):
     with onto:
         methodologist = onto.Methodologist("methodologist_smirnov")
         course = onto.Course("course_subject")
-        module_one = onto.Module("module_one"); module_one.is_required = [True]
+        module_one = onto.Module("module_one")
+        module_one.is_mandatory = True
         course.has_module = [module_one]
-        prereq = onto.Test("quiz_subj_prereq"); prereq.is_required = [True]
-        guarded = onto.Lecture("elem_S"); guarded.is_required = [True]
-        module_one.contains_element = [prereq, guarded]
+        prereq = onto.Test("quiz_subj_prereq")
+        prereq.is_mandatory = True
+        guarded = onto.Lecture("elem_s")
+        guarded.is_mandatory = True
+        module_one.contains_activity = [prereq, guarded]
 
         grp_advanced = onto.Group("grp_advanced")
 
         # Широкая политика.
         all_p = onto.AccessPolicy("p_subj_all")
-        all_p.rule_type = ["grade_required"]
-        all_p.is_active = [True]
-        all_p.has_author = [methodologist]
-        all_p.targets_element = [prereq]
-        all_p.passing_threshold = [70.0]
+        all_p.rule_type = "grade_required"
+        all_p.is_active = True
+        all_p.has_author = methodologist
+        all_p.targets_element = prereq
+        all_p.passing_threshold = 70.0
 
         # Узкая политика = AND(тот же grade_required) + (group_restricted(advanced)).
         sub_grade = onto.AccessPolicy("p_subj_group_sub_grade")
-        sub_grade.rule_type = ["grade_required"]
-        sub_grade.is_active = [True]
-        sub_grade.has_author = [methodologist]
-        sub_grade.targets_element = [prereq]
-        sub_grade.passing_threshold = [70.0]
+        sub_grade.rule_type = "grade_required"
+        sub_grade.is_active = True
+        sub_grade.has_author = methodologist
+        sub_grade.targets_element = prereq
+        sub_grade.passing_threshold = 70.0
 
         sub_group = onto.AccessPolicy("p_subj_group_sub_group")
-        sub_group.rule_type = ["group_restricted"]
-        sub_group.is_active = [True]
-        sub_group.has_author = [methodologist]
-        sub_group.restricted_to_group = [grp_advanced]
+        sub_group.rule_type = "group_restricted"
+        sub_group.is_active = True
+        sub_group.has_author = methodologist
+        sub_group.restricted_to_group = grp_advanced
 
         narrow = onto.AccessPolicy("p_subj_group")
-        narrow.rule_type = ["and_combination"]
-        narrow.is_active = [True]
-        narrow.has_author = [methodologist]
+        narrow.rule_type = "and_combination"
+        narrow.is_active = True
+        narrow.has_author = methodologist
         narrow.has_subpolicy = [sub_grade, sub_group]
         AllDifferent([sub_grade, sub_group])
 

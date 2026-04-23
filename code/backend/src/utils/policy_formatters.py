@@ -6,7 +6,7 @@
 """
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from utils.owl_utils import get_owl_prop
 
@@ -73,34 +73,45 @@ def policy_display_name(pol: Any) -> str:
     return describe_policy_auto(pol)
 
 
-def serialize_policy(pol: Any, include_subpolicies_detail: bool = True) -> Dict[str, Any]:
-    """Подробное представление политики для UI: человечные имена + развёрнутые
-    подусловия у композитов. Поле subpolicies_detail — только на верхнем
-    уровне (чтобы не уходить в бесконечную вложенность).
+def serialize_policy(
+    pol: Any,
+    *,
+    source_id: Optional[str] = None,
+    include_subpolicies_detail: bool = True,
+) -> Dict[str, Any]:
+    """Единое представление политики: ключи под Pydantic-схему `Policy`
+    (включая UI-extras). Параметр `source_id` подставляется в `source_element_id`,
+    если он не выведен из has_access_policy. `subpolicies_detail` — только на
+    верхнем уровне, чтобы не уходить в бесконечную вложенность.
     """
     subpolicies = list(getattr(pol, "has_subpolicy", []) or [])
     aggregate_elems = list(getattr(pol, "aggregate_elements", []) or [])
     target_el = get_owl_prop(pol, "targets_element")
     target_comp = get_owl_prop(pol, "targets_competency")
     group = get_owl_prop(pol, "restricted_to_group")
+    author = get_owl_prop(pol, "has_author")
+    rule_type = get_owl_prop(pol, "rule_type", "") or ""
+
     result: Dict[str, Any] = {
         "id": pol.name,
         "name": policy_display_name(pol),
-        "rule_type": get_owl_prop(pol, "rule_type", ""),
+        "source_element_id": source_id,
+        "rule_type": rule_type,
         "passing_threshold": get_owl_prop(pol, "passing_threshold"),
-        "competency_id": target_comp.name if target_comp else None,
-        "competency_name": _label_or_id(target_comp) if target_comp else None,
         "target_element_id": target_el.name if target_el else None,
         "target_element_name": _label_or_id(target_el) if target_el else None,
+        "target_competency_id": target_comp.name if target_comp else None,
+        "target_competency_name": _label_or_id(target_comp) if target_comp else None,
         "valid_from": get_owl_prop(pol, "valid_from"),
         "valid_until": get_owl_prop(pol, "valid_until"),
         "restricted_to_group_id": group.name if group else None,
         "restricted_to_group_name": _label_or_id(group) if group else None,
-        "subpolicy_ids": [s.name for s in subpolicies],
+        "subpolicy_ids": [s.name for s in subpolicies] or None,
         "aggregate_function": get_owl_prop(pol, "aggregate_function"),
-        "aggregate_element_ids": [e.name for e in aggregate_elems],
-        "aggregate_element_names": [_label_or_id(e) for e in aggregate_elems],
-        "is_active": get_owl_prop(pol, "is_active", True),
+        "aggregate_element_ids": [e.name for e in aggregate_elems] or None,
+        "aggregate_element_names": [_label_or_id(e) for e in aggregate_elems] or None,
+        "is_active": bool(get_owl_prop(pol, "is_active", True)),
+        "author_id": author.name if author else "system",
     }
     if include_subpolicies_detail and subpolicies:
         result["subpolicies_detail"] = [
