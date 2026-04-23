@@ -12,7 +12,7 @@ const menuItems = [
 <template>
   <aside class="w-64 bg-surface-0 border-r border-surface-200 flex flex-col transition-colors duration-200">
     <div class="h-16 flex items-center px-6 border-b border-surface-200 gap-2">
-      <img src="/favicon.svg" alt="OntoRule" class="w-8 h-8" />
+      <img src="/ontorule-hex.svg" alt="OntoRule" class="w-8 h-8" />
       <span class="text-xl font-bold text-surface-900 flex items-baseline">
         Onto<span class="text-primary-500">Rule</span>
       </span>

@@ -278,20 +278,21 @@ const submit = async () => {
 <template>
   <div class="flex flex-col gap-5">
         <div class="flex justify-between items-center border-b border-surface-100 pb-3">
-          <div class="flex flex-col gap-1"></div>
-          <span class="font-bold text-xs text-surface-600 uppercase tracking-widest flex items-center gap-2">
-            <i class="pi pi-sitemap"></i>
-            {{ isEditMode
-              ? (compositeRuleType === RuleType.OR_COMBINATION
-                  ? 'Редактирование составного условия (ИЛИ)'
-                  : 'Редактирование составного условия (И)')
-              : 'Новое составное условие (И)' }}
-          </span>
-          <p class="text-xs text-surface-500">
-            {{ compositeRuleType === RuleType.OR_COMBINATION
-              ? 'Достаточно одного условия ниже'
-              : 'Все условия ниже должны быть выполнены' }}
-          </p>
+          <div class="flex flex-col gap-1">
+            <span class="font-bold text-xs text-surface-600 uppercase tracking-widest flex items-center gap-2">
+              <i class="pi pi-sitemap"></i>
+              {{ isEditMode
+                ? (compositeRuleType === RuleType.OR_COMBINATION
+                    ? 'Редактирование составного условия (ИЛИ)'
+                    : 'Редактирование составного условия (И)')
+                : 'Новое составное условие (И)' }}
+            </span>
+            <p class="text-xs text-surface-500">
+              {{ compositeRuleType === RuleType.OR_COMBINATION
+                ? 'Достаточно одного условия ниже'
+                : 'Все условия ниже должны быть выполнены' }}
+            </p>
+          </div>
           <Button icon="pi pi-times" text rounded size="small" @click="$emit('cancelled')" />
         </div>
 

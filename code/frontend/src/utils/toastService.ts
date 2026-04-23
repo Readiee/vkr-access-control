@@ -14,7 +14,7 @@ export const toastService = {
     toastQueue.value.push(msg);
   },
   showError(detail: string, summary = 'Ошибка') {
-    this.add({ severity: 'error', summary, detail, life: 8000 });
+    this.add({ severity: 'error', summary, detail });
   },
   showSuccess(detail: string, summary = 'Успех') {
     this.add({ severity: 'success', summary, detail, life: 3000 });
