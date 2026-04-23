@@ -17,8 +17,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 from core.config import DEFAULT_ONTOLOGY_PATH  # noqa: E402
 from core.enums import ElementType  # noqa: E402
 from schemas.schemas import CourseElement, CourseSyncPayload  # noqa: E402
-from services.access_service import AccessService  # noqa: E402
-from services.course_service import CourseService  # noqa: E402
+from services.access import AccessService  # noqa: E402
+from services.integration_service import IntegrationService  # noqa: E402
 from services.ontology_core import OntologyCore  # noqa: E402
 
 
@@ -27,8 +27,18 @@ class DateAndGroupReasoningTests(unittest.TestCase):
         self.test_owl = "test_date_group.owl"
         shutil.copy(DEFAULT_ONTOLOGY_PATH, self.test_owl)
         self.core = OntologyCore(self.test_owl)
-        self.course_service = CourseService(self.core)
-        self.access_service = AccessService(self.core)
+        from services.cache_manager import CacheManager
+        from services.reasoning import ReasoningOrchestrator
+        from services.rollup_service import RollupService
+        from services.access import AccessService
+        from services.verification import VerificationService
+        self.cache = CacheManager(None)
+        self.reasoner = ReasoningOrchestrator(self.core.onto)
+        self.rollup = RollupService(self.core)
+        self.access = AccessService(self.core, cache=self.cache, reasoner=self.reasoner)
+        self.verification = VerificationService(self.core, reasoner=self.reasoner, cache=self.cache)
+        self.integration_service = IntegrationService(self.core, verification=self.verification, cache=self.cache)
+        self.access_service = AccessService(self.core, cache=self.cache, reasoner=self.reasoner)
 
         elements = [
             CourseElement(
@@ -50,7 +60,7 @@ class DateAndGroupReasoningTests(unittest.TestCase):
                 parent_id="mod_dg",
             ),
         ]
-        self.course_service.sync_course_structure(
+        self.integration_service.sync_course_structure(
             "course_dg", CourseSyncPayload(course_name="Date+Group course", elements=elements)
         )
 
@@ -88,7 +98,7 @@ class DateAndGroupReasoningTests(unittest.TestCase):
 
     def test_date_outside_window_closes_element_through_swrl(self):
         """FIX11: окно в будущем → SWRL не выводит satisfies → элемент закрыт."""
-        result = self.core.run_reasoner()
+        result = self.reasoner.reason()
         self.assertEqual(result.status, "ok")
 
         available_member = self.access_service.rebuild_student_access("dg_member")[
@@ -103,7 +113,7 @@ class DateAndGroupReasoningTests(unittest.TestCase):
             self.p_date_future.valid_from = [datetime(2020, 1, 1)]
             self.p_date_future.valid_until = [datetime(2099, 12, 31)]
         self.core.save()
-        result = self.core.run_reasoner()
+        result = self.reasoner.reason()
         self.assertEqual(result.status, "ok")
 
         available = self.access_service.rebuild_student_access("dg_member")[
@@ -113,7 +123,7 @@ class DateAndGroupReasoningTests(unittest.TestCase):
 
     def test_group_restricted_opens_for_member_only(self):
         """group_restricted: член группы видит, чужой — нет."""
-        result = self.core.run_reasoner()
+        result = self.reasoner.reason()
         self.assertEqual(result.status, "ok")
 
         avail_member = self.access_service.rebuild_student_access("dg_member")[

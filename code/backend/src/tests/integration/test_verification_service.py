@@ -11,10 +11,10 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 from schemas.schemas import CourseElement, CourseSyncPayload, PolicyCreate  # noqa: E402
 from core.enums import ElementType, RuleType  # noqa: E402
 from core.config import DEFAULT_ONTOLOGY_PATH  # noqa: E402
-from services.course_service import CourseService  # noqa: E402
+from services.integration_service import IntegrationService  # noqa: E402
 from services.ontology_core import OntologyCore  # noqa: E402
 from services.policy_service import PolicyService, PolicyConflictError  # noqa: E402
-from services.verification_service import VerificationService  # noqa: E402
+from services.verification import VerificationService  # noqa: E402
 
 
 class VerificationServiceIntegrationTests(unittest.TestCase):
@@ -24,9 +24,19 @@ class VerificationServiceIntegrationTests(unittest.TestCase):
         shutil.copy(self.source_owl, self.test_owl)
 
         self.core = OntologyCore(self.test_owl)
-        self.course_service = CourseService(self.core)
-        self.policy_service = PolicyService(self.core)
-        self.verification = VerificationService(self.core)
+        from services.cache_manager import CacheManager
+        from services.reasoning import ReasoningOrchestrator
+        from services.rollup_service import RollupService
+        from services.access import AccessService
+        from services.verification import VerificationService
+        self.cache = CacheManager(None)
+        self.reasoner = ReasoningOrchestrator(self.core.onto)
+        self.rollup = RollupService(self.core)
+        self.access = AccessService(self.core, cache=self.cache, reasoner=self.reasoner)
+        self.verification = VerificationService(self.core, reasoner=self.reasoner, cache=self.cache)
+        self.integration_service = IntegrationService(self.core, verification=self.verification, cache=self.cache)
+        self.policy_service = PolicyService(self.core, reasoner=self.reasoner, cache=self.cache)
+        self.verification = VerificationService(self.core, reasoner=self.reasoner, cache=self.cache)
 
         elements = [
             CourseElement(element_id="mod_v1", name="Module V1", element_type=ElementType.MODULE, parent_id="course_v"),
@@ -34,7 +44,7 @@ class VerificationServiceIntegrationTests(unittest.TestCase):
             CourseElement(element_id="lec_v1", name="Lec V1", element_type=ElementType.LECTURE, parent_id="mod_v1"),
             CourseElement(element_id="lec_v2", name="Lec V2", element_type=ElementType.LECTURE, parent_id="mod_v2"),
         ]
-        self.course_service.sync_course_structure("course_v", CourseSyncPayload(course_name="Verification Course", elements=elements))
+        self.integration_service.sync_course_structure("course_v", CourseSyncPayload(course_name="Verification Course", elements=elements))
 
     def tearDown(self):
         if os.path.exists(self.test_owl):

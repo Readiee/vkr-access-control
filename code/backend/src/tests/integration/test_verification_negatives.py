@@ -16,10 +16,10 @@ from owlready2 import World  # noqa: E402
 from core.config import DEFAULT_ONTOLOGY_PATH  # noqa: E402
 from core.enums import ElementType, RuleType  # noqa: E402
 from schemas.schemas import CourseElement, CourseSyncPayload, PolicyCreate  # noqa: E402
-from services.course_service import CourseService  # noqa: E402
+from services.integration_service import IntegrationService  # noqa: E402
 from services.ontology_core import OntologyCore  # noqa: E402
 from services.policy_service import PolicyService  # noqa: E402
-from services.verification_service import VerificationService  # noqa: E402
+from services.verification import VerificationService  # noqa: E402
 
 
 class VerificationNegativeTests(unittest.TestCase):
@@ -31,9 +31,19 @@ class VerificationNegativeTests(unittest.TestCase):
         shutil.copy(DEFAULT_ONTOLOGY_PATH, self.test_owl)
         self.world = World()
         self.core = OntologyCore(self.test_owl, world=self.world)
-        self.course_service = CourseService(self.core)
-        self.policy_service = PolicyService(self.core)
-        self.verification = VerificationService(self.core)
+        from services.cache_manager import CacheManager
+        from services.reasoning import ReasoningOrchestrator
+        from services.rollup_service import RollupService
+        from services.access import AccessService
+        from services.verification import VerificationService
+        self.cache = CacheManager(None)
+        self.reasoner = ReasoningOrchestrator(self.core.onto)
+        self.rollup = RollupService(self.core)
+        self.access = AccessService(self.core, cache=self.cache, reasoner=self.reasoner)
+        self.verification = VerificationService(self.core, reasoner=self.reasoner, cache=self.cache)
+        self.integration_service = IntegrationService(self.core, verification=self.verification, cache=self.cache)
+        self.policy_service = PolicyService(self.core, reasoner=self.reasoner, cache=self.cache)
+        self.verification = VerificationService(self.core, reasoner=self.reasoner, cache=self.cache)
 
     def tearDown(self):
         self.world.close()
@@ -45,7 +55,7 @@ class VerificationNegativeTests(unittest.TestCase):
         Реальная Pellet-inconsistency (disjointness/functional) зависит от версии Owlready2;
         здесь мокаем run_reasoner — тестируем контракт, а не Pellet.
         """
-        self.course_service.sync_course_structure(
+        self.integration_service.sync_course_structure(
             "course_neg1",
             CourseSyncPayload(
                 course_name="Neg1",
@@ -60,8 +70,8 @@ class VerificationNegativeTests(unittest.TestCase):
             ),
         )
 
-        from services.reasoning_orchestrator import ReasoningResult
-        self.core.run_reasoner = lambda: ReasoningResult(
+        from services.reasoning import ReasoningResult
+        self.reasoner.reason = lambda: ReasoningResult(
             status="inconsistent", error="disjointness violated on user_mixed_role"
         )
 
@@ -74,7 +84,7 @@ class VerificationNegativeTests(unittest.TestCase):
 
     def test_sv1_timeout_returns_partial_unknown(self):
         """При reasoning timeout отчёт помечается partial=True."""
-        self.course_service.sync_course_structure(
+        self.integration_service.sync_course_structure(
             "course_neg_timeout",
             CourseSyncPayload(
                 course_name="NT",
@@ -89,8 +99,8 @@ class VerificationNegativeTests(unittest.TestCase):
             ),
         )
 
-        from services.reasoning_orchestrator import ReasoningResult
-        self.core.run_reasoner = lambda: ReasoningResult(status="timeout", timed_out=True)
+        from services.reasoning import ReasoningResult
+        self.reasoner.reason = lambda: ReasoningResult(status="timeout", timed_out=True)
 
         report = self.verification.verify("course_neg_timeout").to_dict()
         self.assertTrue(report["partial"])
@@ -98,7 +108,7 @@ class VerificationNegativeTests(unittest.TestCase):
 
     def test_sv3_reachability_failed_atomic(self):
         """bad_sv3_atomic: политика с threshold=150 → атомарно недостижима."""
-        self.course_service.sync_course_structure(
+        self.integration_service.sync_course_structure(
             "course_neg3a",
             CourseSyncPayload(
                 course_name="Neg3a",
@@ -145,7 +155,7 @@ class VerificationNegativeTests(unittest.TestCase):
 
     def test_sv2_cycle_reported_in_full_report(self):
         """СВ-2 должен ловить настоящий цикл после insert напрямую в ABox (обход check_for_cycles)."""
-        self.course_service.sync_course_structure(
+        self.integration_service.sync_course_structure(
             "course_neg2",
             CourseSyncPayload(
                 course_name="Neg2",

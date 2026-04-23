@@ -19,8 +19,10 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from owlready2 import World  # noqa: E402
 
+from services.cache_manager import CacheManager  # noqa: E402
 from services.ontology_core import OntologyCore  # noqa: E402
-from services.verification_service import VerificationService  # noqa: E402
+from services.reasoning import ReasoningOrchestrator  # noqa: E402
+from services.verification import VerificationService  # noqa: E402
 
 SCENARIOS_OWL_DIR = os.path.abspath(
     os.path.join(
@@ -59,7 +61,9 @@ class VerificationScenariosTests(unittest.TestCase):
     def _run(self, name: str):
         spec = next(s for s in self.ground_truth if s["name"] == name)
         core = _load_scenario(name)
-        service = VerificationService(core)
+        reasoner = ReasoningOrchestrator(core.onto)
+        cache = CacheManager(None)
+        service = VerificationService(core, reasoner=reasoner, cache=cache)
         report = service.verify(spec["course_id"], include_subsumption=spec.get("full", False))
         return spec, report
 

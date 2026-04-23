@@ -1,15 +1,18 @@
-"""Подготовка ABox перед запуском резонера.
+"""Подготовка ABox перед запуском резонера — приватный модуль ReasoningOrchestrator.
 
 SWRL не умеет брать текущее время и считать агрегаты — это делаем здесь, реифицируя
 значения в индивидов, на которые правила могут ссылаться. OWL монотонен и не поддерживает
 truth maintenance, поэтому старые выводы (satisfies, is_available_for) чистим целиком
 перед каждым прогоном, а не пытаемся обновить точечно.
+
+В DSL этот модуль не выделен как отдельный компонент — это деталь pipeline A2
+внутри ReasoningOrchestrator. Импортируется только из reasoning_orchestrator.py.
 """
 from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Any, Iterable, List
+from typing import Any, List
 
 from owlready2 import destroy_entity
 

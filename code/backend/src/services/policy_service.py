@@ -6,8 +6,10 @@ from owlready2 import AllDifferent
 
 from core.enums import RuleType
 from schemas.schemas import PolicyCreate
+from services.cache_manager import CacheManager
 from services.graph_validator import GraphValidator, ProbePolicy
 from services.ontology_core import OntologyCore
+from services.reasoning import ReasoningOrchestrator
 
 logger = logging.getLogger(__name__)
 
@@ -21,14 +23,27 @@ class PolicyConflictError(Exception):
 
 
 class PolicyService:
-    """Сервис управления политиками доступа в онтологии."""
+    """Сервис управления политиками доступа в онтологии.
 
-    def __init__(self, core: OntologyCore) -> None:
+    По DSL §35, §97–§100: зависит от OntologyCore (мутация TBox/ABox),
+    GraphValidator (проверка ацикличности), ReasoningOrchestrator (проверка
+    консистентности) и CacheManager (инвалидация затронутых ключей).
+    """
+
+    def __init__(
+        self,
+        core: OntologyCore,
+        *,
+        reasoner: ReasoningOrchestrator,
+        cache: CacheManager,
+    ) -> None:
         self.core = core
+        self.reasoner = reasoner
+        self.cache = cache
 
     def _invalidate_all_access_caches(self) -> None:
-        self.core.cache.invalidate_all_access()
-        self.core.cache.invalidate_verification()
+        self.cache.invalidate_all_access()
+        self.cache.invalidate_verification()
 
     def _rule_type_str(self, value: Any) -> str:
         return value if isinstance(value, str) else value.value
@@ -158,7 +173,7 @@ class PolicyService:
                 )
             source.has_access_policy.append(new_policy)
 
-        result = self.core.run_reasoner()
+        result = self.reasoner.reason()
         if result.status == "inconsistent":
             logger.warning("Политика %s сделала онтологию inconsistent: %s", policy_id, result.error)
             self._rollback_policy(new_policy, source)
@@ -265,7 +280,7 @@ class PolicyService:
                 element.has_access_policy.remove(policy)
         self.core.policies.delete(policy)
         self.core.save()
-        self.core.run_reasoner()
+        self.reasoner.reason()
         self._invalidate_all_access_caches()
         return True
 
@@ -294,7 +309,7 @@ class PolicyService:
         self._apply_type_specific_fields(policy, data, new_type)
 
         self.core.save()
-        self.core.run_reasoner()
+        self.reasoner.reason()
         self._invalidate_all_access_caches()
 
         source_elements = self.core.policies.find_by_source_element(policy)
@@ -308,5 +323,5 @@ class PolicyService:
             raise ValueError(f"Политика с ID {policy_id} не найдена")
         policy.is_active = [is_active]
         self.core.save()
-        self.core.run_reasoner()
+        self.reasoner.reason()
         self._invalidate_all_access_caches()

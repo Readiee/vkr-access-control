@@ -35,8 +35,12 @@ class Justification:
         return out
 
 
-class ExplanationService:
-    """Обоснование выведенных satisfies/is_available_for через SLD-trace тела SWRL."""
+class AccessExplainer:
+    """Обоснование выведенных satisfies/is_available_for через SLD-trace тела SWRL.
+
+    Приватный модуль: вызывается только из AccessService. В DSL не вынесен отдельным
+    компонентом — UC-9 это ФТ-6 (обратная цепочка), ответственность AccessService.
+    """
 
     def __init__(self, core: OntologyCore) -> None:
         self.core = core

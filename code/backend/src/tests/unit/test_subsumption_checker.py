@@ -11,7 +11,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 from core.config import DEFAULT_ONTOLOGY_PATH  # noqa: E402
 from owlready2 import AllDifferent, World, destroy_entity  # noqa: E402
 
-from services.subsumption_checker import SubsumptionChecker  # noqa: E402
+from services.verification._subsumption import SubsumptionChecker  # noqa: E402
 
 
 class SubsumptionCheckerTests(unittest.TestCase):

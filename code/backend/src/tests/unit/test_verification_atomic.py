@@ -11,7 +11,18 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 from owlready2 import World  # noqa: E402
 
 from core.config import DEFAULT_ONTOLOGY_PATH  # noqa: E402
-from services.verification_service import VerificationService  # noqa: E402
+from services.cache_manager import CacheManager  # noqa: E402
+from services.verification import VerificationService  # noqa: E402
+
+
+class _StubReasoner:
+    """Заглушка ReasoningOrchestrator — возвращает ok, чтобы verify прошёл СВ-1."""
+
+    def reason(self):
+        class R:
+            status = "ok"
+            error = None
+        return R()
 
 
 class AtomicUnsatisfiabilityTests(unittest.TestCase):
@@ -25,13 +36,6 @@ class AtomicUnsatisfiabilityTests(unittest.TestCase):
         class _CoreStub:
             onto = self.onto
 
-            @staticmethod
-            def run_reasoner():
-                class R:
-                    status = "ok"
-                    error = None
-                return R()
-
             class courses:
                 onto_ref = self.onto
 
@@ -43,7 +47,11 @@ class AtomicUnsatisfiabilityTests(unittest.TestCase):
                 def get_all_elements(cls):
                     return cls.onto_ref.CourseStructure.instances()
 
-        self.service = VerificationService(_CoreStub())
+        self.service = VerificationService(
+            _CoreStub(),
+            reasoner=_StubReasoner(),
+            cache=CacheManager(None),
+        )
 
     def tearDown(self):
         self.world.close()
@@ -136,21 +144,20 @@ class StructuralReachabilityTests(unittest.TestCase):
 
         from types import SimpleNamespace
 
-        from services.verification_service import VerificationService  # local import
-
-        class _R:
-            status = "ok"
-            error = None
+        from services.verification import VerificationService  # local import
 
         core = SimpleNamespace(
             onto=self.onto,
-            run_reasoner=lambda: _R(),
             courses=SimpleNamespace(
                 find_by_id=lambda eid: self.onto.search_one(iri=f"*{eid}"),
                 get_all_elements=lambda: list(self.onto.CourseStructure.instances()),
             ),
         )
-        self.service = VerificationService(core)
+        self.service = VerificationService(
+            core,
+            reasoner=_StubReasoner(),
+            cache=CacheManager(None),
+        )
 
     def tearDown(self):
         self.world.close()

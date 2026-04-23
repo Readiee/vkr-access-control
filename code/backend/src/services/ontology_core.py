@@ -1,58 +1,50 @@
+"""Тонкая обёртка над Owlready2: загрузка/сохранение OWL + репозитории ABox.
+
+По DSL §44 OntologyCore отвечает за I/O онтологии и операции TBox/ABox. Кэш,
+reasoning и graph-анализ — отдельные Core-компоненты, инжектятся через
+`api/dependencies.py`. Репозитории (Student/Course/Progress/Policy) остаются
+внутри OntologyCore, потому что они по сути — типизированные вьюхи над ABox
+и не являются самостоятельными DSL-компонентами.
+"""
+from __future__ import annotations
+
 import logging
+from typing import Any, Optional
+
 import redis
-from typing import Optional, Any
-from owlready2 import World, default_world, get_ontology
-from repositories.ontology_repositories import StudentRepository, CourseRepository, ProgressRepository, PolicyRepository
-from services.cache_service import CacheService
-from services.reasoning_orchestrator import ReasoningOrchestrator, ReasoningResult
+from owlready2 import World, default_world, get_ontology  # noqa: F401
+
+from repositories.ontology_repositories import (
+    CourseRepository,
+    PolicyRepository,
+    ProgressRepository,
+    StudentRepository,
+)
 
 logger = logging.getLogger(__name__)
 
-class OntologyCore:
-    """Управляет операциями с семантическим графом, ризонером и кэшем Redis."""
 
-    def __init__(self, onto_path: str | None = None, world: Optional[World] = None) -> None:
+class OntologyCore:
+    """Управляет загрузкой/сохранением онтологии и доступом к ABox через репозитории."""
+
+    def __init__(self, onto_path: Optional[str] = None, world: Optional[World] = None) -> None:
         from core.config import DEFAULT_ONTOLOGY_PATH
+
         if onto_path is None:
             onto_path = DEFAULT_ONTOLOGY_PATH
-        """Загружает онтологию в память и подключается к Redis."""
+
         self.onto_file: str = onto_path
         logger.info("Загрузка онтологии из %s...", onto_path)
         self.world: World = world or default_world
         self.onto = self.world.get_ontology(onto_path).load()
         logger.info("Онтология успешно загружена.")
-        self.redis_client: Optional[redis.Redis] = self._connect_redis()
-        
-        # Инициализация сервисов и репозиториев
-        self.cache = CacheService(self.redis_client)
+
         self.students = StudentRepository(self.onto)
         self.courses = CourseRepository(self.onto)
         self.progress = ProgressRepository(self.onto)
         self.policies = PolicyRepository(self.onto)
-        self.reasoner = ReasoningOrchestrator(self.onto)
 
-
-    def _connect_redis(self) -> Optional[redis.Redis]:
-        """Подключение к Redis по URL из настроек. None при недоступности."""
-        from core.config import settings
-        try:
-            client = redis.Redis.from_url(settings.REDIS_URL, decode_responses=True)
-            client.ping()
-            logger.info("Подключение к Redis установлено.")
-            return client
-        except redis.ConnectionError:
-            logger.warning("Redis недоступен — кэширование доступов отключено.")
-            return None
-
-    def run_reasoner(self) -> ReasoningResult:
-        """Прогнать reasoning через orchestrator."""
-        return self.reasoner.reason()
-
-    def check_consistency(self) -> tuple[bool, Optional[str]]:
-        """Вернуть (consistent, объяснение). Объяснение — None, если всё ок."""
-        return self.reasoner.check_consistency()
-
-    def save(self):
+    def save(self) -> None:
         """Сохраняет текущее состояние онтологии в файл."""
         self.onto.save(file=self.onto_file)
 
@@ -71,3 +63,13 @@ class OntologyCore:
         return element
 
 
+def connect_redis(redis_url: str) -> Optional[redis.Redis]:
+    """Подключение к Redis по URL. None при недоступности — кэширование становится no-op."""
+    try:
+        client = redis.Redis.from_url(redis_url, decode_responses=True)
+        client.ping()
+        logger.info("Подключение к Redis установлено.")
+        return client
+    except redis.ConnectionError:
+        logger.warning("Redis недоступен — кэширование доступов отключено.")
+        return None

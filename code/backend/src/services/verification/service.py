@@ -14,11 +14,13 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from core.enums import RuleType
-from services.course_service import _policy_display_name
+from services.cache_manager import CacheManager
 from services.graph_validator import GraphValidator
 from services.ontology_core import OntologyCore
-from services.subsumption_checker import SubsumptionChecker
+from services.reasoning import ReasoningOrchestrator
+from services.verification._subsumption import SubsumptionChecker
 from utils.owl_utils import get_owl_prop
+from utils.policy_formatters import policy_display_name
 
 logger = logging.getLogger(__name__)
 
@@ -87,10 +89,23 @@ def _report_from_dict(data: Dict[str, Any]) -> VerificationReport:
 
 
 class VerificationService:
-    """Единая точка запуска СВ-1…СВ-5."""
+    """Единая точка запуска СВ-1…СВ-5.
 
-    def __init__(self, core: OntologyCore) -> None:
+    По DSL §37, §106–§108: зависит от OntologyCore, ReasoningOrchestrator
+    (СВ-1 consistency + СВ-4/5 subsumption), GraphValidator (СВ-2/3 через
+    статические методы), CacheManager (чтение и запись отчёта).
+    """
+
+    def __init__(
+        self,
+        core: OntologyCore,
+        *,
+        reasoner: ReasoningOrchestrator,
+        cache: CacheManager,
+    ) -> None:
         self.core = core
+        self.reasoner = reasoner
+        self.cache = cache
 
     def verify(
         self,
@@ -102,11 +117,10 @@ class VerificationService:
 
         При use_cache=True возвращает сохранённый в Redis результат, если он есть и
         покрывает запрошенный набор свойств. Инвалидация кэша — на стороне
-        PolicyService / CourseService при мутациях ABox.
+        PolicyService / IntegrationService при мутациях ABox.
         """
-        cache = getattr(self.core, "cache", None)
-        if use_cache and cache is not None:
-            cached = cache.get_verification(course_id)
+        if use_cache:
+            cached = self.cache.get_verification(course_id)
             if cached and _covers(cached, include_subsumption):
                 return _report_from_dict(cached)
 
@@ -123,7 +137,7 @@ class VerificationService:
         if course is None:
             raise LookupError(f"Курс {course_id} не найден")
 
-        reasoning_result = self.core.run_reasoner()
+        reasoning_result = self.reasoner.reason()
         partial = reasoning_result.status in {"timeout", "error"}
 
         # СВ-1 Consistency
@@ -206,8 +220,8 @@ class VerificationService:
             properties=properties,
         )
 
-        if cache is not None and not partial:
-            cache.set_verification(course_id, report.to_dict())
+        if use_cache and not partial:
+            self.cache.set_verification(course_id, report.to_dict())
 
         return report
 
@@ -243,7 +257,7 @@ class VerificationService:
                 unsat.append({
                     "code": "SV3_ATOMIC_UNSAT",
                     "policy_id": policy.name,
-                    "policy_name": _policy_display_name(policy),
+                    "policy_name": policy_display_name(policy),
                     "rule_type": get_owl_prop(policy, "rule_type", ""),
                     "reason": reason,
                 })
@@ -408,7 +422,7 @@ class VerificationService:
         if ind is None:
             return entity_id
         if isinstance(ind, self.core.onto.AccessPolicy):
-            return _policy_display_name(ind)
+            return policy_display_name(ind)
         return ind.label[0] if getattr(ind, "label", None) else ind.name
 
     def _policies_on_cycle(self, cycle_path: List[str]) -> List[str]:

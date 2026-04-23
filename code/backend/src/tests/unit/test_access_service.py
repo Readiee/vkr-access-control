@@ -15,10 +15,12 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 from owlready2 import World  # noqa: E402
 
 from core.config import DEFAULT_ONTOLOGY_PATH  # noqa: E402
-from services.access_service import AccessService  # noqa: E402
+from services.access import AccessService  # noqa: E402
 
 
 class _InMemoryCache:
+    """Минимальный CacheManager-compatible stub для unit-тестов AccessService."""
+
     def __init__(self):
         self.storage: dict = {}
 
@@ -27,6 +29,16 @@ class _InMemoryCache:
 
     def set_student_access(self, student_id: str, data):
         self.storage[student_id] = data
+
+
+class _StubReasoner:
+    """Заглушка ReasoningOrchestrator — unit-тесты AccessService не запускают Pellet."""
+
+    def reason(self):
+        class R:
+            status = "ok"
+            error = None
+        return R()
 
 
 class AccessServiceTests(unittest.TestCase):
@@ -54,14 +66,15 @@ class AccessServiceTests(unittest.TestCase):
         self.cache = _InMemoryCache()
         self.core = SimpleNamespace(
             onto=self.onto,
-            cache=self.cache,
             courses=SimpleNamespace(
                 find_by_id=lambda eid: self.onto.search_one(iri=f"*{eid}"),
                 get_all_elements=lambda: list(self.onto.CourseStructure.instances()),
             ),
             students=SimpleNamespace(get_or_create=lambda sid: self.student),
         )
-        self.service = AccessService(self.core)
+        self.service = AccessService(
+            self.core, cache=self.cache, reasoner=_StubReasoner()
+        )
 
     def tearDown(self):
         self.world.close()

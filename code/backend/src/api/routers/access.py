@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, status
 
 from api.dependencies import get_access_service
 from schemas.schemas import AvailableElements
-from services.access_service import AccessService
+from services.access import AccessService
 
 router = APIRouter(prefix="/api/v1/access", tags=["Access"])
 

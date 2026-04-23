@@ -20,7 +20,7 @@ from typing import Any, Optional
 
 from owlready2 import sync_reasoner_pellet
 
-from services.ontology_enricher import (
+from services.reasoning._enricher import (
     clear_inferred_triples,
     enrich_aggregates,
     enrich_current_time,

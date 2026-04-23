@@ -1,6 +1,13 @@
-from core.enums import ProgressStatus
-from typing import Dict, Any, Optional, List
+from __future__ import annotations
+
 import logging
+from typing import Any, Dict, List, Optional
+
+from core.enums import ProgressStatus
+from services.access import AccessService
+from services.ontology_core import OntologyCore
+from services.progress_service import ProgressService
+from services.reasoning import ReasoningOrchestrator
 
 logger = logging.getLogger(__name__)
 
@@ -8,9 +15,26 @@ DEFAULT_SANDBOX_ID = "sandbox_new"
 
 
 class SandboxService:
-    def __init__(self, core, progress_service):
+    """Песочница методиста (UC-7a/b/c).
+
+    По DSL §38 + §110–§111: SandboxService работает с ABox через OntologyCore,
+    пересчитывает reasoning через ReasoningOrchestrator и переиспользует
+    AccessService для чтения карты доступа. Запись прогресса и roll-up —
+    через ProgressService (разрешённое исключение слоистости — DSL §117).
+    """
+
+    def __init__(
+        self,
+        core: OntologyCore,
+        *,
+        reasoner: ReasoningOrchestrator,
+        access: AccessService,
+        progress: ProgressService,
+    ) -> None:
         self.core = core
-        self.progress_service = progress_service
+        self.reasoner = reasoner
+        self.access = access
+        self.progress = progress
 
     def list_sandbox_students(self) -> List[Dict[str, str]]:
         """Все индивиды класса SandboxStudent — для выбора в UI."""
@@ -48,7 +72,7 @@ class SandboxService:
         student = self._resolve_student(student_id)
         sandbox_user_id = student.name
 
-        access_data = self.progress_service.get_student_access(sandbox_user_id, course_id)
+        access_data = self.access.get_course_access(sandbox_user_id, course_id)
         available_elements = access_data.get("available_elements", [])
 
         # 2. Получаем текущий прогресс
@@ -108,7 +132,7 @@ class SandboxService:
                 self._cascade_delete_parent_records(student, element)
                 self._clear_inferred_access(student)
 
-        self.progress_service.update_progress(sandbox_user_id, payload.element_id, payload.status)
+        self.progress.update_progress(sandbox_user_id, payload.element_id, payload.status)
         if payload.grade is not None:
             element = self.core.courses.find_by_id(payload.element_id)
             record = self.core.progress.find_record(student, element)
@@ -116,8 +140,8 @@ class SandboxService:
                 record.has_grade = [payload.grade]
                 self.core.save()
 
-        self.core.run_reasoner()
-        self.progress_service.invalidate_student_cache(sandbox_user_id)
+        self.reasoner.reason()
+        self.access.rebuild_student_access(sandbox_user_id)
         return {"status": "success", "message": f"Прогресс для {payload.element_id} обновлен"}
 
     def rollback_progress(self, element_id: str, student_id: Optional[str] = None) -> dict:
@@ -133,8 +157,8 @@ class SandboxService:
         self._cascade_delete_parent_records(student, element)
         self._clear_inferred_access(student)
         self.core.save()
-        self.core.run_reasoner()
-        self.progress_service.invalidate_student_cache(student.name)
+        self.reasoner.reason()
+        self.access.rebuild_student_access(student.name)
         return {"status": "success", "message": f"Откат {element_id} завершен"}
 
     def _clear_inferred_access(self, student):
@@ -154,8 +178,8 @@ class SandboxService:
 
         self._clear_inferred_access(student)
         self.core.save()
-        self.core.run_reasoner()
-        self.progress_service.invalidate_student_cache(student.name)
+        self.reasoner.reason()
+        self.access.rebuild_student_access(student.name)
         return {"status": "success", "message": "Песочница полностью очищена"}
 
     def set_competencies(self, competency_ids: list[str], student_id: Optional[str] = None) -> dict:
@@ -169,6 +193,6 @@ class SandboxService:
 
         self._clear_inferred_access(student)
         self.core.save()
-        self.core.run_reasoner()
-        self.progress_service.invalidate_student_cache(student.name)
+        self.reasoner.reason()
+        self.access.rebuild_student_access(student.name)
         return {"status": "success", "message": "Компетенции обновлены"}

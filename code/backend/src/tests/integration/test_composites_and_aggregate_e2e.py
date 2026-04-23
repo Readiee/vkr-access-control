@@ -19,7 +19,7 @@ from schemas.schemas import (  # noqa: E402
     CourseSyncPayload,
     PolicyCreate,
 )
-from services.course_service import CourseService  # noqa: E402
+from services.integration_service import IntegrationService  # noqa: E402
 from services.ontology_core import OntologyCore  # noqa: E402
 from services.policy_service import PolicyService  # noqa: E402
 
@@ -32,8 +32,18 @@ class CompositeAndAggregateEndToEndTests(unittest.TestCase):
         shutil.copy(DEFAULT_ONTOLOGY_PATH, self.test_owl)
         self.world = World()
         self.core = OntologyCore(self.test_owl, world=self.world)
-        self.course_service = CourseService(self.core)
-        self.policy_service = PolicyService(self.core)
+        from services.cache_manager import CacheManager
+        from services.reasoning import ReasoningOrchestrator
+        from services.rollup_service import RollupService
+        from services.access import AccessService
+        from services.verification import VerificationService
+        self.cache = CacheManager(None)
+        self.reasoner = ReasoningOrchestrator(self.core.onto)
+        self.rollup = RollupService(self.core)
+        self.access = AccessService(self.core, cache=self.cache, reasoner=self.reasoner)
+        self.verification = VerificationService(self.core, reasoner=self.reasoner, cache=self.cache)
+        self.integration_service = IntegrationService(self.core, verification=self.verification, cache=self.cache)
+        self.policy_service = PolicyService(self.core, reasoner=self.reasoner, cache=self.cache)
 
         elements = [
             CourseElement(
@@ -67,7 +77,7 @@ class CompositeAndAggregateEndToEndTests(unittest.TestCase):
                 parent_id="mod_cmp",
             ),
         ]
-        self.course_service.sync_course_structure(
+        self.integration_service.sync_course_structure(
             "course_cmp",
             CourseSyncPayload(course_name="Composite+Aggregate course", elements=elements),
         )
@@ -115,7 +125,7 @@ class CompositeAndAggregateEndToEndTests(unittest.TestCase):
             student.has_progress_record.append(pr_b)
         self.core.save()
 
-        result = self.core.run_reasoner()
+        result = self.reasoner.reason()
         self.assertEqual(result.status, "ok")
 
         target = self.core.onto.search_one(iri="*target_cmp")
@@ -149,7 +159,7 @@ class CompositeAndAggregateEndToEndTests(unittest.TestCase):
             # quiz_b намеренно пропущен
         self.core.save()
 
-        self.core.run_reasoner()
+        self.reasoner.reason()
         target = self.core.onto.search_one(iri="*target_cmp")
         self.assertNotIn(student, getattr(target, "is_available_for", []) or [])
 
@@ -181,7 +191,7 @@ class CompositeAndAggregateEndToEndTests(unittest.TestCase):
             student.has_progress_record.append(pr_a)
         self.core.save()
 
-        self.core.run_reasoner()
+        self.reasoner.reason()
         target = self.core.onto.search_one(iri="*target_cmp")
         self.assertIn(student, getattr(target, "is_available_for", []) or [])
 
@@ -206,7 +216,7 @@ class CompositeAndAggregateEndToEndTests(unittest.TestCase):
             # никакого прогресса
         self.core.save()
 
-        self.core.run_reasoner()
+        self.reasoner.reason()
         target = self.core.onto.search_one(iri="*target_cmp")
         self.assertNotIn(student, getattr(target, "is_available_for", []) or [])
 
@@ -240,7 +250,7 @@ class CompositeAndAggregateEndToEndTests(unittest.TestCase):
             student.has_progress_record.append(pr_b)
         self.core.save()
 
-        result = self.core.run_reasoner()
+        result = self.reasoner.reason()
         self.assertEqual(result.status, "ok")
         self.assertGreaterEqual(result.aggregate_facts, 1)
 
@@ -275,7 +285,7 @@ class CompositeAndAggregateEndToEndTests(unittest.TestCase):
             student.has_progress_record.append(pr_b)
         self.core.save()
 
-        self.core.run_reasoner()
+        self.reasoner.reason()
         target = self.core.onto.search_one(iri="*target_cmp")
         self.assertNotIn(student, getattr(target, "is_available_for", []) or [])
 

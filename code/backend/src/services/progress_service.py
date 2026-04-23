@@ -1,7 +1,9 @@
-"""Приём событий прогресса + roll-up статусов.
+"""Приём событий прогресса + запуск reasoning + каскадный rollup (UC-5).
 
-Чтение матрицы доступа вынесено в AccessService — ProgressService только фиксирует
-событие в ABox, запускает reasoning, даёт AccessService пересобрать кэш Redis.
+По DSL §37 + стрелкам §97–§100: ProgressService — оркестратор UC-5. Фактическую
+запись в ABox делает через OntologyCore, reasoning — через ReasoningOrchestrator,
+каскадное roll-up — через RollupService, инвалидацию кэша — через AccessService.
+Зависимости инжектятся явно, Service Locator из OntologyCore убран (решение 23.04).
 """
 from __future__ import annotations
 
@@ -10,20 +12,29 @@ from typing import Any
 
 from core.enums import ProgressStatus
 from schemas.schemas import ProgressEvent
-from services.access_service import AccessService
+from services.access import AccessService
 from services.ontology_core import OntologyCore
+from services.reasoning import ReasoningOrchestrator
 from services.rollup_service import RollupService
 
 logger = logging.getLogger(__name__)
 
 
 class ProgressService:
-    """Сервис регистрации прогресса студентов + запуск reasoning."""
+    """Оркестратор UC-5: событие прогресса → ABox → reasoning → rollup → cache."""
 
-    def __init__(self, core: OntologyCore) -> None:
+    def __init__(
+        self,
+        core: OntologyCore,
+        *,
+        reasoner: ReasoningOrchestrator,
+        rollup: RollupService,
+        access: AccessService,
+    ) -> None:
         self.core = core
-        self.rollup_service = RollupService(self.core)
-        self.access_service = AccessService(self.core)
+        self.reasoner = reasoner
+        self.rollup = rollup
+        self.access = access
 
     def register_progress(self, event_data: ProgressEvent) -> dict:
         """Записать событие, запустить Pellet, обновить кэш."""
@@ -37,7 +48,11 @@ class ProgressService:
             )
 
         progress_record = self.core.progress.create_record(student, elem)
-        event_type = event_data.event_type.value if hasattr(event_data.event_type, "value") else event_data.event_type
+        event_type = (
+            event_data.event_type.value
+            if hasattr(event_data.event_type, "value")
+            else event_data.event_type
+        )
         if event_type in {ProgressStatus.COMPLETED.value, "completed"}:
             progress_record.has_status = [self.core.progress.get_owl_status("completed")]
         elif event_type in {ProgressStatus.FAILED.value, "failed"}:
@@ -49,18 +64,18 @@ class ProgressService:
         self.core.save()
 
         logger.info("Запуск Pellet Reasoner для студента %s...", student_node_id)
-        self.core.run_reasoner()
+        self.reasoner.reason()
         logger.info("Ризонинг завершён.")
 
         return self.invalidate_student_cache(event_data.student_id)
 
     def invalidate_student_cache(self, student_id: str) -> dict:
         """Пересобрать кэш доступа для студента через AccessService."""
-        return self.access_service.rebuild_student_access(student_id)
+        return self.access.rebuild_student_access(student_id)
 
     def get_student_access(self, student_id: str, course_id: str) -> dict:
         """Матрица доступных элементов в рамках курса (через AccessService)."""
-        return self.access_service.get_course_access(student_id, course_id)
+        return self.access.get_course_access(student_id, course_id)
 
     def update_progress(self, student_id: str, element_id: str, status: Any) -> None:
         """Обновить прогресс студента с поддержкой roll-up."""
@@ -87,4 +102,9 @@ class ProgressService:
         logger.info("Статус %s для %s обновлён до %s", element_id, student.name, val)
 
         if val == ProgressStatus.COMPLETED.value or val == "completed":
-            self.rollup_service.execute(student, element, self.update_progress)
+            self.rollup.execute(student, element, self.update_progress)
+
+    def rerun_reasoning_and_rebuild_cache(self, student_id: str) -> None:
+        """Фоновая задача после webhook: reason() + rebuild cache."""
+        self.reasoner.reason()
+        self.invalidate_student_cache(student_id)

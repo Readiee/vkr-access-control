@@ -1,8 +1,10 @@
-"""Unit-тесты ExplanationService (FIX9): rule-based justifications для SWRL.
+"""Unit-тесты AccessExplainer (FIX9): rule-based justifications для SWRL.
 
-is_available_for и satisfies ставятся в ABox вручную — ExplanationService
+is_available_for и satisfies ставятся в ABox вручную — AccessExplainer
 по определению работает поверх результата reasoning, его задача —
 собрать SLD-trace тела правила, а не выводить отношения заново.
+AccessExplainer — приватный модуль AccessService; прежнее имя ExplanationService
+не используется (код адаптирован под workspace.dsl).
 """
 from __future__ import annotations
 
@@ -17,15 +19,15 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 from owlready2 import AllDifferent, World  # noqa: E402
 
 from core.config import DEFAULT_ONTOLOGY_PATH  # noqa: E402
-from services.explanation_service import ExplanationService  # noqa: E402
+from services.access._explanations import AccessExplainer  # noqa: E402
 
 
-class ExplanationServiceTests(unittest.TestCase):
+class AccessExplainerTests(unittest.TestCase):
     def setUp(self):
         self.world = World()
         self.onto = self.world.get_ontology(DEFAULT_ONTOLOGY_PATH).load()
         self.core = SimpleNamespace(onto=self.onto)
-        self.exp = ExplanationService(self.core)
+        self.exp = AccessExplainer(self.core)
 
         with self.onto:
             self.methodist = self.onto.Methodologist("meth_exp")

@@ -4,7 +4,9 @@ from typing import Optional, Dict, Any
 
 logger = logging.getLogger(__name__)
 
-class CacheService:
+class CacheManager:
+    """Кэш решений о доступе и отчётов верификации. GET/SET/DEL + инвалидация затронутых ключей (А5)."""
+
     def __init__(self, redis_client):
         self.redis = redis_client
 

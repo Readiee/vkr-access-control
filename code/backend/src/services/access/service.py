@@ -14,20 +14,34 @@ import logging
 from typing import Any, Dict, Iterable, List, Optional, Set
 
 from core.enums import RuleType
-from services.course_service import _policy_display_name
-from services.explanation_service import ExplanationService, Justification
+from services.access._explanations import AccessExplainer, Justification
+from services.cache_manager import CacheManager
 from services.ontology_core import OntologyCore
+from services.reasoning import ReasoningOrchestrator
 from utils.owl_utils import get_owl_prop
+from utils.policy_formatters import policy_display_name
 
 logger = logging.getLogger(__name__)
 
 
 class AccessService:
-    """Сборка матрицы доступа и объяснений блокировки для студента."""
+    """Сборка матрицы доступа и объяснений блокировки для студента.
 
-    def __init__(self, core: OntologyCore) -> None:
+    По DSL §36 зависит от OntologyCore (ABox), CacheManager (cache-first чтение)
+    и ReasoningOrchestrator (cache miss → reasoning). Зависимости инжектятся явно.
+    """
+
+    def __init__(
+        self,
+        core: OntologyCore,
+        *,
+        cache: CacheManager,
+        reasoner: ReasoningOrchestrator,
+    ) -> None:
         self.core = core
-        self.explainer = ExplanationService(core)
+        self.cache = cache
+        self.reasoner = reasoner
+        self.explainer = AccessExplainer(core)
 
     def rebuild_student_access(self, student_id: str) -> Dict[str, Any]:
         """Пройти CWA-enforcement по всем элементам и записать в Redis."""
@@ -36,7 +50,7 @@ class AccessService:
             return {"status": "error", "message": f"Студент {student_id} не найден."}
 
         inferred = self._compute_inferred_access(student)
-        self.core.cache.set_student_access(student_id, inferred)
+        self.cache.set_student_access(student_id, inferred)
         return {
             "student_id": student_id,
             "inferred_available_elements": list(inferred.keys()),
@@ -45,9 +59,9 @@ class AccessService:
 
     def get_course_access(self, student_id: str, course_id: str) -> Dict[str, List[str]]:
         """Вернуть доступные элементы в рамках курса, с учётом каскадной блокировки."""
-        cached = self.core.cache.get_student_access(student_id)
+        cached = self.cache.get_student_access(student_id)
         if cached is None:
-            # Redis может быть недоступен — CacheService.set_student_access тогда no-op.
+            # Redis может быть недоступен — CacheManager тогда no-op.
             # Берём результат rebuild напрямую, не полагаясь на возврат cache.get.
             rebuild = self.rebuild_student_access(student_id)
             cached = rebuild.get("inferred_access", {})
@@ -180,7 +194,7 @@ class AccessService:
 
         return {
             "policy_id": policy.name,
-            "policy_name": _policy_display_name(policy),
+            "policy_name": policy_display_name(policy),
             "rule_type": rule_type,
             "satisfied": satisfied,
             "failure_reason": failure_reason,
@@ -245,7 +259,7 @@ class AccessService:
                     sub_reason, _ = self._diagnose_failure(sub, sub_rt, student)
                 details.append({
                     "id": sub.name,
-                    "name": _policy_display_name(sub),
+                    "name": policy_display_name(sub),
                     "rule_type": sub_rt,
                     "satisfied": sub_satisfied,
                     "failure_reason": sub_reason,
@@ -255,6 +269,11 @@ class AccessService:
         return "Условие правила не выполнено", {}
 
     def _resolve_student(self, student_id: str) -> Optional[Any]:
+        # Sandbox-студенты живут под собственными id ("sandbox_new" и т.п.) — сначала
+        # ищем по исходному id, чтобы не создавать фантомного Student с префиксом.
+        found = self.core.onto.search_one(iri=f"*{student_id}")
+        if found is not None:
+            return found
         node_id = student_id if student_id.startswith("student_") else f"student_{student_id}"
         return self.core.students.get_or_create(node_id)
 

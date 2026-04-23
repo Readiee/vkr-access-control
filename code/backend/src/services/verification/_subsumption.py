@@ -36,7 +36,14 @@ class SubsumptionPair:
 
 
 class SubsumptionChecker:
-    """Проверка всех пар (P1, P2) активных политик на поглощение."""
+    """Проверка всех пар (P1, P2) активных политик на поглощение.
+
+    Приватный модуль: вызывается только из VerificationService. В DSL СВ-4/5
+    проходят через `verificationService → reasoningOrchestrator` — логически
+    этот чекер часть того же контура, ReasoningOrchestrator сейчас не запускается
+    на парах политик (MVP без Pellet), поэтому модуль отделён физически, но
+    концептуально — внутренняя деталь верификации.
+    """
 
     def __init__(self, onto: Any) -> None:
         self.onto = onto

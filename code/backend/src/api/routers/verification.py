@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 
 from api.dependencies import get_verification_service
-from services.verification_service import VerificationService
+from services.verification import VerificationService
 
 router = APIRouter(prefix="/api/v1/verify", tags=["Verification"])
 

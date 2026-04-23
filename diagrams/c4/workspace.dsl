@@ -27,15 +27,16 @@ workspace "VKR Access Control" "Система управления правил
                     accessController       = component "AccessController"       "Решение о доступе к ресурсу для студента с объяснением (UC-4, UC-9)."         "FastAPI router"
                     progressController     = component "ProgressController"     "Приём событий прогресса, запуск восходящей агрегации (UC-5, UC-8)."           "FastAPI router"
                     verificationController = component "VerificationController" "Запуск полной верификации курса по СВ-1, СВ-2, СВ-3, СВ-4, СВ-5 (UC-6)." "FastAPI router"
-                    simulationController   = component "SimulationController"   "Песочница: гипотетический студент, изменение фактов, карта доступа (UC-7)."    "FastAPI router"
+                    sandboxController   = component "SandboxController"   "Песочница: гипотетический студент, изменение фактов, карта доступа (UC-7)."    "FastAPI router"
                     integrationController  = component "IntegrationController"  "Импорт структуры и правил, webhook-события от внешней СДО (UC-5, UC-10)."      "FastAPI router"
                 }
 
                 group "Service Layer" {
                     policyService       = component "PolicyService"       "Создание, обновление, удаление правил с предпроверкой (ФТ-1, ФТ-5)."                 "Python service"
                     accessService       = component "AccessService"       "Cache-first решение о доступе, cache miss → reasoning, обратная цепочка (ФТ-2, ФТ-6)." "Python service"
+                    progressService     = component "ProgressService"     "Приём события прогресса, запись в ABox, запуск reasoning, триггер rollup (UC-5)."    "Python service"
                     verificationService = component "VerificationService" "Полная верификация курса (ФТ-3): СВ-1 (consistency) и СВ-4, СВ-5 через ReasoningOrchestrator; СВ-2 (acyclicity), СВ-3 (reachability) через GraphValidator." "Python service"
-                    simulationService   = component "SimulationService"   "Сценарии песочницы на изолированной копии ABox (ФТ-7)."                               "Python service"
+                    sandboxService      = component "SandboxService"      "Сценарии песочницы на изолированной копии ABox (ФТ-7)."                               "Python service"
                     rollupService       = component "RollupService"       "Восходящая агрегация завершённости А3 (ФТ-8)."                                        "Python service"
                     integrationService  = component "IntegrationService"  "Импорт из СДО, нормализация форматов, автозапуск верификации (ФТ-4)."                 "Python service"
                 }
@@ -78,7 +79,7 @@ workspace "VKR Access Control" "Система управления правил
         accessControl.webUI -> accessControl.apiBackend.policyController       "Управление правилами"          "HTTPS/JSON"
         accessControl.webUI -> accessControl.apiBackend.accessController       "Проверка доступа в симуляторе" "HTTPS/JSON"
         accessControl.webUI -> accessControl.apiBackend.verificationController "Запуск верификации"            "HTTPS/JSON"
-        accessControl.webUI -> accessControl.apiBackend.simulationController   "Сценарии симулятора"           "HTTPS/JSON"
+        accessControl.webUI -> accessControl.apiBackend.sandboxController   "Сценарии симулятора"           "HTTPS/JSON"
         accessControl.webUI -> accessControl.apiBackend.integrationController  "Запуск импорта"                "HTTPS/JSON"
 
         lms -> accessControl.apiBackend.accessController      "Запросы доступа"        "HTTPS/REST"
@@ -88,10 +89,15 @@ workspace "VKR Access Control" "Система управления правил
         // ── Component level: Controllers → Services ──────────────────────
         accessControl.apiBackend.policyController       -> accessControl.apiBackend.policyService       "Делегирует" "Python call"
         accessControl.apiBackend.accessController       -> accessControl.apiBackend.accessService       "Делегирует" "Python call"
-        accessControl.apiBackend.progressController     -> accessControl.apiBackend.rollupService       "Делегирует" "Python call"
+        accessControl.apiBackend.progressController     -> accessControl.apiBackend.progressService     "Делегирует" "Python call"
         accessControl.apiBackend.verificationController -> accessControl.apiBackend.verificationService "Делегирует" "Python call"
-        accessControl.apiBackend.simulationController   -> accessControl.apiBackend.simulationService   "Делегирует" "Python call"
+        accessControl.apiBackend.sandboxController      -> accessControl.apiBackend.sandboxService      "Делегирует" "Python call"
         accessControl.apiBackend.integrationController  -> accessControl.apiBackend.integrationService  "Делегирует" "Python call"
+
+        accessControl.apiBackend.progressService -> accessControl.apiBackend.ontologyCore          "Запись прогресса в ABox"      "Python call"
+        accessControl.apiBackend.progressService -> accessControl.apiBackend.reasoningOrchestrator "Перерасчёт после события"     "Python call"
+        accessControl.apiBackend.progressService -> accessControl.apiBackend.rollupService         "Каскадная агрегация (UC-8)"   "Python call"
+        accessControl.apiBackend.progressService -> accessControl.apiBackend.accessService         "Инвалидация кэша студента"    "Python call"
 
         // ── Component level: Services → Core ─────────────────────────────
         accessControl.apiBackend.policyService -> accessControl.apiBackend.graphValidator        "Проверка ацикличности"         "Python call"
@@ -107,8 +113,8 @@ workspace "VKR Access Control" "Система управления правил
         accessControl.apiBackend.verificationService -> accessControl.apiBackend.reasoningOrchestrator "СВ-1, СВ-4, СВ-5"   "Python call"
         accessControl.apiBackend.verificationService -> accessControl.apiBackend.ontologyCore          "Чтение TBox + ABox" "Python call"
 
-        accessControl.apiBackend.simulationService -> accessControl.apiBackend.ontologyCore  "Работа с копией ABox"                    "Python call"
-        accessControl.apiBackend.simulationService -> accessControl.apiBackend.accessService "Запрос решений (разрешённое исключение)" "Python call"
+        accessControl.apiBackend.sandboxService -> accessControl.apiBackend.ontologyCore  "Работа с копией ABox"                    "Python call"
+        accessControl.apiBackend.sandboxService -> accessControl.apiBackend.accessService "Запрос решений (разрешённое исключение)" "Python call"
 
         accessControl.apiBackend.rollupService -> accessControl.apiBackend.ontologyCore "Чтение структуры, запись состояний" "Python call"
         accessControl.apiBackend.rollupService -> accessControl.apiBackend.cacheManager "Инвалидация после прогресса"        "Python call"
@@ -136,8 +142,8 @@ workspace "VKR Access Control" "Система управления правил
         }
 
         component accessControl.apiBackend "Overview" "Уровень 3 C4 — обзор компонентов API Backend. Три слоя: API, Service, Core. Без внешних контейнеров (для приложения ПЗ)." {
-            include accessControl.apiBackend.policyController accessControl.apiBackend.accessController accessControl.apiBackend.progressController accessControl.apiBackend.verificationController accessControl.apiBackend.simulationController accessControl.apiBackend.integrationController
-            include accessControl.apiBackend.policyService accessControl.apiBackend.accessService accessControl.apiBackend.verificationService accessControl.apiBackend.simulationService accessControl.apiBackend.rollupService accessControl.apiBackend.integrationService
+            include accessControl.apiBackend.policyController accessControl.apiBackend.accessController accessControl.apiBackend.progressController accessControl.apiBackend.verificationController accessControl.apiBackend.sandboxController accessControl.apiBackend.integrationController
+            include accessControl.apiBackend.policyService accessControl.apiBackend.accessService accessControl.apiBackend.progressService accessControl.apiBackend.verificationService accessControl.apiBackend.sandboxService accessControl.apiBackend.rollupService accessControl.apiBackend.integrationService
             include accessControl.apiBackend.ontologyCore accessControl.apiBackend.reasoningOrchestrator accessControl.apiBackend.graphValidator accessControl.apiBackend.cacheManager
             autolayout tb 250 180
         }
@@ -152,7 +158,7 @@ workspace "VKR Access Control" "Система управления правил
 
         component accessControl.apiBackend "AccessEvaluation" "Уровень 3 C4 — оценка доступа и симулятор (UC-4, UC-7, UC-9). Cache-first решение, cache miss → reasoning. Симулятор переиспользует AccessService. API Layer скрыт — см. Overview." {
             include accessControl.webUI lms
-            include accessControl.apiBackend.accessService accessControl.apiBackend.simulationService
+            include accessControl.apiBackend.accessService accessControl.apiBackend.sandboxService
             include accessControl.apiBackend.cacheManager accessControl.apiBackend.reasoningOrchestrator accessControl.apiBackend.ontologyCore
             include accessControl.cache accessControl.ontologyStore
             autolayout lr 200 150
@@ -166,10 +172,10 @@ workspace "VKR Access Control" "Система управления правил
             autolayout lr 200 150
         }
 
-        component accessControl.apiBackend "IntegrationRollup" "Уровень 3 C4 — импорт курса и агрегация прогресса (UC-5, UC-8, UC-10). После импорта — автоверификация; при событии прогресса — каскадное roll-up. API Layer скрыт — см. Overview." {
+        component accessControl.apiBackend "IntegrationRollup" "Уровень 3 C4 — импорт курса и агрегация прогресса (UC-5, UC-8, UC-10). После импорта — автоверификация; при событии прогресса — каскадное roll-up и инвалидация кэша. API Layer скрыт — см. Overview." {
             include accessControl.webUI lms
-            include accessControl.apiBackend.integrationService accessControl.apiBackend.rollupService accessControl.apiBackend.verificationService
-            include accessControl.apiBackend.ontologyCore accessControl.apiBackend.cacheManager
+            include accessControl.apiBackend.integrationService accessControl.apiBackend.progressService accessControl.apiBackend.rollupService accessControl.apiBackend.verificationService accessControl.apiBackend.accessService
+            include accessControl.apiBackend.ontologyCore accessControl.apiBackend.reasoningOrchestrator accessControl.apiBackend.cacheManager
             include accessControl.ontologyStore accessControl.cache
             autolayout lr 200 150
         }

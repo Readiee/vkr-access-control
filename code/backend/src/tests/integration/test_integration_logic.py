@@ -12,7 +12,7 @@ from core.enums import ElementType, RuleType, ProgressStatus, EventType
 from core.config import DEFAULT_ONTOLOGY_PATH
 from services.ontology_core import OntologyCore
 from services.policy_service import PolicyService
-from services.course_service import CourseService
+from services.integration_service import IntegrationService
 from services.progress_service import ProgressService
 
 
@@ -23,9 +23,19 @@ class TestOntologyIntegration(unittest.TestCase):
         shutil.copy(self.original_owl, self.test_owl)
         
         self.core = OntologyCore(self.test_owl)
-        self.policy_service = PolicyService(self.core)
-        self.course_service = CourseService(self.core)
-        self.progress_service = ProgressService(self.core)
+        from services.cache_manager import CacheManager
+        from services.reasoning import ReasoningOrchestrator
+        from services.rollup_service import RollupService
+        from services.access import AccessService
+        from services.verification import VerificationService
+        self.cache = CacheManager(None)
+        self.reasoner = ReasoningOrchestrator(self.core.onto)
+        self.rollup = RollupService(self.core)
+        self.access = AccessService(self.core, cache=self.cache, reasoner=self.reasoner)
+        self.verification = VerificationService(self.core, reasoner=self.reasoner, cache=self.cache)
+        self.policy_service = PolicyService(self.core, reasoner=self.reasoner, cache=self.cache)
+        self.integration_service = IntegrationService(self.core, verification=self.verification, cache=self.cache)
+        self.progress_service = ProgressService(self.core, reasoner=self.reasoner, rollup=self.rollup, access=self.access)
         
         print(f"\n[CHECKPOINT 1] Ontology Core initialized: {self.test_owl}")
         
@@ -44,7 +54,7 @@ class TestOntologyIntegration(unittest.TestCase):
             CourseElement(element_id="test_basics", name="Basics test", element_type=ElementType.TEST, parent_id="mod_1")
         ]
         payload = CourseSyncPayload(course_name="Тестовый Курс 1", elements=elements)
-        self.course_service.sync_course_structure("course_1", payload)
+        self.integration_service.sync_course_structure("course_1", payload)
         print("[CHECKPOINT 2] Course structure synchronized (3 elements).")
 
         # [2] Создание зависимости (лекция -> тест)
@@ -58,7 +68,7 @@ class TestOntologyIntegration(unittest.TestCase):
         print("[CHECKPOINT 3] Policy created: test_basics depends on completion of lec_intro.")
 
         # [3] Проверка дерева до начала обучения
-        tree = self.course_service.get_course_tree("course_1")
+        tree = self.integration_service.get_course_tree("course_1")
         self.assertEqual(len(tree[0]["children"]), 1, "There should be 1 module")
         print("[CHECKPOINT 4] Course tree successfully generated before training.")
 
@@ -97,7 +107,7 @@ class TestOntologyIntegration(unittest.TestCase):
             CourseElement(element_id="test_req", element_type=ElementType.TEST, name="Required Test", parent_id="mod_rollup", is_required=True),
         ]
         payload = CourseSyncPayload(course_name="Курс для теста Roll-up", elements=elements)
-        self.course_service.sync_course_structure("course_rollup", payload)
+        self.integration_service.sync_course_structure("course_rollup", payload)
         student_id = "student_tester"
 
         def get_status(eid: str):

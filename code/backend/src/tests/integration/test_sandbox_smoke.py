@@ -21,7 +21,7 @@ from owlready2 import World  # noqa: E402
 from core.config import DEFAULT_ONTOLOGY_PATH  # noqa: E402
 from core.enums import ElementType, RuleType, ProgressStatus  # noqa: E402
 from schemas.schemas import CourseElement, CourseSyncPayload, PolicyCreate  # noqa: E402
-from services.course_service import CourseService  # noqa: E402
+from services.integration_service import IntegrationService  # noqa: E402
 from services.ontology_core import OntologyCore  # noqa: E402
 from services.policy_service import PolicyService  # noqa: E402
 from services.progress_service import ProgressService  # noqa: E402
@@ -34,10 +34,20 @@ class SandboxSmokeTests(unittest.TestCase):
         shutil.copy(DEFAULT_ONTOLOGY_PATH, self.test_owl)
         self.world = World()
         self.core = OntologyCore(self.test_owl, world=self.world)
-        self.course_service = CourseService(self.core)
-        self.policy_service = PolicyService(self.core)
-        self.progress_service = ProgressService(self.core)
-        self.sandbox = SandboxService(self.core, self.progress_service)
+        from services.cache_manager import CacheManager
+        from services.reasoning import ReasoningOrchestrator
+        from services.rollup_service import RollupService
+        from services.access import AccessService
+        from services.verification import VerificationService
+        self.cache = CacheManager(None)
+        self.reasoner = ReasoningOrchestrator(self.core.onto)
+        self.rollup = RollupService(self.core)
+        self.access = AccessService(self.core, cache=self.cache, reasoner=self.reasoner)
+        self.verification = VerificationService(self.core, reasoner=self.reasoner, cache=self.cache)
+        self.integration_service = IntegrationService(self.core, verification=self.verification, cache=self.cache)
+        self.policy_service = PolicyService(self.core, reasoner=self.reasoner, cache=self.cache)
+        self.progress_service = ProgressService(self.core, reasoner=self.reasoner, rollup=self.rollup, access=self.access)
+        self.sandbox = SandboxService(self.core, reasoner=self.reasoner, access=self.access, progress=self.progress_service)
 
         elements = [
             CourseElement(
@@ -59,8 +69,9 @@ class SandboxSmokeTests(unittest.TestCase):
                 parent_id="mod_sb",
             ),
         ]
-        self.course_service.sync_course_structure(
-            "course_sb", CourseSyncPayload(course_name="Sandbox smoke", elements=elements)
+        self.integration_service.sync_course_structure(
+            "course_sb",
+            CourseSyncPayload(course_name="Sandbox smoke", elements=elements),
         )
 
         self.policy_service.create_policy(PolicyCreate(
