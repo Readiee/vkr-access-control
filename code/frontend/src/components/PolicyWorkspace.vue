@@ -114,13 +114,16 @@ const handleSaved = () => {
         </template>
       </div>
 
-      <CompositePolicyEditor
-        v-if="compositeDraftOpen"
-        :target-node="targetNode"
-        :tree-data="treeData"
-        @saved="handleSaved"
-        @cancelled="compositeDraftOpen = false"
-      />
+      <Card v-if="compositeDraftOpen" class="border border-surface-200 shadow-none overflow-hidden">
+        <template #content>
+          <CompositePolicyEditor
+            :target-node="targetNode"
+            :tree-data="treeData"
+            @saved="handleSaved"
+            @cancelled="compositeDraftOpen = false"
+          />
+        </template>
+      </Card>
 
       <div class="grid grid-cols-2 gap-3">
         <Button
