@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { ElementTypeMap, buildCompetencyTree } from '@/utils/formatters';
+import { ElementType } from '@/types';
 import { useOntologyStore } from '@/stores/ontology';
 import { setElementCompetencies, setElementMandatory } from '@/api';
 import { toastService } from '@/utils/toastService';
@@ -113,9 +114,10 @@ const saveAssesses = async () => {
         </h3>
       </div>
       <div
+        v-if="targetNode.data.type !== ElementType.COURSE"
         class="flex items-center gap-2"
         v-tooltip.top="{
-          value: 'Если включено — родительский модуль считается пройденным только после прохождения этого элемента',
+          value: 'Если включено, родительский модуль/курс не может быть пройден без завершения этого элемента',
           pt: { text: { style: 'font-size: 0.7rem; max-width: 240px; line-height: 1.3;' } }
         }"
       >
@@ -127,7 +129,7 @@ const saveAssesses = async () => {
     </div>
 
     <!-- Выдаваемые компетенции (SWRL H-2) -->
-    <div class="flex flex-col gap-1 pb-4 border-b border-surface-100">
+    <div class="flex gap-1 pb-4 border-b border-surface-100">
       <h3 class="text-lg font-bold text-surface-800 flex items-center">
         Выдаваемые компетенции
       </h3>
