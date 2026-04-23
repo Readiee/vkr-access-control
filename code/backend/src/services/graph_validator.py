@@ -163,8 +163,14 @@ class GraphValidator:
             competency = onto.search_one(type=onto.Competency, iri=f"*{probe.target_competency_id}")
             if competency is None:
                 return
+            # Те же дуги, что и в _add_policy_edges: прямые + assessors всех
+            # subcompetencies, иначе probe-детектор не видит цикл через
+            # транзитивную иерархию компетенций, а верификация видит.
             for assessor in onto.search(assesses=competency) or []:
                 graph.add_edge(f"{assessor.name}_complete", f"{src}_access")
+            for sub in cls._subcompetencies(onto, competency):
+                for assessor in onto.search(assesses=sub) or []:
+                    graph.add_edge(f"{assessor.name}_complete", f"{src}_access")
             return
         if rt == RuleType.AGGREGATE.value:
             for eid in probe.aggregate_element_ids:

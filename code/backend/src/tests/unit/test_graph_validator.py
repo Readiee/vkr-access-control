@@ -110,6 +110,32 @@ class GraphValidatorTests(unittest.TestCase):
         graph = GraphValidator.build_dependency_graph(self.onto)
         self.assertTrue(graph.has_edge("mod_gv_a_complete", "mod_gv_b_access"))
 
+    def test_competency_probe_detects_cycle_through_subcompetency(self):
+        """Probe-детектор должен видеть тот же цикл, что и верификация:
+        если мы вешаем competency_required: parent-comp на элемент, потомок
+        которого оценивает sub-comp → transitively parent-comp → цикл через
+        иерархию элемента + assessor."""
+        with self.onto:
+            parent_comp = self.onto.Competency(self._track("comp_probe_parent"))
+            sub_comp = self.onto.Competency(self._track("comp_probe_sub"))
+            sub_comp.is_subcompetency_of = [parent_comp]
+            # quiz внутри mod_a оценивает sub-comp → т.е. даёт parent-comp тоже
+            quiz_in_a = self.onto.Test(self._track("quiz_probe_in_a"))
+            quiz_in_a.assesses = [sub_comp]
+            self._mod_a.contains_activity = [quiz_in_a]
+
+        # Пробуем повесить competency_required на parent на mod_a (корень поддерева)
+        probe = ProbePolicy(
+            rule_type=RuleType.COMPETENCY.value,
+            source_id="mod_gv_a",
+            target_competency_id="comp_probe_parent",
+        )
+        path = GraphValidator.check_for_cycles(self.onto, "mod_gv_a", probe=probe)
+        self.assertTrue(
+            path,
+            "Probe должен детектировать цикл mod_a → quiz_in_a → mod_a через subcompetency",
+        )
+
     # --- and/or + рекурсия по has_subpolicy ------------------------------
 
     def test_and_combination_recurses_into_subpolicies(self):
