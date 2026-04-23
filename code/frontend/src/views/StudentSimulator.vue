@@ -90,11 +90,12 @@ const onCompetenciesHide = () => {
   const selectedIds = Object.keys(selectedCompetenciesMap.value).filter(
     key => selectedCompetenciesMap.value[key].checked
   );
-  
-  // Отправка только при изменении
-  const currentSorted = [...sandboxStore.activeCompetencies].sort();
-  const newSorted = [...selectedIds].sort();
-  if (JSON.stringify(currentSorted) !== JSON.stringify(newSorted)) {
+
+  const current = new Set(sandboxStore.activeCompetencies);
+  const changed =
+    current.size !== selectedIds.length
+    || selectedIds.some((id) => !current.has(id));
+  if (changed) {
     sandboxStore.setCompetencies(selectedIds);
   }
 };
@@ -195,12 +196,12 @@ const confirmReset = (event: Event) => {
               :loading="ontologyStore.isLoading"
             >
               <template #default="slotProps">
-                 <div class="flex items-center gap-2 py-1.5 w-full overflow-hidden" :class="{'opacity-50 grayscale': slotProps.node.data.is_locked}">
-                    
+                 <div class="flex items-center gap-2 py-1.5 w-full overflow-hidden" :class="{'opacity-50 grayscale': sandboxStore.isElementLocked(slotProps.node.data.id)}">
+
                     <div class="shrink-0">
-                      <i v-if="slotProps.node.data.progress_status === 'completed'" class="pi pi-check-circle text-green-500 text-md"></i>
-                      <i v-else-if="slotProps.node.data.progress_status === 'failed'" class="pi pi-times-circle text-red-500 text-md"></i>
-                      <i v-else-if="slotProps.node.data.is_locked" class="pi pi-lock text-surface-400 text-md"></i>
+                      <i v-if="sandboxStore.progressById[slotProps.node.data.id]?.status === 'completed'" class="pi pi-check-circle text-green-500 text-md"></i>
+                      <i v-else-if="sandboxStore.progressById[slotProps.node.data.id]?.status === 'failed'" class="pi pi-times-circle text-red-500 text-md"></i>
+                      <i v-else-if="sandboxStore.isElementLocked(slotProps.node.data.id)" class="pi pi-lock text-surface-400 text-md"></i>
                     </div>
                   
                    <span class="flex-1 min-w-0 break-words leading-tight pr-2" :class="[
@@ -228,19 +229,3 @@ const confirmReset = (event: Event) => {
     <ConfirmDialog :style="{ width: '600px' }"></ConfirmDialog>
   </div>
 </template>
-
-<style scoped>
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #e2e8f0;
-  border-radius: 10px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #cbd5e1;
-}
-</style>

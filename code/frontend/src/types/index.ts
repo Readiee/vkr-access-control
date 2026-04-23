@@ -1,6 +1,5 @@
-import { RuleType, ElementType, ProgressStatus, AggregateFunction, VerificationPropertyStatus } from './enums';
-
-export { RuleType, ElementType, ProgressStatus, AggregateFunction, VerificationPropertyStatus };
+export * from './enums';
+import { RuleType, ProgressStatus, AggregateFunction, VerificationPropertyStatus } from './enums';
 
 export type EventType = 'viewed' | 'completed' | 'graded' | 'failed';
 
@@ -53,7 +52,7 @@ export interface Policy extends PolicyBase {
   subpolicies_detail?: Policy[];
 }
 
-export interface PolicyResponse extends Policy {}
+export type PolicyResponse = Policy;
 
 export interface CourseElement {
   id: string;
@@ -77,6 +76,42 @@ export interface ProgressEvent {
 
 export interface AvailableElementsResponse {
   available_elements: string[];
+}
+
+// ---- Sandbox ----
+
+export interface SandboxStudent {
+  id: string;
+  name: string;
+}
+
+export interface SandboxProgressPayload {
+  element_id: string;
+  status: ProgressStatus;
+  grade?: number | null;
+}
+
+export interface SandboxCompetencyPayload {
+  competency_id: string;
+  has_competency: boolean;
+}
+
+export interface SandboxProgressEntry {
+  status: string;
+  grade?: number | null;
+}
+
+export interface SandboxState {
+  student_id: string;
+  student_name: string;
+  available_elements: string[];
+  progress: Record<string, SandboxProgressEntry>;
+  active_competencies: string[];
+}
+
+export interface SandboxActionResult {
+  status: string;
+  message: string;
 }
 
 export interface CourseTreeNode {

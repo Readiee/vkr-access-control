@@ -10,6 +10,7 @@ import {
   ElementTypeMap,
   findNodeNameById,
   AggregateFunctionLabels,
+  formatDate,
 } from '@/utils/formatters';
 import { RuleType, ElementType, ProgressStatus } from '@/types/enums';
 import BlockingExplanation from './BlockingExplanation.vue';
@@ -21,6 +22,13 @@ const props = defineProps<{
 
 const sandboxStore = useSandboxStore();
 const ontologyStore = useOntologyStore();
+
+const isCurrentLocked = computed(() =>
+  props.selectedNode ? sandboxStore.isElementLocked(props.selectedNode.data.id) : false,
+);
+const currentProgress = computed(() =>
+  props.selectedNode ? sandboxStore.progressById[props.selectedNode.data.id] ?? null : null,
+);
 
 // Форма прохождения элемента
 const simulateForm = reactive({
@@ -68,12 +76,6 @@ const getGroupName = (groupId: string) => {
   if (!groupId) return null;
   const g = ontologyStore.groups?.find((gr) => gr.id === groupId);
   return g ? g.name : groupId;
-};
-
-const formatDate = (dateString: string) => {
-  if (!dateString) return '';
-  const d = new Date(dateString);
-  return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
 /** Человечное описание одного условия для блока «Что нужно выполнить». */
@@ -165,7 +167,7 @@ const submitSimulation = async () => {
     </div>
 
     <!-- Блок блокировки -->
-    <div v-if="selectedNode.data.is_locked" class="p-6 bg-gray-100 rounded-lg border border-gray-200 mt-2">
+    <div v-if="isCurrentLocked" class="p-6 bg-gray-100 rounded-lg border border-gray-200 mt-2">
       <div class="flex items-center justify-between gap-3 text-gray-700 font-bold mb-2">
         <span class="flex items-center gap-3">
           <i class="pi pi-lock text-xl text-gray-500"></i>
@@ -251,35 +253,34 @@ const submitSimulation = async () => {
               />
             </div>
 
-            <Button 
-             label="Записать" 
-             icon="pi pi-check" 
-             @click="submitSimulation" 
+            <Button
+             label="Записать"
+             icon="pi pi-check"
+             @click="submitSimulation"
              :loading="sandboxStore.isLoading"
-             :disabled="selectedNode.data.is_locked" 
+             :disabled="isCurrentLocked"
              class="h-10"
            />
          </div>
       </template>
     </Card>
     
-    <div 
-      v-if="![ElementType.COURSE, ElementType.MODULE].includes(selectedNode.data.type) && selectedNode.data.progress_status"
+    <div
+      v-if="![ElementType.COURSE, ElementType.MODULE].includes(selectedNode.data.type) && currentProgress"
       class="flex justify-between items-center border-t border-gray-100 pt-4"
       >
       <div class="flex items-center gap-2">
         <p class="text-sm text-gray-500 mr-1">
           Прогресс:
         </p>
-        <Badge 
-          v-if="selectedNode.data.progress_status" 
-          :value="ProgressStatusMap[selectedNode.data.progress_status as ProgressStatus]" 
-          :severity="ProgressStatusColorMap[selectedNode.data.progress_status as ProgressStatus]"
+        <Badge
+          :value="ProgressStatusMap[currentProgress.status as ProgressStatus]"
+          :severity="ProgressStatusColorMap[currentProgress.status as ProgressStatus]"
         />
-        <Badge 
-          v-if="selectedNode.data.grade !== undefined && selectedNode.data.grade !== null" 
-          :value="`Оценка: ${selectedNode.data.grade}`" 
-          severity="secondary" 
+        <Badge
+          v-if="currentProgress.grade !== undefined && currentProgress.grade !== null"
+          :value="`Оценка: ${currentProgress.grade}`"
+          severity="secondary"
         />
       </div>
       <Button
