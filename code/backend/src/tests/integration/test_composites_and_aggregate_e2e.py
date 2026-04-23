@@ -328,5 +328,109 @@ class CompositeAndAggregateEndToEndTests(unittest.TestCase):
             )
 
 
+    # --- Update composite через nested_subpolicies --------------------------
+
+    def test_update_and_with_nested_replaces_old_subs(self):
+        """При update AND с nested_subpolicies старые nested-подусловия удаляются,
+        новые создаются и висят в has_subpolicy."""
+        composite = self._create_policy(
+            source_element_id="target_cmp",
+            rule_type=RuleType.AND,
+            nested_subpolicies=[
+                PolicyCreate(
+                    rule_type=RuleType.COMPLETION,
+                    target_element_id="quiz_a",
+                    author_id="methodologist_smirnov",
+                ),
+                PolicyCreate(
+                    rule_type=RuleType.COMPLETION,
+                    target_element_id="quiz_b",
+                    author_id="methodologist_smirnov",
+                ),
+            ],
+        )
+
+        old_sub_ids = set(composite["subpolicy_ids"] or [])
+        self.assertEqual(len(old_sub_ids), 2)
+
+        updated = self.policy_service.update_policy(
+            composite["id"],
+            PolicyCreate(
+                source_element_id="target_cmp",
+                rule_type=RuleType.AND,
+                nested_subpolicies=[
+                    PolicyCreate(
+                        rule_type=RuleType.COMPLETION,
+                        target_element_id="final_cmp",
+                        author_id="methodologist_smirnov",
+                    ),
+                    PolicyCreate(
+                        rule_type=RuleType.GRADE,
+                        target_element_id="quiz_a",
+                        passing_threshold=70.0,
+                        author_id="methodologist_smirnov",
+                    ),
+                ],
+                author_id="methodologist_smirnov",
+            ),
+        )
+
+        new_sub_ids = set(updated["subpolicy_ids"] or [])
+        self.assertEqual(len(new_sub_ids), 2)
+        self.assertTrue(old_sub_ids.isdisjoint(new_sub_ids))
+
+        # Старые nested полностью удалены из ABox
+        for old_id in old_sub_ids:
+            self.assertIsNone(
+                self.core.policies.find_by_id(old_id),
+                f"Старое подусловие {old_id} должно быть удалено",
+            )
+
+    def test_update_and_preserves_external_subpolicy(self):
+        """Если subpolicy привязана к элементу как самостоятельная политика,
+        update композита с nested не удаляет её, даже если она была в старом наборе."""
+        external = self._create_policy(
+            source_element_id="final_cmp",
+            rule_type=RuleType.COMPLETION,
+            target_element_id="quiz_a",
+        )
+        nested_only = self._create_policy(
+            rule_type=RuleType.COMPLETION,
+            target_element_id="quiz_b",
+        )
+
+        composite = self._create_policy(
+            source_element_id="target_cmp",
+            rule_type=RuleType.AND,
+            subpolicy_ids=[external["id"], nested_only["id"]],
+        )
+
+        self.policy_service.update_policy(
+            composite["id"],
+            PolicyCreate(
+                source_element_id="target_cmp",
+                rule_type=RuleType.AND,
+                nested_subpolicies=[
+                    PolicyCreate(
+                        rule_type=RuleType.COMPLETION,
+                        target_element_id="final_cmp",
+                        author_id="methodologist_smirnov",
+                    ),
+                    PolicyCreate(
+                        rule_type=RuleType.COMPLETION,
+                        target_element_id="quiz_b",
+                        author_id="methodologist_smirnov",
+                    ),
+                ],
+                author_id="methodologist_smirnov",
+            ),
+        )
+
+        self.assertIsNotNone(
+            self.core.policies.find_by_id(external["id"]),
+            "Политика с source_element_id не должна удаляться при update composite",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
