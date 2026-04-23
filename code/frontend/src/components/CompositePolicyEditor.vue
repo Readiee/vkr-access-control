@@ -27,6 +27,13 @@ const emit = defineEmits<{
 
 const isEditMode = computed(() => !!props.initialData?.id);
 
+// При create всегда AND — для ИЛИ методист создаёт два простых правила,
+// между которыми уже работает неявный OR через мета-правило SWRL.
+// При edit сохраняем rule_type из initialData (может быть OR у legacy-правил).
+const compositeRuleType = computed<RuleType>(() =>
+  (props.initialData?.rule_type as RuleType) ?? RuleType.AND_COMBINATION,
+);
+
 const store = useOntologyStore();
 const { getBlockedIds, getExpandedKeys, buildSelectableTree } = useTreeHelpers();
 const isSaving = ref(false);
@@ -94,14 +101,8 @@ const initialChildren = (): ChildDraft[] => {
 
 const children = ref<ChildDraft[]>(initialChildren());
 
-// composite тип (AND/OR) при edit берём из initialData, иначе дефолт AND
-const compositeRuleType = ref<RuleType>(
-  (props.initialData?.rule_type as RuleType) ?? RuleType.AND_COMBINATION,
-);
-
 watch(() => props.initialData?.id, () => {
   children.value = initialChildren();
-  compositeRuleType.value = (props.initialData?.rule_type as RuleType) ?? RuleType.AND_COMBINATION;
 });
 
 const atomicRuleTypeOptions = ruleTypeOptions.filter(
@@ -198,7 +199,7 @@ const childHint = (c: ChildDraft): string => {
     case RuleType.AGGREGATE_REQUIRED:
       if (!c.aggregate_function) return 'выберите функцию';
       if (!c.aggregate_element_ids?.length) return 'выберите элементы';
-      if (c.passing_threshold == null) return 'задайте порог';
+      if (c.passing_threshold == null) return 'задайте балл';
       return '';
     default:
       return 'заполните поля';
@@ -259,21 +260,20 @@ const submit = async () => {
   <Card class="border border-surface-200 shadow-none overflow-hidden">
     <template #content>
       <div class="flex flex-col gap-5">
-        <div class="flex justify-between items-center border-b border-surface-100 pb-3 gap-3">
-          <span class="font-bold text-xs text-surface-600 uppercase tracking-widest flex items-center gap-2 shrink-0">
+        <div class="flex justify-between items-center border-b border-surface-100 pb-3">
+          <span class="font-bold text-xs text-surface-600 uppercase tracking-widest flex items-center gap-2">
             <i class="pi pi-sitemap"></i>
-            {{ isEditMode ? 'Редактирование составного условия' : 'Новое составное условие' }}
+            {{ isEditMode
+              ? (compositeRuleType === RuleType.OR_COMBINATION
+                  ? 'Редактирование составного условия (ИЛИ)'
+                  : 'Редактирование составного условия (И)')
+              : 'Новое составное условие (И)' }}
           </span>
-          <Select
-            v-model="compositeRuleType"
-            :options="[
-              { label: 'И — выполнены все', value: RuleType.AND_COMBINATION },
-              { label: 'ИЛИ — хотя бы одно', value: RuleType.OR_COMBINATION }
-            ]"
-            optionLabel="label"
-            optionValue="value"
-            class="w-64"
-          />
+          <p class="text-xs text-surface-500">
+            {{ compositeRuleType === RuleType.OR_COMBINATION
+              ? 'Достаточно одного условия ниже'
+              : 'Все условия ниже должны быть выполнены' }}
+          </p>
           <Button icon="pi pi-times" text rounded size="small" @click="$emit('cancelled')" />
         </div>
 
@@ -340,7 +340,7 @@ const submit = async () => {
 
             <div v-if="child.rule_type === RuleType.GRADE_REQUIRED" class="flex flex-col gap-1">
               <label class="text-[11px] font-bold text-surface-500 uppercase">Мин. балл</label>
-              <InputNumber v-model="child.passing_threshold" :min="0" :max="100" class="w-full" />
+              <InputNumber v-model="child.passing_threshold" :min="0" :max="100" class="w-20" inputClass="w-full" />
             </div>
 
             <div v-if="child.rule_type === RuleType.COMPETENCY_REQUIRED" class="flex flex-col gap-1 col-span-2">
@@ -392,8 +392,8 @@ const submit = async () => {
                 />
               </div>
               <div class="flex flex-col gap-1">
-                <label class="text-[11px] font-bold text-surface-500 uppercase">Порог</label>
-                <InputNumber v-model="child.passing_threshold" :min="0" :max="100" class="w-full" />
+                <label class="text-[11px] font-bold text-surface-500 uppercase">Мин. балл</label>
+                <InputNumber v-model="child.passing_threshold" :min="0" :max="100" class="w-20" inputClass="w-full" />
               </div>
               <div class="flex flex-col gap-1 col-span-3">
                 <label class="text-[11px] font-bold text-surface-500 uppercase">Элементы с оценками</label>
