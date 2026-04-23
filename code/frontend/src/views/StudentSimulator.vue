@@ -16,22 +16,15 @@ const confirm = useConfirm();
 const { selectedNode, selectedNodeKey, expandedKeys, onNodeSelect } = useCourseTree(() => ontologyStore.currentCourseTree);
 
 
-// При загрузке страницы подгружаем список метаданных (курсов) + sandbox-студентов
+// При загрузке — метаданные курсов и текущее состояние песочницы
 onMounted(async () => {
   if (ontologyStore.courses.length === 0) {
     await ontologyStore.fetchMeta();
-  }
-  if (!sandboxStore.students.length) {
-    await sandboxStore.loadStudents();
   }
   if (ontologyStore.currentCourseId) {
     await loadCourseData(ontologyStore.currentCourseId);
   }
 });
-
-const onStudentChange = async (id: string) => {
-  await sandboxStore.selectStudent(id);
-};
 
 const loadCourseData = async (courseId: string) => {
   await ontologyStore.fetchCourseTree(courseId);
@@ -85,7 +78,28 @@ watch(() => sandboxStore.activeCompetencies, (newVal) => {
   selectedCompetenciesMap.value = newMap;
 }, { immediate: true, deep: true });
 
-// Вызывается при закрытии выпадающего списка
+// При выборе подкомпетенции автоматически отмечаем её предков —
+// семантика is_subcompetency_of: владение ребёнком подразумевает
+// владение родителем. SWRL H-1 всё равно добавит их в has_competency
+// на бэкенде, но в UI отметка сразу делает это наглядным.
+const collectAncestorIds = (compId: string): string[] => {
+  const ancestors: string[] = [];
+  let current = ontologyStore.competencies.find((c) => c.id === compId);
+  while (current?.parent_id) {
+    ancestors.push(current.parent_id);
+    current = ontologyStore.competencies.find((c) => c.id === current!.parent_id);
+  }
+  return ancestors;
+};
+
+const onCompNodeSelect = (node: any) => {
+  const id = node?.data?.id ?? node?.key;
+  if (!id) return;
+  for (const ancestorId of collectAncestorIds(id)) {
+    selectedCompetenciesMap.value[ancestorId] = { checked: true, partialChecked: false };
+  }
+};
+
 const onCompetenciesHide = () => {
   const selectedIds = Object.keys(selectedCompetenciesMap.value).filter(
     key => selectedCompetenciesMap.value[key].checked
@@ -138,30 +152,17 @@ const confirmReset = (event: Event) => {
         </div>
 
         <div class="flex flex-col gap-1">
-          <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Тестовый студент</label>
-          <Select
-            :modelValue="sandboxStore.currentStudentId"
-            :options="sandboxStore.students"
-            optionLabel="name"
-            optionValue="id"
-            placeholder="Выберите профиль"
-            emptyMessage="Нет тестовых студентов"
-            class="w-56"
-            @update:modelValue="onStudentChange"
-          />
-        </div>
-
-        <div class="flex flex-col gap-1">
           <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Компетенции студента</label>
-          <TreeSelect 
-            v-model="selectedCompetenciesMap" 
-            :options="competencyTree" 
-            selectionMode="checkbox" 
-            placeholder="Выберите навыки" 
+          <TreeSelect
+            v-model="selectedCompetenciesMap"
+            :options="competencyTree"
+            selectionMode="checkbox"
+            placeholder="Выберите навыки"
             emptyMessage="Нет данных"
             filter
             class="w-72"
             display="chip"
+            @node-select="onCompNodeSelect"
             @hide="onCompetenciesHide"
           />
         </div>

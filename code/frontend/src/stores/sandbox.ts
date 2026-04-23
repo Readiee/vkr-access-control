@@ -2,13 +2,12 @@ import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import {
   getSandboxState,
-  listSandboxStudents,
   resetSandbox as apiResetSandbox,
   rollbackSandboxProgress,
   setSandboxCompetencies,
   simulateSandboxProgress,
 } from '@/api/sandbox';
-import type { SandboxProgressEntry, SandboxProgressPayload, SandboxStudent } from '@/types';
+import type { SandboxProgressEntry, SandboxProgressPayload } from '@/types';
 import { useOntologyStore } from '@/stores/ontology';
 import { toastService } from '@/utils/toastService';
 
@@ -16,7 +15,6 @@ export const useSandboxStore = defineStore('sandbox', () => {
   const ontologyStore = useOntologyStore();
 
   const isLoading = ref(false);
-  const students = ref<SandboxStudent[]>([]);
   const currentStudentId = ref<string | null>(null);
   const currentStudentName = ref<string>('');
   const activeCompetencies = ref<string[]>([]);
@@ -46,29 +44,17 @@ export const useSandboxStore = defineStore('sandbox', () => {
     return out;
   });
 
-  const loadStudents = async () => {
-    students.value = await listSandboxStudents();
-    if (!currentStudentId.value && students.value.length) {
-      currentStudentId.value = students.value[0].id;
-    }
-  };
-
-  const selectStudent = async (id: string) => {
-    currentStudentId.value = id;
-    await syncTreeWithSandbox();
-  };
-
   const syncTreeWithSandbox = async () => {
     const courseId = ontologyStore.currentCourseId;
     if (!courseId) return;
 
     try {
-      const state = await getSandboxState(courseId, currentStudentId.value);
+      const state = await getSandboxState(courseId);
       availableElementIds.value = new Set(state.available_elements);
       progressById.value = state.progress ?? {};
       activeCompetencies.value = state.active_competencies ?? [];
-      if (state.student_id) currentStudentId.value = state.student_id;
-      if (state.student_name) currentStudentName.value = state.student_name;
+      currentStudentId.value = state.student_id;
+      currentStudentName.value = state.student_name;
     } catch (e) {
       console.error('Ошибка при синхронизации состояния песочницы', e);
     }
@@ -83,7 +69,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
   const simulateProgress = async (payload: SandboxProgressPayload) => {
     isLoading.value = true;
     try {
-      await simulateSandboxProgress(payload, currentStudentId.value);
+      await simulateSandboxProgress(payload);
       await refreshCourseData();
       toastService.showSuccess(`Статус элемента ${payload.element_id} обновлен`);
     } finally {
@@ -94,7 +80,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
   const rollbackProgress = async (elementId: string) => {
     isLoading.value = true;
     try {
-      await rollbackSandboxProgress(elementId, currentStudentId.value);
+      await rollbackSandboxProgress(elementId);
       await refreshCourseData();
       toastService.showSuccess(`Прогресс для ${elementId} откачен`);
     } finally {
@@ -105,7 +91,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
   const resetSandbox = async () => {
     isLoading.value = true;
     try {
-      await apiResetSandbox(currentStudentId.value);
+      await apiResetSandbox();
       await refreshCourseData();
       toastService.showSuccess('Песочница полностью очищена');
     } finally {
@@ -116,7 +102,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
   const setCompetencies = async (competencyIds: string[]) => {
     isLoading.value = true;
     try {
-      await setSandboxCompetencies(competencyIds, currentStudentId.value);
+      await setSandboxCompetencies(competencyIds);
       await refreshCourseData();
       toastService.showSuccess('Компетенции обновлены');
     } finally {
@@ -126,15 +112,12 @@ export const useSandboxStore = defineStore('sandbox', () => {
 
   return {
     isLoading,
-    students,
     currentStudentId,
     currentStudentName,
     activeCompetencies,
     progressById,
     lockedIds,
     isElementLocked,
-    loadStudents,
-    selectStudent,
     syncTreeWithSandbox,
     refreshCourseData,
     simulateProgress,

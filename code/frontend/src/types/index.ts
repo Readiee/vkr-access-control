@@ -80,11 +80,6 @@ export interface AvailableElementsResponse {
 
 // ---- Sandbox ----
 
-export interface SandboxStudent {
-  id: string;
-  name: string;
-}
-
 export interface SandboxProgressPayload {
   element_id: string;
   status: ProgressStatus;
