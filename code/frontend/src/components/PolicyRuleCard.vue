@@ -16,6 +16,7 @@ import { usePolicyForm } from '@/composables/usePolicyForm';
 import { useConfirm } from 'primevue/useconfirm';
 import { createPolicy, getPolicies, updatePolicy, deletePolicy } from '@/api';
 import { toastService } from '@/utils/toastService';
+import CompositePolicyEditor from './CompositePolicyEditor.vue';
 
 
 const props = defineProps<{
@@ -143,9 +144,6 @@ const isCompositeRule = computed(
 );
 const isAggregateRule = computed(() => form.value.rule_type === RuleType.AGGREGATE_REQUIRED);
 
-/** Обычная форма «одного правила» не предлагает AND/OR: композиты создаются
- *  через отдельный flow «+ Составное условие», где методист сразу даёт
- *  подусловия без необходимости выбирать существующие правила. */
 const atomicRuleTypeOptions = ruleTypeOptions.filter((o) =>
   o.value !== RuleType.AND_COMBINATION && o.value !== RuleType.OR_COMBINATION,
 );
@@ -179,7 +177,6 @@ const flattenElements = (nodes: CourseTreeNode[] | undefined): ElementOption[] =
 
 const courseElementOptions = computed(() => flattenElements(props.treeData));
 
-/** Для агрегата показываем только тесты/практики/задания — те, где есть оценка. */
 const gradableElementOptions = computed(() =>
   courseElementOptions.value.filter((el) => GRADABLE_ELEMENT_TYPES.has(el.type)),
 );
@@ -249,7 +246,19 @@ const isDateRule = computed(() => form.value.rule_type === RuleType.DATE_RESTRIC
            </div>
         </div>
 
-        <!-- Режим редактирования -->
+        <!-- Редактирование составного условия — полноценная форма с детальными
+             подусловиями, а не MultiSelect по id — иначе методист не может
+             менять содержание composite, только переназначать ссылки. -->
+        <CompositePolicyEditor
+          v-else-if="editMode && initialData && (initialData.rule_type === RuleType.AND_COMBINATION || initialData.rule_type === RuleType.OR_COMBINATION)"
+          :target-node="targetNode"
+          :tree-data="treeData"
+          :initial-data="initialData"
+          @saved="isEditing = false; $emit('saved');"
+          @cancelled="isEditing = false"
+        />
+
+        <!-- Режим редактирования атомарного правила -->
         <div v-else class="flex flex-col gap-5">
            <div class="flex justify-between items-center border-b border-surface-100 pb-3">
              <span class="font-bold text-xs text-surface-600 uppercase tracking-widest flex items-center gap-2">
@@ -387,7 +396,7 @@ const isDateRule = computed(() => form.value.rule_type === RuleType.DATE_RESTRIC
                   class="w-full"
                 />
                 <p class="text-[11px] text-surface-400 mt-1">
-                  Доступны только тесты, практики и задания — те элементы, за которые ставится оценка.
+                  Доступны только тесты, практики и задания (элементы, за которые ставится оценка).
                 </p>
               </div>
            </div>

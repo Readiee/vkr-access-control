@@ -20,7 +20,7 @@ declare module 'vue' {
     BlockingExplanation: typeof import('./src/components/BlockingExplanation.vue')['default']
     Button: typeof import('primevue/button')['default']
     Card: typeof import('primevue/card')['default']
-    CompositePolicyBuilder: typeof import('./src/components/CompositePolicyBuilder.vue')['default']
+    CompositePolicyEditor: typeof import('./src/components/CompositePolicyEditor.vue')['default']
     DatePicker: typeof import('primevue/datepicker')['default']
     Dialog: typeof import('primevue/dialog')['default']
     InputNumber: typeof import('primevue/inputnumber')['default']

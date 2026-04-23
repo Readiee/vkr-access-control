@@ -2,7 +2,7 @@
 import { ref, watch } from 'vue';
 import { ElementTypeMap } from '@/utils/formatters';
 import PolicyRuleCard from './PolicyRuleCard.vue';
-import CompositePolicyBuilder from './CompositePolicyBuilder.vue';
+import CompositePolicyEditor from './CompositePolicyEditor.vue';
 
 const props = defineProps<{
   targetNode: any;
@@ -114,7 +114,7 @@ const handleSaved = () => {
         </template>
       </div>
 
-      <CompositePolicyBuilder
+      <CompositePolicyEditor
         v-if="compositeDraftOpen"
         :target-node="targetNode"
         :tree-data="treeData"
@@ -134,7 +134,7 @@ const handleSaved = () => {
         <Button
           v-if="!compositeDraftOpen"
           label="Составное условие (И)"
-          icon="pi pi-sitemap"
+          icon="pi pi-plus"
           variant="outlined"
           severity="secondary"
           class="border-dashed py-4 bg-white/50 hover:bg-white hover:border-primary-400 transition-colors"
