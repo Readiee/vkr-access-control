@@ -1,17 +1,12 @@
 <script setup lang="ts">
 import AppSidebar from '@/components/AppSidebar.vue';
-import AppHeader from '@/components/AppHeader.vue';
 </script>
 
 <template>
   <div class="min-h-screen flex bg-surface-50 text-surface-900 transition-colors duration-200">
-    <!-- Sidebar -->
     <AppSidebar />
 
     <div class="flex-1 flex flex-col h-screen overflow-hidden">
-      <!-- Header -->
-      <AppHeader />
-
       <main class="flex-1 overflow-y-auto p-4 layout-content shadow-[inset_0_2px_10px_rgba(0,0,0,0.02)]">
         <router-view v-slot="{ Component }">
           <transition name="fade" mode="out-in">
