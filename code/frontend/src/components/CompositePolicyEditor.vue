@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useOntologyStore } from '@/stores/ontology';
-import { createPolicy } from '@/api';
+import { createPolicy, updatePolicy } from '@/api';
 import { toastService } from '@/utils/toastService';
 import { RuleType, AggregateFunction } from '@/types';
-import type { CourseTreeNode, PolicyCreate } from '@/types';
+import type { CourseTreeNode, PolicyCreate, PolicyResponse } from '@/types';
 import {
   ruleTypeOptions,
   AggregateFunctionLabels,
@@ -16,13 +16,16 @@ import { SANDBOX_AUTHOR_ID } from '@/utils/auth';
 
 const props = defineProps<{
   targetNode: any;
-  treeData: CourseTreeNode[];
+  treeData?: CourseTreeNode[];
+  initialData?: PolicyResponse | null;
 }>();
 
 const emit = defineEmits<{
   (e: 'saved'): void;
   (e: 'cancelled'): void;
 }>();
+
+const isEditMode = computed(() => !!props.initialData?.id);
 
 const store = useOntologyStore();
 const { getBlockedIds, getExpandedKeys, buildSelectableTree } = useTreeHelpers();
@@ -70,7 +73,36 @@ const newChild = (): ChildDraft => ({
   passing_threshold: null,
 });
 
-const children = ref<ChildDraft[]>([newChild(), newChild()]);
+const draftFromPolicy = (p: any): ChildDraft => ({
+  _key: nextKey++,
+  rule_type: p.rule_type as RuleType,
+  target_element_id: p.target_element_id ?? null,
+  target_competency_id: p.target_competency_id ?? p.competency_id ?? null,
+  passing_threshold: p.passing_threshold ?? null,
+  valid_from: p.valid_from ? new Date(p.valid_from) : null,
+  valid_until: p.valid_until ? new Date(p.valid_until) : null,
+  restricted_to_group_id: p.restricted_to_group_id ?? null,
+  aggregate_function: (p.aggregate_function ?? null) as AggregateFunction | null,
+  aggregate_element_ids: p.aggregate_element_ids ?? null,
+});
+
+const initialChildren = (): ChildDraft[] => {
+  const subs: any[] = props.initialData?.subpolicies_detail ?? [];
+  if (subs.length >= 2) return subs.map(draftFromPolicy);
+  return [newChild(), newChild()];
+};
+
+const children = ref<ChildDraft[]>(initialChildren());
+
+// composite тип (AND/OR) при edit берём из initialData, иначе дефолт AND
+const compositeRuleType = ref<RuleType>(
+  (props.initialData?.rule_type as RuleType) ?? RuleType.AND_COMBINATION,
+);
+
+watch(() => props.initialData?.id, () => {
+  children.value = initialChildren();
+  compositeRuleType.value = (props.initialData?.rule_type as RuleType) ?? RuleType.AND_COMBINATION;
+});
 
 const atomicRuleTypeOptions = ruleTypeOptions.filter(
   (o) => o.value !== RuleType.AND_COMBINATION && o.value !== RuleType.OR_COMBINATION,
@@ -200,15 +232,20 @@ const submit = async () => {
   isSaving.value = true;
   try {
     const payload: PolicyCreate = {
-      rule_type: RuleType.AND_COMBINATION,
+      rule_type: compositeRuleType.value,
       source_element_id: props.targetNode?.data?.id,
       author_id: SANDBOX_AUTHOR_ID,
-      is_active: true,
+      is_active: props.initialData?.is_active ?? true,
       nested_subpolicies: children.value.map(toPolicyCreate),
+      subpolicy_ids: null,
     } as PolicyCreate;
-    const saved = await createPolicy(payload);
+
+    const saved = isEditMode.value && props.initialData?.id
+      ? await updatePolicy(props.initialData.id, payload)
+      : await createPolicy(payload);
+
     store.upsertPolicyInTree(saved);
-    toastService.showSuccess('Составное правило создано');
+    toastService.showSuccess(isEditMode.value ? 'Составное правило обновлено' : 'Составное правило создано');
     emit('saved');
   } catch {
     // toast с текстом ошибки уже показал axios interceptor
@@ -222,12 +259,21 @@ const submit = async () => {
   <Card class="border border-surface-200 shadow-none overflow-hidden">
     <template #content>
       <div class="flex flex-col gap-5">
-        <div class="flex justify-between items-center border-b border-surface-100 pb-3">
-          <span class="font-bold text-xs text-surface-600 uppercase tracking-widest flex items-center gap-2">
+        <div class="flex justify-between items-center border-b border-surface-100 pb-3 gap-3">
+          <span class="font-bold text-xs text-surface-600 uppercase tracking-widest flex items-center gap-2 shrink-0">
             <i class="pi pi-sitemap"></i>
-            Составное условие (И)
+            {{ isEditMode ? 'Редактирование составного условия' : 'Новое составное условие' }}
           </span>
-           <p class="text-xs text-surface-500">Все условия ниже должны быть выполнены</p>
+          <Select
+            v-model="compositeRuleType"
+            :options="[
+              { label: 'И — выполнены все', value: RuleType.AND_COMBINATION },
+              { label: 'ИЛИ — хотя бы одно', value: RuleType.OR_COMBINATION }
+            ]"
+            optionLabel="label"
+            optionValue="value"
+            class="w-64"
+          />
           <Button icon="pi pi-times" text rounded size="small" @click="$emit('cancelled')" />
         </div>
 
@@ -237,7 +283,7 @@ const submit = async () => {
             class="flex items-center gap-3 text-xs font-bold text-surface-400 uppercase tracking-widest"
           >
             <div class="flex-1 h-px bg-surface-200"></div>
-            <span>и</span>
+            <span>{{ compositeRuleType === RuleType.OR_COMBINATION ? 'или' : 'и' }}</span>
             <div class="flex-1 h-px bg-surface-200"></div>
           </div>
           <div
@@ -285,7 +331,7 @@ const submit = async () => {
               >
                 <template #value>
                   <span v-if="child.target_element_id">
-                    {{ findNodeNameById(treeData, child.target_element_id) ?? child.target_element_id }}
+                    {{ findNodeNameById(treeData ?? [], child.target_element_id) ?? child.target_element_id }}
                   </span>
                   <span v-else class="text-surface-400">Выбор...</span>
                 </template>
@@ -384,7 +430,7 @@ const submit = async () => {
           <div class="flex gap-4">
               <Button label="Отмена" severity="secondary" variant="text" size="small" @click="$emit('cancelled')" />
               <Button
-                label="Создать составное правило"
+                :label="isEditMode ? 'Сохранить' : 'Создать составное правило'"
                 icon="pi pi-check"
                 size="small"
                 :loading="isSaving"
