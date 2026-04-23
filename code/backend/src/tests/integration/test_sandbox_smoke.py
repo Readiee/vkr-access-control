@@ -30,8 +30,8 @@ from services.sandbox_service import SandboxService  # noqa: E402
 
 class SandboxSmokeTests(unittest.TestCase):
     def setUp(self):
-        self.test_owl = f"test_sandbox_smoke_{id(self)}.owl"
-        shutil.copy(DEFAULT_ONTOLOGY_PATH, self.test_owl)
+        from tests._factory import make_temp_onto_copy
+        self.test_owl = make_temp_onto_copy(prefix="vkr_sandbox_smoke_")
         self.world = World()
         self.core = OntologyCore(self.test_owl, world=self.world)
         from services.cache_manager import CacheManager
@@ -127,6 +127,34 @@ class SandboxSmokeTests(unittest.TestCase):
         self.sandbox.rollback_progress("test_sb")
         state = self.sandbox.get_sandbox_state("course_sb")
         self.assertNotIn("final_sb", state.get("available_elements", []))
+
+    def test_set_group_unlocks_group_restricted_element(self):
+        """set_group вписывает belongs_to_group → group_restricted правило пропускает."""
+        with self.core.onto:
+            group = self.core.onto.Group("grp_sb_smoke")
+            group.label = ["Sandbox group"]
+        self.core.save()
+
+        self.policy_service.create_policy(PolicyCreate(
+            source_element_id="test_sb",
+            rule_type=RuleType.GROUP,
+            restricted_to_group_id="grp_sb_smoke",
+            author_id="methodologist_smirnov",
+        ))
+
+        state_before = self.sandbox.get_sandbox_state("course_sb")
+        self.assertIsNone(state_before.get("group_id"))
+        self.assertNotIn("test_sb", state_before.get("available_elements", []))
+
+        self.sandbox.set_group("grp_sb_smoke")
+        state_after = self.sandbox.get_sandbox_state("course_sb")
+        self.assertEqual(state_after.get("group_id"), "grp_sb_smoke")
+        self.assertIn("test_sb", state_after.get("available_elements", []))
+
+        self.sandbox.set_group(None)
+        state_reset = self.sandbox.get_sandbox_state("course_sb")
+        self.assertIsNone(state_reset.get("group_id"))
+        self.assertNotIn("test_sb", state_reset.get("available_elements", []))
 
 
 if __name__ == "__main__":

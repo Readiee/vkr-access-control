@@ -77,12 +77,16 @@ class SandboxService:
 
         active_comps = [comp.name for comp in getattr(student, "has_competency", [])]
 
+        group = next(iter(getattr(student, "belongs_to_group", []) or []), None)
+
         return {
             "student_id": sandbox_user_id,
             "student_name": student.label[0] if getattr(student, "label", None) else sandbox_user_id,
             "available_elements": available_elements,
             "progress": progress_dict,
             "active_competencies": active_comps,
+            "group_id": group.name if group else None,
+            "group_name": (group.label[0] if getattr(group, "label", None) else group.name) if group else None,
         }
 
     def _cascade_delete_parent_records(self, student, element):
@@ -166,3 +170,27 @@ class SandboxService:
         self.reasoner.reason()
         self.access.rebuild_student_access(student.name)
         return {"status": "success", "message": "Компетенции обновлены"}
+
+    def set_group(self, group_id: str | None) -> dict:
+        """Перезаписывает единственную группу у sandbox-студента. None → снять.
+
+        Для симулятора группа одна, но ObjectProperty non-functional, потому
+        присваиваем список из 0/1 элемента.
+        """
+        student = self._sandbox_student()
+        if group_id:
+            group_cls = getattr(self.core.onto, "Group", None)
+            group = None
+            if group_cls is not None:
+                group = self.core.onto.search_one(type=group_cls, iri=f"*{group_id}")
+            if group is None:
+                raise ValueError(f"Группа {group_id} не найдена.")
+            student.belongs_to_group = [group]
+        else:
+            student.belongs_to_group = []
+
+        self._clear_inferred_access(student)
+        self.core.save()
+        self.reasoner.reason()
+        self.access.rebuild_student_access(student.name)
+        return {"status": "success", "message": "Группа обновлена" if group_id else "Группа снята"}
