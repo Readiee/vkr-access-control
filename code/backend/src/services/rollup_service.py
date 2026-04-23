@@ -19,7 +19,7 @@ class RollupService:
         parent = None
         # Поиск родителя
         for p in self.core.courses.get_all_elements():
-            children = getattr(p, "has_module", []) + getattr(p, "contains_element", [])
+            children = getattr(p, "has_module", []) + getattr(p, "contains_activity", [])
             if child_element in children:
                 parent = p
                 break
@@ -28,10 +28,10 @@ class RollupService:
             return
             
         # Сбор обязательных соседей
-        siblings = getattr(parent, "has_module", []) + getattr(parent, "contains_element", [])
+        siblings = getattr(parent, "has_module", []) + getattr(parent, "contains_activity", [])
         required_siblings = []
         for child in siblings:
-            if get_owl_prop(child, "is_required", True):
+            if get_owl_prop(child, "is_mandatory", True):
                 required_siblings.append(child)
                 
         # Проверка статусов всех обязательных соседей
@@ -42,12 +42,10 @@ class RollupService:
                 all_completed = False
                 break
                 
-            has_status = getattr(child_record, "has_status", [])
-            if not has_status:
+            status_obj = getattr(child_record, "has_status", None)
+            if status_obj is None:
                 all_completed = False
                 break
-                
-            status_obj = has_status[0]
             current_status_str = status_obj.name.replace("status_", "") if hasattr(status_obj, "name") else str(status_obj)
                 
             if current_status_str != ProgressStatus.COMPLETED.value:

@@ -37,11 +37,11 @@ with onto:
     class CourseStructure(Thing): pass
     class Course(CourseStructure): pass
     class Module(CourseStructure): pass
-    class EducationalElement(CourseStructure): pass
-    class Lecture(EducationalElement): pass
-    class Test(EducationalElement): pass
-    class Assignment(EducationalElement): pass
-    class Practice(EducationalElement): pass
+    class LearningActivity(CourseStructure): pass
+    class Lecture(LearningActivity): pass
+    class Test(LearningActivity): pass
+    class Assignment(LearningActivity): pass
+    class Practice(LearningActivity): pass
 
     # Вспомогательные классы
     class Status(Thing): pass
@@ -70,24 +70,24 @@ with onto:
         inverse_property = is_contained_in_course
 
     class is_contained_in_module(ObjectProperty):
-        domain = [EducationalElement]; range = [Module]
+        domain = [LearningActivity]; range = [Module]
 
-    class contains_element(ObjectProperty):
-        domain = [Module]; range = [EducationalElement]
+    class contains_activity(ObjectProperty):
+        domain = [Module]; range = [LearningActivity]
         inverse_property = is_contained_in_module
 
     # --- Прогресс ---
     class has_progress_record(ObjectProperty):
         domain = [Student]; range = [ProgressRecord]
 
-    class refers_to_student(ObjectProperty):
+    class refers_to_student(ObjectProperty, FunctionalProperty):
         domain = [ProgressRecord]; range = [Student]
         inverse_property = has_progress_record
 
-    class refers_to_element(ObjectProperty):
+    class refers_to_element(ObjectProperty, FunctionalProperty):
         domain = [ProgressRecord]; range = [CourseStructure]
 
-    class has_status(ObjectProperty):
+    class has_status(ObjectProperty, FunctionalProperty):
         domain = [ProgressRecord]; range = [Status]
 
     # --- Компетенции ---
@@ -107,10 +107,10 @@ with onto:
     class has_access_policy(ObjectProperty):
         domain = [CourseStructure]; range = [AccessPolicy]
 
-    class targets_element(ObjectProperty):
+    class targets_element(ObjectProperty, FunctionalProperty):
         domain = [AccessPolicy]; range = [CourseStructure]
 
-    class has_author(ObjectProperty):
+    class has_author(ObjectProperty, FunctionalProperty):
         domain = [AccessPolicy]; range = [Methodologist]
 
     # Композиция политик для AND/OR
@@ -120,7 +120,7 @@ with onto:
     class belongs_to_group(ObjectProperty):
         domain = [Student]; range = [Group]
 
-    class restricted_to_group(ObjectProperty):
+    class restricted_to_group(ObjectProperty, FunctionalProperty):
         domain = [AccessPolicy]; range = [Group]
 
     class aggregate_elements(ObjectProperty):
@@ -144,43 +144,43 @@ with onto:
     # ==================================================================
     # 3. АТРИБУТИВНЫЕ СВОЙСТВА
     # ==================================================================
-    # legacy-свойства оставлены non-Functional: owlready2 mixin требует
-    # scalar API, а код записывает их как prop = [value]. Миграция — вместе
-    # с рефакторингом обращений. Новые свойства сразу Functional.
+    # Все DataProperty, у которых семантика «один индивид = одно значение»,
+    # объявлены FunctionalProperty: scalar API + формальное ограничение
+    # кардинальности на уровне TBox.
 
-    class is_active(DataProperty):
+    class is_active(DataProperty, FunctionalProperty):
         domain = [AccessPolicy]; range = [bool]
 
-    class is_required(DataProperty):
+    class is_mandatory(DataProperty, FunctionalProperty):
         domain = [CourseStructure]; range = [bool]
 
-    class order_index(DataProperty):
+    class order_index(DataProperty, FunctionalProperty):
         domain = [CourseStructure]; range = [int]
 
-    class rule_type(DataProperty):
+    class rule_type(DataProperty, FunctionalProperty):
         """Один из: completion_required, grade_required, viewed_required, competency_required,
         date_restricted, and_combination, or_combination, group_restricted, aggregate_required."""
         domain = [AccessPolicy]; range = [str]
 
-    class passing_threshold(DataProperty):
+    class passing_threshold(DataProperty, FunctionalProperty):
         domain = [AccessPolicy]; range = [float]
 
-    class valid_from(DataProperty):
+    class valid_from(DataProperty, FunctionalProperty):
         domain = [AccessPolicy]; range = [datetime.datetime]
 
-    class valid_until(DataProperty):
+    class valid_until(DataProperty, FunctionalProperty):
         domain = [AccessPolicy]; range = [datetime.datetime]
 
-    class has_grade(DataProperty):
+    class has_grade(DataProperty, FunctionalProperty):
         domain = [ProgressRecord]; range = [float]
 
-    class failed_attempts_count(DataProperty):
+    class failed_attempts_count(DataProperty, FunctionalProperty):
         domain = [ProgressRecord]; range = [int]
 
-    class started_at(DataProperty):
+    class started_at(DataProperty, FunctionalProperty):
         domain = [ProgressRecord]; range = [datetime.datetime]
 
-    class completed_at(DataProperty):
+    class completed_at(DataProperty, FunctionalProperty):
         domain = [ProgressRecord]; range = [datetime.datetime]
 
     class has_value(DataProperty, FunctionalProperty):
@@ -198,7 +198,7 @@ with onto:
     # ==================================================================
 
     AllDisjoint([Student, Teacher, Methodologist])
-    AllDisjoint([Course, Module, EducationalElement])
+    AllDisjoint([Course, Module, LearningActivity])
     AllDisjoint([Lecture, Test, Assignment, Practice])
     AllDisjoint([
         User, CourseStructure, Group, ProgressRecord,

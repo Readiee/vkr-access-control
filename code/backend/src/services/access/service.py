@@ -157,7 +157,7 @@ class AccessService:
         mapping: Dict[str, Any] = {}
         for parent in self.core.courses.get_all_elements():
             children = list(getattr(parent, "has_module", []) or []) + list(
-                getattr(parent, "contains_element", []) or []
+                getattr(parent, "contains_activity", []) or []
             )
             for child in children:
                 mapping[child.name] = parent
@@ -331,7 +331,7 @@ class AccessService:
             for m in getattr(node, "has_module", []) or []:
                 collected.add(m.name)
                 walk(m)
-            for a in getattr(node, "contains_element", []) or []:
+            for a in getattr(node, "contains_activity", []) or []:
                 collected.add(a.name)
                 walk(a)
 
@@ -342,7 +342,7 @@ class AccessService:
         parent_map: Dict[str, str] = {}
         for parent in self.core.courses.get_all_elements():
             children: Iterable[Any] = list(getattr(parent, "has_module", []) or []) + list(
-                getattr(parent, "contains_element", []) or []
+                getattr(parent, "contains_activity", []) or []
             )
             for child in children:
                 parent_map[child.name] = parent.name

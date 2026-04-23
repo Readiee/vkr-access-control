@@ -57,17 +57,11 @@ class SandboxService:
         progress_dict: dict[str, dict[str, Any]] = {}
         records = self.core.progress.find_all_for_student(student)
         for r in records:
-            element_id = r.refers_to_element[0].name if getattr(r, "refers_to_element", []) else None
-            # Статус "completed" важнее "viewed" — если есть оба, берём первый
-            status = None
-            for s in getattr(r, "has_status", []):
-                s_name = s.name.replace("status_", "")
-                if s_name == "completed":
-                    status = "completed"
-                    break
-                status = s_name
+            element_id = r.refers_to_element.name if getattr(r, "refers_to_element", None) else None
+            status_obj = getattr(r, "has_status", None)
+            status = status_obj.name.replace("status_", "") if status_obj is not None else None
 
-            grade = r.has_grade[0] if getattr(r, "has_grade", []) else None
+            grade = r.has_grade if getattr(r, "has_grade", None) is not None else None
 
             if element_id and status:
                 progress_dict[element_id] = {
@@ -91,7 +85,7 @@ class SandboxService:
 
     def _cascade_delete_parent_records(self, student, element):
         for p in self.core.courses.get_all_elements():
-            children = getattr(p, "has_module", []) + getattr(p, "contains_element", [])
+            children = getattr(p, "has_module", []) + getattr(p, "contains_activity", [])
             if element in children:
                 parent_record = self.core.progress.find_record(student, p)
                 if parent_record:
@@ -114,7 +108,7 @@ class SandboxService:
             element = self.core.courses.find_by_id(payload.element_id)
             record = self.core.progress.find_record(student, element)
             if record:
-                record.has_grade = [payload.grade]
+                record.has_grade = payload.grade
                 self.core.save()
 
         self.reasoner.reason()

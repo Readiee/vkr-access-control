@@ -141,10 +141,10 @@ class VerificationNegativeTests(unittest.TestCase):
             target = self.core.onto.search_one(iri="*lec_neg3a_a")
             source = self.core.onto.search_one(iri="*lec_neg3a_b")
             bad = self.core.onto.AccessPolicy("p_neg3a_bad_threshold")
-            bad.rule_type = ["grade_required"]
-            bad.is_active = [True]
-            bad.passing_threshold = [150.0]
-            bad.targets_element = [target]
+            bad.rule_type = "grade_required"
+            bad.is_active = True
+            bad.passing_threshold = 150.0
+            bad.targets_element = target
             source.has_access_policy = [bad]
         self.core.save()
 
@@ -179,14 +179,14 @@ class VerificationNegativeTests(unittest.TestCase):
             a = self.core.onto.search_one(iri="*mod_neg2_a")
             b = self.core.onto.search_one(iri="*mod_neg2_b")
             p_ab = self.core.onto.AccessPolicy("p_neg2_ab")
-            p_ab.rule_type = ["completion_required"]
-            p_ab.is_active = [True]
-            p_ab.targets_element = [b]
+            p_ab.rule_type = "completion_required"
+            p_ab.is_active = True
+            p_ab.targets_element = b
             a.has_access_policy = [p_ab]
             p_ba = self.core.onto.AccessPolicy("p_neg2_ba")
-            p_ba.rule_type = ["completion_required"]
-            p_ba.is_active = [True]
-            p_ba.targets_element = [a]
+            p_ba.rule_type = "completion_required"
+            p_ba.is_active = True
+            p_ba.targets_element = a
             b.has_access_policy = [p_ba]
         self.core.save()
 

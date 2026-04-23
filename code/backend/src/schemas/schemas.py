@@ -19,7 +19,7 @@ class CourseElementMeta(BaseModel):
     id: str = Field(..., description="Локальный ID элемента")
     name: str = Field(..., description="Название элемента")
     type: ElementType = Field(..., description="Тип элемента (course, module, lecture, test)")
-    is_required: bool = Field(default=True, description="Является ли элемент обязательным")
+    is_mandatory: bool = Field(default=True, description="Является ли элемент обязательным")
 
 
 class Group(BaseModel):
@@ -176,7 +176,7 @@ class CourseElement(BaseModel):
     name: str = Field(..., description="Человекочитаемое название")
     element_type: ElementType = Field(..., description="Тип элемента")
     parent_id: Optional[str] = Field(None, description="ID родительского контейнера или курса")
-    is_required: Optional[bool] = Field(default=True, description="Является ли элемент обязательным для прохождения")
+    is_mandatory: Optional[bool] = Field(default=True, description="Является ли элемент обязательным для прохождения")
     order_index: Optional[int] = Field(default=None, description="Порядковый номер элемента. Если не передан, вычисляется из позиции в массиве.")
 
 

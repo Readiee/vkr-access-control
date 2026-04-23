@@ -58,7 +58,7 @@ export interface CourseElement {
   id: string;
   name: string;
   type: string;
-  is_required?: boolean;
+  is_mandatory?: boolean;
 }
 
 export interface CourseStructureResponse {

@@ -404,7 +404,7 @@ class VerificationService:
 
         def walk(node: Any) -> None:
             for child in list(getattr(node, "has_module", []) or []) + list(
-                getattr(node, "contains_element", []) or []
+                getattr(node, "contains_activity", []) or []
             ):
                 if child.name in seen:
                     continue

@@ -56,13 +56,11 @@ class IntegrationService:
             raw_type = el.type[0] if getattr(el, "type", None) else None
             if not raw_type:
                 raw_type = el.__class__.__name__.lower()
-            is_req_list = getattr(el, "is_required", [])
-            is_req_val = is_req_list[0] if is_req_list else True
             course_elements.append({
                 "id": el.name,
                 "name": el.label[0] if getattr(el, "label", None) else el.name,
                 "type": raw_type,
-                "is_required": is_req_val,
+                "is_mandatory": get_owl_prop(el, "is_mandatory", True),
             })
 
         groups: List[dict] = []
@@ -88,11 +86,11 @@ class IntegrationService:
     ) -> dict:
         course = self.core.courses.get_or_create_element(course_id, "Course")
         course.label = [payload.course_name]
-        course.is_required = [True]
+        course.is_mandatory = True
         
         # Soft Reset курса (удаление только связей)
         for old_module in list(course.has_module):
-            old_module.contains_element = []
+            old_module.contains_activity = []
         course.has_module = []
 
         # Сборка иерархии по новому payload
@@ -103,11 +101,11 @@ class IntegrationService:
             
             element.label = [elem_data.name]
             element.type = [elem_data.element_type.lower()]
-            element.is_required = [getattr(elem_data, "is_required", True)]
+            element.is_mandatory = getattr(elem_data, "is_mandatory", True)
             
             # Неявная или явная сортировка
             final_order = elem_data.order_index if getattr(elem_data, "order_index", None) is not None else idx
-            element.order_index = [final_order]
+            element.order_index = final_order
 
             if elem_data.parent_id:
                 parent = self.core.courses.find_by_id(elem_data.parent_id)
@@ -118,8 +116,8 @@ class IntegrationService:
                     if element not in getattr(parent, "has_module", []):
                         parent.has_module.append(element)
                 else:
-                    if element not in getattr(parent, "contains_element", []):
-                        parent.contains_element.append(element)
+                    if element not in getattr(parent, "contains_activity", []):
+                        parent.contains_activity.append(element)
                 
 
         self.core.save()
@@ -164,13 +162,13 @@ class IntegrationService:
             if raw_type == ElementType.COURSE.value:
                 children_objs = getattr(node_obj, "has_module", [])
             elif raw_type == ElementType.MODULE.value:
-                children_objs = getattr(node_obj, "contains_element", [])
+                children_objs = getattr(node_obj, "contains_activity", [])
             else:
                 children_objs = []
 
             children_objs = sorted(
-                children_objs, 
-                key=lambda x: getattr(x, "order_index", [999])[0] if getattr(x, "order_index", []) else 999 # элементы без индекса уходят в конец
+                children_objs,
+                key=lambda x: get_owl_prop(x, "order_index", 999)  # элементы без индекса уходят в конец
             )
 
             children = [build_node(child) for child in children_objs]
@@ -182,7 +180,7 @@ class IntegrationService:
                     "name": node_name, 
                     "type": get_owl_prop(node_obj, "type", raw_type), 
                     "policies": policies,
-                    "is_required": get_owl_prop(node_obj, "is_required", True)
+                    "is_mandatory": get_owl_prop(node_obj, "is_mandatory", True)
                 },
                 "children": children
             }

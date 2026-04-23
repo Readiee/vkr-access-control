@@ -23,9 +23,9 @@ class GraphValidatorTests(unittest.TestCase):
             self._mod_a = self.onto.Module(self._track("mod_gv_a"))
             self._mod_b = self.onto.Module(self._track("mod_gv_b"))
             self._mod_c = self.onto.Module(self._track("mod_gv_c"))
-            self._mod_a.is_required = [True]
-            self._mod_b.is_required = [True]
-            self._mod_c.is_required = [True]
+            self._mod_a.is_mandatory = True
+            self._mod_b.is_mandatory = True
+            self._mod_c.is_mandatory = True
 
     def tearDown(self):
         self.world.close()
@@ -62,9 +62,9 @@ class GraphValidatorTests(unittest.TestCase):
         graph = GraphValidator.build_dependency_graph(self.onto)
         with self.onto:
             policy = self.onto.AccessPolicy(self._track("policy_gv_viewed"))
-            policy.rule_type = ["viewed_required"]
-            policy.is_active = [True]
-            policy.targets_element = [self._mod_a]
+            policy.rule_type = "viewed_required"
+            policy.is_active = True
+            policy.targets_element = self._mod_a
             self._mod_b.has_access_policy.append(policy)
         graph = GraphValidator.build_dependency_graph(self.onto)
         self.assertTrue(graph.has_edge("mod_gv_a_access", "mod_gv_b_access"))
@@ -74,9 +74,9 @@ class GraphValidatorTests(unittest.TestCase):
         """viewed policy между соседями не создаёт ложный цикл: access→access ациклично."""
         with self.onto:
             policy = self.onto.AccessPolicy(self._track("policy_gv_viewed_2"))
-            policy.rule_type = ["viewed_required"]
-            policy.is_active = [True]
-            policy.targets_element = [self._mod_a]
+            policy.rule_type = "viewed_required"
+            policy.is_active = True
+            policy.targets_element = self._mod_a
             self._mod_b.has_access_policy.append(policy)
         self.assertEqual(GraphValidator.find_all_cycles(self.onto), [])
 
@@ -88,8 +88,8 @@ class GraphValidatorTests(unittest.TestCase):
             comp = self.onto.Competency(self._track("comp_gv_test"))
             self._mod_a.assesses = [comp]
             policy = self.onto.AccessPolicy(self._track("policy_gv_comp"))
-            policy.rule_type = ["competency_required"]
-            policy.is_active = [True]
+            policy.rule_type = "competency_required"
+            policy.is_active = True
             policy.targets_competency = [comp]
             self._mod_b.has_access_policy.append(policy)
         graph = GraphValidator.build_dependency_graph(self.onto)
@@ -103,8 +103,8 @@ class GraphValidatorTests(unittest.TestCase):
             sub_comp.is_subcompetency_of = [parent_comp]
             self._mod_a.assesses = [sub_comp]
             policy = self.onto.AccessPolicy(self._track("policy_gv_comp_parent"))
-            policy.rule_type = ["competency_required"]
-            policy.is_active = [True]
+            policy.rule_type = "competency_required"
+            policy.is_active = True
             policy.targets_competency = [parent_comp]
             self._mod_b.has_access_policy.append(policy)
         graph = GraphValidator.build_dependency_graph(self.onto)
@@ -115,17 +115,17 @@ class GraphValidatorTests(unittest.TestCase):
     def test_and_combination_recurses_into_subpolicies(self):
         with self.onto:
             sub1 = self.onto.AccessPolicy(self._track("policy_gv_and_sub1"))
-            sub1.rule_type = ["completion_required"]
-            sub1.is_active = [True]
-            sub1.targets_element = [self._mod_a]
+            sub1.rule_type = "completion_required"
+            sub1.is_active = True
+            sub1.targets_element = self._mod_a
             sub2 = self.onto.AccessPolicy(self._track("policy_gv_and_sub2"))
-            sub2.rule_type = ["completion_required"]
-            sub2.is_active = [True]
-            sub2.targets_element = [self._mod_c]
+            sub2.rule_type = "completion_required"
+            sub2.is_active = True
+            sub2.targets_element = self._mod_c
 
             composite = self.onto.AccessPolicy(self._track("policy_gv_and"))
-            composite.rule_type = ["and_combination"]
-            composite.is_active = [True]
+            composite.rule_type = "and_combination"
+            composite.is_active = True
             composite.has_subpolicy = [sub1, sub2]
             self._mod_b.has_access_policy.append(composite)
 
@@ -136,18 +136,18 @@ class GraphValidatorTests(unittest.TestCase):
     def test_or_combination_recurses_into_subpolicies(self):
         with self.onto:
             sub1 = self.onto.AccessPolicy(self._track("policy_gv_or_sub1"))
-            sub1.rule_type = ["viewed_required"]
-            sub1.is_active = [True]
-            sub1.targets_element = [self._mod_a]
+            sub1.rule_type = "viewed_required"
+            sub1.is_active = True
+            sub1.targets_element = self._mod_a
             sub2 = self.onto.AccessPolicy(self._track("policy_gv_or_sub2"))
-            sub2.rule_type = ["grade_required"]
-            sub2.is_active = [True]
-            sub2.passing_threshold = [50.0]
-            sub2.targets_element = [self._mod_c]
+            sub2.rule_type = "grade_required"
+            sub2.is_active = True
+            sub2.passing_threshold = 50.0
+            sub2.targets_element = self._mod_c
 
             composite = self.onto.AccessPolicy(self._track("policy_gv_or"))
-            composite.rule_type = ["or_combination"]
-            composite.is_active = [True]
+            composite.rule_type = "or_combination"
+            composite.is_active = True
             composite.has_subpolicy = [sub1, sub2]
             self._mod_b.has_access_policy.append(composite)
 
@@ -160,10 +160,10 @@ class GraphValidatorTests(unittest.TestCase):
     def test_aggregate_required_adds_edges_from_elements(self):
         with self.onto:
             policy = self.onto.AccessPolicy(self._track("policy_gv_agg"))
-            policy.rule_type = ["aggregate_required"]
-            policy.is_active = [True]
+            policy.rule_type = "aggregate_required"
+            policy.is_active = True
             policy.aggregate_function = "AVG"
-            policy.passing_threshold = [70.0]
+            policy.passing_threshold = 70.0
             policy.aggregate_elements = [self._mod_a, self._mod_c]
             self._mod_b.has_access_policy.append(policy)
 
@@ -176,9 +176,9 @@ class GraphValidatorTests(unittest.TestCase):
     def test_inactive_policy_does_not_add_edges(self):
         with self.onto:
             policy = self.onto.AccessPolicy(self._track("policy_gv_inactive"))
-            policy.rule_type = ["completion_required"]
-            policy.is_active = [False]
-            policy.targets_element = [self._mod_a]
+            policy.rule_type = "completion_required"
+            policy.is_active = False
+            policy.targets_element = self._mod_a
             self._mod_b.has_access_policy.append(policy)
 
         graph = GraphValidator.build_dependency_graph(self.onto)
@@ -191,10 +191,10 @@ class GraphValidatorTests(unittest.TestCase):
         with self.onto:
             p1 = self.onto.AccessPolicy(self._track("policy_gv_rec_1"))
             p2 = self.onto.AccessPolicy(self._track("policy_gv_rec_2"))
-            p1.rule_type = ["and_combination"]
-            p1.is_active = [True]
-            p2.rule_type = ["and_combination"]
-            p2.is_active = [True]
+            p1.rule_type = "and_combination"
+            p1.is_active = True
+            p2.rule_type = "and_combination"
+            p2.is_active = True
             p1.has_subpolicy = [p2]
             p2.has_subpolicy = [p1]
             self._mod_b.has_access_policy.append(p1)
@@ -207,15 +207,15 @@ class GraphValidatorTests(unittest.TestCase):
     def test_find_all_cycles_detects_real_cycle(self):
         with self.onto:
             p_ab = self.onto.AccessPolicy(self._track("policy_gv_cycle_ab"))
-            p_ab.rule_type = ["completion_required"]
-            p_ab.is_active = [True]
-            p_ab.targets_element = [self._mod_b]
+            p_ab.rule_type = "completion_required"
+            p_ab.is_active = True
+            p_ab.targets_element = self._mod_b
             self._mod_a.has_access_policy.append(p_ab)
 
             p_ba = self.onto.AccessPolicy(self._track("policy_gv_cycle_ba"))
-            p_ba.rule_type = ["completion_required"]
-            p_ba.is_active = [True]
-            p_ba.targets_element = [self._mod_a]
+            p_ba.rule_type = "completion_required"
+            p_ba.is_active = True
+            p_ba.targets_element = self._mod_a
             self._mod_b.has_access_policy.append(p_ba)
 
         cycles = GraphValidator.find_all_cycles(self.onto)

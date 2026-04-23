@@ -100,11 +100,11 @@ class TestOntologyIntegration(unittest.TestCase):
         """Проверяет Roll-up статуса."""
         # 1. Подготовка иерархии
         elements = [
-            CourseElement(element_id="course_rollup", element_type=ElementType.COURSE, name="Rollup Course", is_required=True),
-            CourseElement(element_id="mod_rollup", element_type=ElementType.MODULE, name="Rollup Module", parent_id="course_rollup", is_required=True),
-            CourseElement(element_id="lec_req", element_type=ElementType.LECTURE, name="Required Lec", parent_id="mod_rollup", is_required=True),
-            CourseElement(element_id="prac_opt", element_type=ElementType.PRACTICE, name="Optional Prac", parent_id="mod_rollup", is_required=False),
-            CourseElement(element_id="test_req", element_type=ElementType.TEST, name="Required Test", parent_id="mod_rollup", is_required=True),
+            CourseElement(element_id="course_rollup", element_type=ElementType.COURSE, name="Rollup Course", is_mandatory=True),
+            CourseElement(element_id="mod_rollup", element_type=ElementType.MODULE, name="Rollup Module", parent_id="course_rollup", is_mandatory=True),
+            CourseElement(element_id="lec_req", element_type=ElementType.LECTURE, name="Required Lec", parent_id="mod_rollup", is_mandatory=True),
+            CourseElement(element_id="prac_opt", element_type=ElementType.PRACTICE, name="Optional Prac", parent_id="mod_rollup", is_mandatory=False),
+            CourseElement(element_id="test_req", element_type=ElementType.TEST, name="Required Test", parent_id="mod_rollup", is_mandatory=True),
         ]
         payload = CourseSyncPayload(course_name="Курс для теста Roll-up", elements=elements)
         self.integration_service.sync_course_structure("course_rollup", payload)
@@ -116,10 +116,10 @@ class TestOntologyIntegration(unittest.TestCase):
             if not st or not el: 
                 return None
             for r in self.core.onto.ProgressRecord.instances():
-                if st in getattr(r, "refers_to_student", []) and el in getattr(r, "refers_to_element", []):
-                    has_status = getattr(r, "has_status", [])
-                    if not has_status: return None
-                    status_obj = has_status[0]
+                if getattr(r, "refers_to_student", None) is st and getattr(r, "refers_to_element", None) is el:
+                    status_obj = getattr(r, "has_status", None)
+                    if status_obj is None:
+                        return None
                     if hasattr(status_obj, "name"):
                         return status_obj.name.replace("status_", "")
                     return str(status_obj)

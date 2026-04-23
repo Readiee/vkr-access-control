@@ -96,7 +96,7 @@
           {
             "property": "reachability",
             "code": "SV3_UNREACHABLE",
-            "elements": ["elem_A", "elem_B", "elem_C"]
+            "elements": ["elem_a", "elem_b", "elem_c"]
           }
         ]
       }

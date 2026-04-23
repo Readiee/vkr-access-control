@@ -63,9 +63,9 @@ class AtomicUnsatisfiabilityTests(unittest.TestCase):
     def test_grade_threshold_out_of_range(self):
         with self.onto:
             policy = self.onto.AccessPolicy(self._track("p_atomic_grade_bad"))
-            policy.rule_type = ["grade_required"]
-            policy.is_active = [True]
-            policy.passing_threshold = [150.0]
+            policy.rule_type = "grade_required"
+            policy.is_active = True
+            policy.passing_threshold = 150.0
 
         violations = self.service._atomic_unsatisfiable()
         found = [v for v in violations if v["policy_id"] == "p_atomic_grade_bad"]
@@ -75,10 +75,10 @@ class AtomicUnsatisfiabilityTests(unittest.TestCase):
     def test_date_empty_window(self):
         with self.onto:
             policy = self.onto.AccessPolicy(self._track("p_atomic_date_bad"))
-            policy.rule_type = ["date_restricted"]
-            policy.is_active = [True]
-            policy.valid_from = [datetime(2026, 6, 1)]
-            policy.valid_until = [datetime(2026, 5, 1)]
+            policy.rule_type = "date_restricted"
+            policy.is_active = True
+            policy.valid_from = datetime(2026, 6, 1)
+            policy.valid_until = datetime(2026, 5, 1)
 
         violations = self.service._atomic_unsatisfiable()
         found = [v for v in violations if v["policy_id"] == "p_atomic_date_bad"]
@@ -88,10 +88,10 @@ class AtomicUnsatisfiabilityTests(unittest.TestCase):
     def test_aggregate_empty_elements(self):
         with self.onto:
             policy = self.onto.AccessPolicy(self._track("p_atomic_agg_bad"))
-            policy.rule_type = ["aggregate_required"]
-            policy.is_active = [True]
+            policy.rule_type = "aggregate_required"
+            policy.is_active = True
             policy.aggregate_function = "AVG"
-            policy.passing_threshold = [70.0]
+            policy.passing_threshold = 70.0
             policy.aggregate_elements = []
 
         violations = self.service._atomic_unsatisfiable()
@@ -102,9 +102,9 @@ class AtomicUnsatisfiabilityTests(unittest.TestCase):
     def test_valid_policy_not_reported(self):
         with self.onto:
             policy = self.onto.AccessPolicy(self._track("p_atomic_ok"))
-            policy.rule_type = ["grade_required"]
-            policy.is_active = [True]
-            policy.passing_threshold = [70.0]
+            policy.rule_type = "grade_required"
+            policy.is_active = True
+            policy.passing_threshold = 70.0
 
         violations = self.service._atomic_unsatisfiable()
         self.assertFalse(any(v["policy_id"] == "p_atomic_ok" for v in violations))
@@ -113,9 +113,9 @@ class AtomicUnsatisfiabilityTests(unittest.TestCase):
         """Неактивные политики не должны попадать в отчёт недостижимости."""
         with self.onto:
             policy = self.onto.AccessPolicy(self._track("p_atomic_inactive_bad"))
-            policy.rule_type = ["grade_required"]
-            policy.is_active = [False]
-            policy.passing_threshold = [500.0]  # заведомо плохой порог
+            policy.rule_type = "grade_required"
+            policy.is_active = False
+            policy.passing_threshold = 500.0  # заведомо плохой порог
 
         violations = self.service._atomic_unsatisfiable()
         self.assertFalse(any(v["policy_id"] == "p_atomic_inactive_bad" for v in violations))
@@ -124,8 +124,8 @@ class AtomicUnsatisfiabilityTests(unittest.TestCase):
         with self.onto:
             comp = self.onto.Competency(self._track("comp_atomic_unreach"))
             policy = self.onto.AccessPolicy(self._track("p_atomic_comp_unreach"))
-            policy.rule_type = ["competency_required"]
-            policy.is_active = [True]
+            policy.rule_type = "competency_required"
+            policy.is_active = True
             policy.targets_competency = [comp]
 
         violations = self.service._atomic_unsatisfiable()
@@ -171,7 +171,7 @@ class StructuralReachabilityTests(unittest.TestCase):
             course = self.onto.Course(self._track("course_reach_free"))
             lec = self.onto.Lecture(self._track("lec_reach_free"))
             course.has_module = []
-            course.contains_element = [lec]
+            course.contains_activity = [lec]
 
         cache = {}
         self.assertTrue(
@@ -184,19 +184,19 @@ class StructuralReachabilityTests(unittest.TestCase):
             course = self.onto.Course(self._track("course_reach_chain"))
             a = self.onto.Lecture(self._track("lec_reach_a"))
             b = self.onto.Lecture(self._track("lec_reach_b"))
-            course.contains_element = [a, b]
+            course.contains_activity = [a, b]
 
             bad_policy = self.onto.AccessPolicy(self._track("p_reach_bad"))
-            bad_policy.rule_type = ["grade_required"]
-            bad_policy.is_active = [True]
-            bad_policy.passing_threshold = [500.0]  # out of range
-            bad_policy.targets_element = [a]
+            bad_policy.rule_type = "grade_required"
+            bad_policy.is_active = True
+            bad_policy.passing_threshold = 500.0  # out of range
+            bad_policy.targets_element = a
             a.has_access_policy = [bad_policy]
 
             b_policy = self.onto.AccessPolicy(self._track("p_reach_b_depends"))
-            b_policy.rule_type = ["completion_required"]
-            b_policy.is_active = [True]
-            b_policy.targets_element = [a]
+            b_policy.rule_type = "completion_required"
+            b_policy.is_active = True
+            b_policy.targets_element = a
             b.has_access_policy = [b_policy]
 
         reports = self.service._find_unreachable(course)
@@ -211,12 +211,12 @@ class StructuralReachabilityTests(unittest.TestCase):
         with self.onto:
             course = self.onto.Course(self._track("course_reach_self"))
             x = self.onto.Lecture(self._track("lec_reach_self"))
-            course.contains_element = [x]
+            course.contains_activity = [x]
 
             self_policy = self.onto.AccessPolicy(self._track("p_reach_self"))
-            self_policy.rule_type = ["completion_required"]
-            self_policy.is_active = [True]
-            self_policy.targets_element = [x]
+            self_policy.rule_type = "completion_required"
+            self_policy.is_active = True
+            self_policy.targets_element = x
             x.has_access_policy = [self_policy]
 
         cache = {}
@@ -230,21 +230,21 @@ class StructuralReachabilityTests(unittest.TestCase):
             course = self.onto.Course(self._track("course_reach_or"))
             ok = self.onto.Lecture(self._track("lec_reach_or_ok"))
             target = self.onto.Lecture(self._track("lec_reach_or_target"))
-            course.contains_element = [ok, target]
+            course.contains_activity = [ok, target]
 
             sub_ok = self.onto.AccessPolicy(self._track("p_reach_or_sub_ok"))
-            sub_ok.rule_type = ["completion_required"]
-            sub_ok.is_active = [True]
-            sub_ok.targets_element = [ok]
+            sub_ok.rule_type = "completion_required"
+            sub_ok.is_active = True
+            sub_ok.targets_element = ok
 
             sub_bad = self.onto.AccessPolicy(self._track("p_reach_or_sub_bad"))
-            sub_bad.rule_type = ["grade_required"]
-            sub_bad.is_active = [True]
-            sub_bad.passing_threshold = [500.0]
+            sub_bad.rule_type = "grade_required"
+            sub_bad.is_active = True
+            sub_bad.passing_threshold = 500.0
 
             composite = self.onto.AccessPolicy(self._track("p_reach_or"))
-            composite.rule_type = ["or_combination"]
-            composite.is_active = [True]
+            composite.rule_type = "or_combination"
+            composite.is_active = True
             composite.has_subpolicy = [sub_ok, sub_bad]
             target.has_access_policy = [composite]
 
@@ -258,24 +258,24 @@ class StructuralReachabilityTests(unittest.TestCase):
             course = self.onto.Course(self._track("course_reach_and"))
             ok = self.onto.Lecture(self._track("lec_reach_and_ok"))
             target = self.onto.Lecture(self._track("lec_reach_and_target"))
-            course.contains_element = [ok, target]
+            course.contains_activity = [ok, target]
 
             sub_ok = self.onto.AccessPolicy(self._track("p_reach_and_sub_ok"))
-            sub_ok.rule_type = ["completion_required"]
-            sub_ok.is_active = [True]
-            sub_ok.targets_element = [ok]
+            sub_ok.rule_type = "completion_required"
+            sub_ok.is_active = True
+            sub_ok.targets_element = ok
 
             sub_bad = self.onto.AccessPolicy(self._track("p_reach_and_sub_bad"))
-            sub_bad.rule_type = ["date_restricted"]
-            sub_bad.is_active = [True]
+            sub_bad.rule_type = "date_restricted"
+            sub_bad.is_active = True
             # пустое окно — атомарно невыполнима
             from datetime import datetime as _dt
-            sub_bad.valid_from = [_dt(2026, 12, 31)]
-            sub_bad.valid_until = [_dt(2026, 1, 1)]
+            sub_bad.valid_from = _dt(2026, 12, 31)
+            sub_bad.valid_until = _dt(2026, 1, 1)
 
             composite = self.onto.AccessPolicy(self._track("p_reach_and"))
-            composite.rule_type = ["and_combination"]
-            composite.is_active = [True]
+            composite.rule_type = "and_combination"
+            composite.is_active = True
             composite.has_subpolicy = [sub_ok, sub_bad]
             target.has_access_policy = [composite]
 

@@ -60,28 +60,35 @@ class PolicyService:
             aggregate_element_ids=list(policy_data.aggregate_element_ids or []),
         )
 
-    _SNAPSHOT_LIST_PROPS = (
+    # Functional properties — хранятся как скаляры, снимаются/ставятся напрямую.
+    _SNAPSHOT_SCALAR_PROPS = (
         "rule_type",
         "is_active",
         "passing_threshold",
         "targets_element",
-        "targets_competency",
         "valid_from",
         "valid_until",
         "restricted_to_group",
+        "aggregate_function",
+    )
+    # Non-functional properties — multi-valued, snapshot как список.
+    _SNAPSHOT_LIST_PROPS = (
+        "targets_competency",
         "has_subpolicy",
         "aggregate_elements",
     )
 
     def _snapshot_policy(self, policy: Any) -> dict:
-        snap = {p: list(getattr(policy, p, []) or []) for p in self._SNAPSHOT_LIST_PROPS}
-        snap["aggregate_function"] = getattr(policy, "aggregate_function", None)
+        snap: dict = {p: getattr(policy, p, None) for p in self._SNAPSHOT_SCALAR_PROPS}
+        for p in self._SNAPSHOT_LIST_PROPS:
+            snap[p] = list(getattr(policy, p, []) or [])
         return snap
 
     def _restore_policy(self, policy: Any, snap: dict) -> None:
+        for p in self._SNAPSHOT_SCALAR_PROPS:
+            setattr(policy, p, snap[p])
         for p in self._SNAPSHOT_LIST_PROPS:
             setattr(policy, p, list(snap[p]))
-        policy.aggregate_function = snap["aggregate_function"]
 
     def _delete_policies_by_id(self, ids: List[str]) -> None:
         for pid in ids:
@@ -170,12 +177,12 @@ class PolicyService:
         new_policy = self.core.policies.create_or_update(policy_id)
 
         rule_type_value = self._rule_type_str(policy_data.rule_type)
-        new_policy.rule_type = [rule_type_value]
-        new_policy.is_active = [getattr(policy_data, 'is_active', True)]
+        new_policy.rule_type = rule_type_value
+        new_policy.is_active = getattr(policy_data, 'is_active', True)
         self._apply_type_specific_fields(new_policy, policy_data, rule_type_value)
 
         author = self.core._get_or_create_element(policy_data.author_id, self.core.onto.Methodologist)
-        new_policy.has_author = [author]
+        new_policy.has_author = author
 
         source = self._attach_to_source(new_policy, policy_data.source_element_id)
 
@@ -211,16 +218,16 @@ class PolicyService:
 
     def _apply_common_fields(self, policy: Any, data: PolicyCreate) -> None:
         if data.passing_threshold is not None:
-            policy.passing_threshold = [data.passing_threshold]
+            policy.passing_threshold = data.passing_threshold
         if data.valid_from:
-            policy.valid_from = [data.valid_from]
+            policy.valid_from = data.valid_from
         if data.valid_until:
-            policy.valid_until = [data.valid_until]
+            policy.valid_until = data.valid_until
         if data.target_element_id:
             target = self.core.courses.find_by_id(data.target_element_id)
             if not target:
                 target = self.core.courses.get_or_create_element(data.target_element_id, "CourseStructure")
-            policy.targets_element = [target]
+            policy.targets_element = target
         if data.target_competency_id:
             # Competency — отдельный класс (не CourseStructure), courses.find_by_id
             # его не находит; без явного поиска по type=Competency targets_competency
@@ -243,7 +250,7 @@ class PolicyService:
         )
         if group is None:
             raise ValueError(f"Группа {data.restricted_to_group_id} не найдена.")
-        policy.restricted_to_group = [group]
+        policy.restricted_to_group = group
 
     def _apply_composite_fields(self, policy: Any, data: PolicyCreate, rule_type: str) -> None:
         if not data.subpolicy_ids:
@@ -342,14 +349,14 @@ class PolicyService:
             raise
 
         new_type = self._rule_type_str(data.rule_type)
-        policy.rule_type = [new_type]
-        policy.is_active = [getattr(data, 'is_active', True)]
-        policy.passing_threshold = []
-        policy.targets_element = []
+        policy.rule_type = new_type
+        policy.is_active = getattr(data, 'is_active', True)
+        policy.passing_threshold = None
+        policy.targets_element = None
         policy.targets_competency = []
-        policy.valid_from = []
-        policy.valid_until = []
-        policy.restricted_to_group = []
+        policy.valid_from = None
+        policy.valid_until = None
+        policy.restricted_to_group = None
         policy.has_subpolicy = []
         policy.aggregate_elements = []
         policy.aggregate_function = None
@@ -404,8 +411,8 @@ class PolicyService:
         policy = self.core.policies.find_by_id(policy_id)
         if not policy:
             raise ValueError(f"Политика с ID {policy_id} не найдена")
-        previous = list(getattr(policy, "is_active", []) or [])
-        policy.is_active = [is_active]
+        previous = list(getattr(policy, "is_active", None) or [])
+        policy.is_active = is_active
         result = self.reasoner.reason()
         if result.status != "ok":
             policy.is_active = previous

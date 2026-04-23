@@ -80,7 +80,7 @@ class GraphValidator:
             eid = elem.name
             graph.add_edge(f"{eid}_access", f"{eid}_complete")
             children = list(getattr(elem, "has_module", []) or []) + list(
-                getattr(elem, "contains_element", []) or []
+                getattr(elem, "contains_activity", []) or []
             )
             for child in children:
                 cid = child.name
@@ -216,13 +216,13 @@ class GraphValidator:
 
     @staticmethod
     def get_parent_of(onto: Any, element_id: str) -> Any:
-        """Найти родителя элемента по has_module/contains_element (совместимость)."""
+        """Найти родителя элемента по has_module/contains_activity (совместимость)."""
         element = onto.search_one(type=onto.CourseStructure, iri=f"*{element_id}")
         if not element:
             return None
         for candidate in onto.CourseStructure.instances():
             if element in (getattr(candidate, "has_module", []) or []):
                 return candidate
-            if element in (getattr(candidate, "contains_element", []) or []):
+            if element in (getattr(candidate, "contains_activity", []) or []):
                 return candidate
         return None

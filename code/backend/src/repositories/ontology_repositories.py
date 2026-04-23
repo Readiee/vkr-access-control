@@ -63,8 +63,8 @@ class ProgressRepository:
         """Создает новую запись о прогрессе."""
         pr_id = f"pr_{uuid.uuid4().hex[:8]}"
         record = self.onto.ProgressRecord(pr_id)
-        record.refers_to_student = [student]
-        record.refers_to_element = [element]
+        record.refers_to_student = student
+        record.refers_to_element = element
         if record not in getattr(student, "has_progress_record", []):
             student.has_progress_record.append(record)
         return record
