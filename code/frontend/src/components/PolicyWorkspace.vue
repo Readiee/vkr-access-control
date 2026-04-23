@@ -1,6 +1,9 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
-import { ElementTypeMap } from '@/utils/formatters';
+import { computed, ref, watch } from 'vue';
+import { ElementTypeMap, buildCompetencyTree } from '@/utils/formatters';
+import { useOntologyStore } from '@/stores/ontology';
+import { setElementCompetencies } from '@/api';
+import { toastService } from '@/utils/toastService';
 import PolicyRuleCard from './PolicyRuleCard.vue';
 import CompositePolicyEditor from './CompositePolicyEditor.vue';
 
@@ -9,15 +12,36 @@ const props = defineProps<{
   treeData: any[];
 }>();
 
+const store = useOntologyStore();
+
 // Стейт для новых несохраненных правил
 const newPolicies = ref<any[]>([]);
 const compositeDraftOpen = ref(false);
 
+// Выдаваемые компетенции (assesses) — локальный map для TreeSelect.
+const assessesMap = ref<Record<string, { checked: boolean; partialChecked: boolean }>>({});
+
+const syncAssessesFromNode = () => {
+  const ids: string[] = (props.targetNode?.data?.assesses ?? []).map((c: any) => c.id);
+  const map: Record<string, { checked: boolean; partialChecked: boolean }> = {};
+  ids.forEach((id) => {
+    map[id] = { checked: true, partialChecked: false };
+  });
+  assessesMap.value = map;
+};
+
+const competencyTree = computed(() => buildCompetencyTree(store.competencies));
+
 // id узла лежит в data, не на верхнем уровне CourseTreeNode
-watch(() => props.targetNode?.data?.id, () => {
-  newPolicies.value = [];
-  compositeDraftOpen.value = false;
-});
+watch(
+  () => props.targetNode?.data?.id,
+  () => {
+    newPolicies.value = [];
+    compositeDraftOpen.value = false;
+    syncAssessesFromNode();
+  },
+  { immediate: true },
+);
 
 const addNewPolicy = () => {
   // Добавляем пустую болванку в начало или конец (пусть будет в конец)
@@ -30,6 +54,27 @@ const addNewPolicy = () => {
 const handleSaved = () => {
   newPolicies.value = [];
   compositeDraftOpen.value = false;
+};
+
+const saveAssesses = async () => {
+  const selected = Object.keys(assessesMap.value).filter((k) => assessesMap.value[k]?.checked);
+  const current = new Set((props.targetNode?.data?.assesses ?? []).map((c: any) => c.id));
+  const changed =
+    current.size !== selected.length || selected.some((id) => !current.has(id));
+  if (!changed) return;
+
+  try {
+    const result = await setElementCompetencies(props.targetNode.data.id, selected);
+    // Patch локально — чтобы не перезагружать дерево целиком.
+    props.targetNode.data.assesses = result.assesses;
+    toastService.showSuccess(
+      selected.length
+        ? `Элемент выдаёт ${selected.length} ${selected.length === 1 ? 'компетенцию' : 'компетенций'}`
+        : 'Выдача компетенций снята',
+    );
+  } catch {
+    syncAssessesFromNode();  // откат локального map — сервер не принял
+  }
 };
 </script>
 
@@ -51,11 +96,32 @@ const handleSaved = () => {
           {{ targetNode.data.name }}
         </h3>
       </div>
-      <Tag 
-        :value="targetNode.data.policies?.length ? 'С политиками' : 'Без политик'" 
+      <Tag
+        :value="targetNode.data.policies?.length ? 'С политиками' : 'Без политик'"
         severity="secondary"
         rounded
         class="text-[10px] whitespace-nowrap"
+      />
+    </div>
+
+    <!-- Выдаваемые компетенции (SWRL H-2) -->
+    <div class="flex flex-col gap-1 pb-4 border-b border-surface-100">
+      <label class="text-[11px] font-bold text-surface-500 uppercase flex items-center gap-2">
+        Выдаваемые компетенции
+        <span class="text-[10px] text-surface-400 font-normal normal-case tracking-normal">
+          — студент получит их при прохождении элемента
+        </span>
+      </label>
+      <TreeSelect
+        v-model="assessesMap"
+        :options="competencyTree"
+        selectionMode="checkbox"
+        placeholder="Нет — элемент не выдаёт компетенций"
+        emptyMessage="В онтологии нет компетенций"
+        display="chip"
+        filter
+        class="w-full"
+        @hide="saveAssesses"
       />
     </div>
 

@@ -59,6 +59,7 @@ export interface CourseElement {
   name: string;
   type: string;
   is_mandatory?: boolean;
+  assesses?: Array<{ id: string; name: string }>;
 }
 
 export interface CourseStructureResponse {

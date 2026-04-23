@@ -16,3 +16,17 @@ export const getCourseTree = async (courseId: string): Promise<CourseTreeNode[]>
   const { data } = await apiClient.get<CourseTreeNode[]>(`/courses/${courseId}/tree`);
   return data;
 };
+
+/**
+ * Перезаписать список компетенций, которые элемент выдаёт при прохождении
+ * (SWRL H-2). Возвращает обновлённый assesses.
+ */
+export const setElementCompetencies = async (
+  elementId: string,
+  competencyIds: string[],
+): Promise<{ element_id: string; assesses: Array<{ id: string; name: string }> }> => {
+  const { data } = await apiClient.put(`/elements/${elementId}/competencies`, {
+    competency_ids: competencyIds,
+  });
+  return data;
+};
