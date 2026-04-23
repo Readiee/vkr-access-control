@@ -8,10 +8,10 @@ class StudentRepository:
     def get_or_create(self, student_id: str):
         """Находит студента по ID или создает нового.
 
-        Sandbox-студенты живут под id вроде `sandbox_new` (класс SandboxStudent
-        наследует Student, id без префикса `student_`). Сперва ищем индивид по
-        оригинальному id — иначе создастся второй Student с префиксом, прогресс
-        и вывод is_available_for разъедутся на разных индивидов с одним именем.
+        Sandbox-студент живёт под id `student_sandbox` (класс SandboxStudent
+        наследует Student). Сперва ищем индивид по оригинальному id — иначе
+        создастся второй Student с префиксом, прогресс и вывод
+        is_available_for разъедутся на разных индивидов с одним именем.
         """
         direct = self.onto.search_one(iri=f"*{student_id}")
         if direct is not None:

@@ -269,8 +269,8 @@ class AccessService:
         return "Условие правила не выполнено", {}
 
     def _resolve_student(self, student_id: str) -> Optional[Any]:
-        # Sandbox-студенты живут под собственными id ("sandbox_new" и т.п.) — сначала
-        # ищем по исходному id, чтобы не создавать фантомного Student с префиксом.
+        # Sandbox-студент живёт под id "student_sandbox" — сначала ищем по
+        # исходному id, чтобы не создавать фантомного Student с префиксом.
         found = self.core.onto.search_one(iri=f"*{student_id}")
         if found is not None:
             return found
