@@ -285,15 +285,38 @@ class PolicyService:
         return True
 
     def update_policy(self, policy_id: str, data: PolicyCreate) -> dict:
-        """Обновить существующую AccessPolicy новыми данными."""
-        self._check_cycle(data)
+        """Обновить существующую AccessPolicy новыми данными.
 
+        Для AND/OR поддерживается nested_subpolicies: старые подусловия, которые
+        использовались только этим композитом, удаляются из ABox; новые
+        создаются атомарно и подвязываются как has_subpolicy.
+        """
         policy = self.core.policies.find_by_id(policy_id)
         if not policy:
             raise ValueError(f"Политика с ID {policy_id} не найдена")
 
+        old_subs = list(getattr(policy, "has_subpolicy", []) or [])
+
+        nested = list(getattr(data, "nested_subpolicies", None) or [])
+        if nested:
+            created_ids: List[str] = []
+            for child in nested:
+                child_copy = child.model_copy(update={
+                    "source_element_id": None,
+                    "is_active": True,
+                    "nested_subpolicies": None,
+                })
+                child_dict = self.create_policy(child_copy)
+                created_ids.append(child_dict["id"])
+            merged = list(data.subpolicy_ids or []) + created_ids
+            data = data.model_copy(update={
+                "subpolicy_ids": merged,
+                "nested_subpolicies": None,
+            })
+
+        self._check_cycle(data)
+
         new_type = self._rule_type_str(data.rule_type)
-        # Чистим все specific-поля — ставим заново по новому rule_type
         policy.rule_type = [new_type]
         policy.is_active = [getattr(data, 'is_active', True)]
         policy.passing_threshold = []
@@ -308,6 +331,8 @@ class PolicyService:
 
         self._apply_type_specific_fields(policy, data, new_type)
 
+        self._cleanup_orphan_nested(policy, old_subs)
+
         self.core.save()
         self.reasoner.reason()
         self._invalidate_all_access_caches()
@@ -315,6 +340,31 @@ class PolicyService:
         source_elements = self.core.policies.find_by_source_element(policy)
         source_id = source_elements[0].name if source_elements else data.source_element_id
         return self._map_policy_to_dict(policy, source_id)
+
+    def _cleanup_orphan_nested(self, parent_policy: Any, old_subs: List[Any]) -> None:
+        """Удаляет подусловия, которые были вложены только в parent_policy и не
+        висят ни на одном элементе как самостоятельная политика.
+
+        Безопасно оставляет subpolicy, если:
+        - она продолжает использоваться этим же composite (не «старая» после update),
+        - её же ссылается другой composite,
+        - у неё есть source-элемент (значит, это отдельная политика).
+        """
+        current_subs = set(getattr(parent_policy, "has_subpolicy", []) or [])
+        all_elements = self.core.courses.get_all_elements()
+        all_policies = list(self.core.onto.AccessPolicy.instances())
+        for old in old_subs:
+            if old in current_subs:
+                continue
+            has_source = any(old in getattr(el, "has_access_policy", []) for el in all_elements)
+            if has_source:
+                continue
+            used_elsewhere = any(
+                old in getattr(p, "has_subpolicy", []) for p in all_policies if p is not parent_policy
+            )
+            if used_elsewhere:
+                continue
+            self.core.policies.delete(old)
 
     def toggle_policy(self, policy_id: str, is_active: bool) -> None:
         """Переключить флаг is_active."""
