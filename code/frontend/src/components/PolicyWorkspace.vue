@@ -112,25 +112,23 @@ const saveAssesses = async () => {
           {{ targetNode.data.name }}
         </h3>
       </div>
-      <div class="flex items-center gap-4">
-        <div class="flex items-center gap-2" v-tooltip.top="'Влияет на Roll-up: модуль/курс завершён, только если все mandatory потомки завершены'">
-          <ToggleSwitch v-model="isMandatoryModel" :inputId="`mandatory-${targetNode.data.id}`" size="small" />
-          <label :for="`mandatory-${targetNode.data.id}`" class="text-xs font-medium text-surface-600 cursor-pointer select-none">
-            {{ isMandatoryModel ? 'Обязательный' : 'Необязательный' }}
-          </label>
-        </div>
-        <Tag
-          :value="targetNode.data.policies?.length ? 'С политиками' : 'Без политик'"
-          severity="secondary"
-          rounded
-          class="text-[10px] whitespace-nowrap"
-        />
+      <div
+        class="flex items-center gap-2"
+        v-tooltip.top="{
+          value: 'Если включено — родительский модуль считается пройденным только после прохождения этого элемента',
+          pt: { text: { style: 'font-size: 0.7rem; max-width: 240px; line-height: 1.3;' } }
+        }"
+      >
+        <ToggleSwitch v-model="isMandatoryModel" :inputId="`mandatory-${targetNode.data.id}`" size="small" />
+        <label :for="`mandatory-${targetNode.data.id}`" class="text-xs font-medium text-surface-600 cursor-pointer select-none">
+          {{ isMandatoryModel ? 'Обязательный' : 'Необязательный' }}
+        </label>
       </div>
     </div>
 
     <!-- Выдаваемые компетенции (SWRL H-2) -->
     <div class="flex flex-col gap-1 pb-4 border-b border-surface-100">
-      <h3 class="text-lg font-bold text-surface-800 flex items-center gap-2 mb-2">
+      <h3 class="text-lg font-bold text-surface-800 flex items-center">
         Выдаваемые компетенции
       </h3>
       <span class="text-[10px] text-surface-400 font-normal normal-case tracking-normal">
@@ -140,11 +138,11 @@ const saveAssesses = async () => {
         v-model="assessesMap"
         :options="competencyTree"
         selectionMode="checkbox"
-        placeholder="Нет — элемент не выдаёт компетенций"
+        placeholder="Выберите компетенции"
         emptyMessage="В онтологии нет компетенций"
         display="chip"
         filter
-        class="w-full"
+        class="w-full mt-2"
         @hide="saveAssesses"
       />
     </div>
