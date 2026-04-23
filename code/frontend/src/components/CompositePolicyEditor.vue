@@ -255,7 +255,7 @@ const submit = async () => {
       rule_type: compositeRuleType.value,
       source_element_id: props.targetNode?.data?.id,
       author_id: SANDBOX_AUTHOR_ID,
-      is_active: props.initialData?.is_active ?? true,
+      is_active: true,
       nested_subpolicies: children.value.map(toPolicyCreate),
       subpolicy_ids: null,
     } as PolicyCreate;

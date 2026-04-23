@@ -10,13 +10,13 @@ const router = createRouter({
       children: [
         {
           path: '',
-          name: 'dashboard',
+          name: 'rules',
           component: () => import('@/views/Dashboard.vue')
         },
         {
-          path: 'simulator',
-          name: 'simulator',
-          component: () => import('@/views/StudentSimulator.vue')
+          path: 'sandbox',
+          name: 'sandbox',
+          component: () => import('@/views/Sandbox.vue')
         },
         {
           path: 'verify',

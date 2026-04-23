@@ -3,7 +3,7 @@ import { ref, watch, onMounted, computed } from 'vue';
 import { useOntologyStore } from '@/stores/ontology';
 import { useSandboxStore } from '@/stores/sandbox';
 import { useCourseTree } from '@/composables/useCourseTree';
-import SimulatorInspector from '@/components/SimulatorInspector.vue';
+import SandboxInspector from '@/components/SandboxInspector.vue';
 import { useConfirm } from 'primevue/useconfirm';
 import ConfirmDialog from 'primevue/confirmdialog';
 import { buildCompetencyTree } from '@/utils/formatters';
@@ -212,7 +212,7 @@ const confirmReset = (event: Event) => {
 
       <!-- Right: Element Details & Emulation -->
       <div class="col-span-3 bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col h-full overflow-y-auto custom-scrollbar">
-         <SimulatorInspector 
+         <SandboxInspector 
             :selected-node="selectedNode" 
             :course-tree="ontologyStore.currentCourseTree" 
          />

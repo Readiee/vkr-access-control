@@ -178,7 +178,12 @@ class PolicyService:
 
         rule_type_value = self._rule_type_str(policy_data.rule_type)
         new_policy.rule_type = rule_type_value
-        new_policy.is_active = getattr(policy_data, 'is_active', True)
+        # Composite-правило всегда активно: его "активность" определяется
+        # активностью подусловий, отдельно выключать смысла нет.
+        if rule_type_value in {RuleType.AND.value, RuleType.OR.value}:
+            new_policy.is_active = True
+        else:
+            new_policy.is_active = getattr(policy_data, 'is_active', True)
         self._apply_type_specific_fields(new_policy, policy_data, rule_type_value)
 
         author = self.core._get_or_create_element(policy_data.author_id, self.core.onto.Methodologist)
@@ -350,7 +355,11 @@ class PolicyService:
 
         new_type = self._rule_type_str(data.rule_type)
         policy.rule_type = new_type
-        policy.is_active = getattr(data, 'is_active', True)
+        # Composite-правило всегда активно: см. create_policy.
+        if new_type in {RuleType.AND.value, RuleType.OR.value}:
+            policy.is_active = True
+        else:
+            policy.is_active = getattr(data, 'is_active', True)
         policy.passing_threshold = None
         policy.targets_element = None
         policy.targets_competency = []
