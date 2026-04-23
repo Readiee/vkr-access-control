@@ -72,7 +72,7 @@ const handleSaved = () => {
       </h3>
       
       <!-- Пустое состояние -->
-      <div v-if="!targetNode.data.policies?.length && !newPolicies.length" class="py-6 bg-surface-50 rounded-2xl border border-surface-200 flex flex-col items-center justify-center text-center px-4">
+      <div v-if="!targetNode.data.policies?.length && !newPolicies.length && !compositeDraftOpen" class="py-6 bg-surface-50 rounded-2xl border border-surface-200 flex flex-col items-center justify-center text-center px-4">
         <p class="text-surface-600 font-medium mb-1">Нет ограничений</p>
         <p class="text-surface-400 text-sm max-w-96">Для этого элемента нет правил доступа. Он доступен всем студентам по умолчанию.</p>
       </div>

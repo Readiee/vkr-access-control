@@ -9,7 +9,9 @@ import {
   ruleTypeOptions,
   AggregateFunctionLabels,
   GRADABLE_ELEMENT_TYPES,
+  findNodeNameById,
 } from '@/utils/formatters';
+import { useTreeHelpers } from '@/composables/useTreeHelpers';
 import { SANDBOX_AUTHOR_ID } from '@/utils/auth';
 
 const props = defineProps<{
@@ -23,7 +25,29 @@ const emit = defineEmits<{
 }>();
 
 const store = useOntologyStore();
+const { getBlockedIds, getExpandedKeys, buildSelectableTree } = useTreeHelpers();
 const isSaving = ref(false);
+
+const expandedKeys = computed(() =>
+  getExpandedKeys(props.treeData ?? [], props.targetNode?.data?.id),
+);
+
+const selectableTreeFor = (ruleType: RuleType) => {
+  if (!props.treeData) return [];
+  const blocked = getBlockedIds(props.treeData, props.targetNode?.data?.id ?? '');
+  return buildSelectableTree(props.treeData, blocked, ruleType, props.targetNode?.data?.id);
+};
+
+const pickTargetElement = (c: ChildDraft, val: any) => {
+  if (!val || typeof val !== 'object') {
+    c.target_element_id = null;
+    return;
+  }
+  const picked = Object.entries(val).find(
+    ([, v]) => v === true || (v as any)?.checked === true,
+  );
+  c.target_element_id = picked ? picked[0] : null;
+};
 
 type ChildDraft = {
   _key: number;
@@ -73,25 +97,11 @@ const flattenElements = (nodes: CourseTreeNode[] | undefined): ElementOption[] =
   return out;
 };
 
-const elementOptions = computed(() => flattenElements(props.treeData));
+// Плоский список с элементами, где есть оценка — нужен только для агрегата (MultiSelect).
+// Для completion/viewed/grade TreeSelect использует selectableTreeFor + useTreeHelpers.
 const gradableElementOptions = computed(() =>
-  elementOptions.value.filter((el) => GRADABLE_ELEMENT_TYPES.has(el.type)),
+  flattenElements(props.treeData).filter((el) => GRADABLE_ELEMENT_TYPES.has(el.type)),
 );
-
-/** Для completion/viewed допустимы атомарные элементы (лекции/тесты/практики/задания).
- *  На курс/модуль завершение навешивать семантически бессмысленно: у них нет
- *  собственного has_status — только агрегация потомков. */
-const PROGRESSABLE_TYPES = new Set(['lecture', 'test', 'practice', 'assignment']);
-const progressableElementOptions = computed(() =>
-  elementOptions.value.filter((el) => PROGRESSABLE_TYPES.has(el.type)),
-);
-
-const elementOptionsFor = (rt: RuleType) => {
-  if (rt === RuleType.GRADE_REQUIRED) return gradableElementOptions.value;
-  if (rt === RuleType.COMPLETION_REQUIRED || rt === RuleType.VIEWED_REQUIRED)
-    return progressableElementOptions.value;
-  return elementOptions.value;
-};
 
 const addChild = () => children.value.push(newChild());
 const removeChild = (key: number) => {
@@ -264,15 +274,22 @@ const submit = async () => {
               class="flex flex-col gap-1 col-span-2"
             >
               <label class="text-[11px] font-bold text-surface-500 uppercase">Целевой элемент</label>
-              <Select
-                v-model="child.target_element_id"
-                :options="elementOptionsFor(child.rule_type)"
-                optionLabel="name"
-                optionValue="id"
+              <TreeSelect
+                :modelValue="child.target_element_id ? { [child.target_element_id]: true } : null"
+                @update:modelValue="(val: any) => pickTargetElement(child, val)"
+                :options="selectableTreeFor(child.rule_type)"
+                :expandedKeys="expandedKeys"
                 :placeholder="child.rule_type === RuleType.GRADE_REQUIRED ? 'Тест/практика/задание' : 'Выберите элемент'"
-                filter
                 class="w-full"
-              />
+                selection-mode="single"
+              >
+                <template #value>
+                  <span v-if="child.target_element_id">
+                    {{ findNodeNameById(treeData, child.target_element_id) ?? child.target_element_id }}
+                  </span>
+                  <span v-else class="text-surface-400">Выбор...</span>
+                </template>
+              </TreeSelect>
             </div>
 
             <div v-if="child.rule_type === RuleType.GRADE_REQUIRED" class="flex flex-col gap-1">
@@ -360,21 +377,23 @@ const submit = async () => {
           @click="addChild"
         />
 
-        <div class="flex justify-end items-center gap-4 pt-2 border-t border-surface-100">
+        <div class="flex justify-between items-center pt-2 border-t border-surface-100">
           <span v-if="validationHint" class="text-xs text-surface-500 italic">
-            <i class="pi pi-info-circle mr-1"></i>{{ validationHint }}
+            {{ validationHint }}
           </span>
-          <Button label="Отмена" severity="secondary" variant="text" size="small" @click="$emit('cancelled')" />
-          <Button
-            label="Создать составное правило"
-            icon="pi pi-check"
-            size="small"
-            :loading="isSaving"
-            :disabled="!isFormValid"
-            @click="submit"
-          />
+          <div class="flex gap-4">
+              <Button label="Отмена" severity="secondary" variant="text" size="small" @click="$emit('cancelled')" />
+              <Button
+                label="Создать составное правило"
+                icon="pi pi-check"
+                size="small"
+                :loading="isSaving"
+                :disabled="!isFormValid"
+                @click="submit"
+              />
+            </div>
+          </div>
         </div>
-      </div>
     </template>
   </Card>
 </template>
