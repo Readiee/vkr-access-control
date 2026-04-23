@@ -30,3 +30,17 @@ export const setElementCompetencies = async (
   });
   return data;
 };
+
+/**
+ * Переключить флаг обязательности элемента (влияет на Roll-up:
+ * модуль завершён только если все mandatory потомки завершены).
+ */
+export const setElementMandatory = async (
+  elementId: string,
+  isMandatory: boolean,
+): Promise<{ element_id: string; is_mandatory: boolean }> => {
+  const { data } = await apiClient.put(`/elements/${elementId}/mandatory`, {
+    is_mandatory: isMandatory,
+  });
+  return data;
+};

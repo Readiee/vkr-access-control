@@ -226,3 +226,21 @@ class IntegrationService:
             "element_id": element_id,
             "assesses": [{"id": c.name, "name": (c.label[0] if getattr(c, "label", None) else c.name)} for c in competencies],
         }
+
+    def set_element_mandatory(self, element_id: str, is_mandatory: bool) -> dict:
+        """Перезаписать флаг обязательности элемента.
+
+        Влияет на Roll-up: модуль/курс считается завершённым только если все
+        обязательные потомки завершены. Смена флага инвалидирует access-кэш;
+        Roll-up пересчитается при следующем simulate_progress.
+        """
+        element = self.core.courses.find_by_id(element_id)
+        if element is None:
+            raise ValueError(f"Элемент {element_id} не найден.")
+
+        # is_mandatory — FunctionalProperty, scalar API
+        element.is_mandatory = bool(is_mandatory)
+        self.core.save()
+        self.cache.invalidate_all_access()
+        self.cache.invalidate_verification()
+        return {"element_id": element_id, "is_mandatory": bool(is_mandatory)}

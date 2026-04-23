@@ -83,3 +83,19 @@ async def set_element_competencies(
         return service.set_element_competencies(element_id, payload.get("competency_ids", []))
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+
+@router.put(
+    "/elements/{element_id}/mandatory",
+    summary="Перезаписать флаг обязательности элемента (влияет на Roll-up)",
+)
+async def set_element_mandatory(
+    payload: dict,
+    element_id: str = Path(..., description="ID элемента курса"),
+    service: IntegrationService = Depends(get_integration_service),
+) -> dict:
+    try:
+        is_mandatory = bool(payload.get("is_mandatory"))
+        return service.set_element_mandatory(element_id, is_mandatory)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))

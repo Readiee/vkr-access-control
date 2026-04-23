@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import { ElementTypeMap, buildCompetencyTree } from '@/utils/formatters';
 import { useOntologyStore } from '@/stores/ontology';
-import { setElementCompetencies } from '@/api';
+import { setElementCompetencies, setElementMandatory } from '@/api';
 import { toastService } from '@/utils/toastService';
 import PolicyRuleCard from './PolicyRuleCard.vue';
 import CompositePolicyEditor from './CompositePolicyEditor.vue';
@@ -56,6 +56,22 @@ const handleSaved = () => {
   compositeDraftOpen.value = false;
 };
 
+const isMandatoryModel = computed<boolean>({
+  get: () => props.targetNode?.data?.is_mandatory ?? true,
+  set: async (value: boolean) => {
+    const previous = props.targetNode.data.is_mandatory ?? true;
+    if (previous === value) return;
+    // Оптимистичный patch + запрос; при ошибке откатываем.
+    props.targetNode.data.is_mandatory = value;
+    try {
+      await setElementMandatory(props.targetNode.data.id, value);
+      toastService.showSuccess(value ? 'Элемент стал обязательным' : 'Элемент стал необязательным');
+    } catch {
+      props.targetNode.data.is_mandatory = previous;
+    }
+  },
+});
+
 const saveAssesses = async () => {
   const selected = Object.keys(assessesMap.value).filter((k) => assessesMap.value[k]?.checked);
   const current = new Set((props.targetNode?.data?.assesses ?? []).map((c: any) => c.id));
@@ -96,22 +112,30 @@ const saveAssesses = async () => {
           {{ targetNode.data.name }}
         </h3>
       </div>
-      <Tag
-        :value="targetNode.data.policies?.length ? 'С политиками' : 'Без политик'"
-        severity="secondary"
-        rounded
-        class="text-[10px] whitespace-nowrap"
-      />
+      <div class="flex items-center gap-4">
+        <div class="flex items-center gap-2" v-tooltip.top="'Влияет на Roll-up: модуль/курс завершён, только если все mandatory потомки завершены'">
+          <ToggleSwitch v-model="isMandatoryModel" :inputId="`mandatory-${targetNode.data.id}`" size="small" />
+          <label :for="`mandatory-${targetNode.data.id}`" class="text-xs font-medium text-surface-600 cursor-pointer select-none">
+            {{ isMandatoryModel ? 'Обязательный' : 'Необязательный' }}
+          </label>
+        </div>
+        <Tag
+          :value="targetNode.data.policies?.length ? 'С политиками' : 'Без политик'"
+          severity="secondary"
+          rounded
+          class="text-[10px] whitespace-nowrap"
+        />
+      </div>
     </div>
 
     <!-- Выдаваемые компетенции (SWRL H-2) -->
     <div class="flex flex-col gap-1 pb-4 border-b border-surface-100">
-      <label class="text-[11px] font-bold text-surface-500 uppercase flex items-center gap-2">
+      <h3 class="text-lg font-bold text-surface-800 flex items-center gap-2 mb-2">
         Выдаваемые компетенции
-        <span class="text-[10px] text-surface-400 font-normal normal-case tracking-normal">
-          — студент получит их при прохождении элемента
-        </span>
-      </label>
+      </h3>
+      <span class="text-[10px] text-surface-400 font-normal normal-case tracking-normal">
+        студент получит их при прохождении элемента
+      </span>
       <TreeSelect
         v-model="assessesMap"
         :options="competencyTree"

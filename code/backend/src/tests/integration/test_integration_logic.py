@@ -177,6 +177,36 @@ class TestOntologyIntegration(unittest.TestCase):
         test_node_after = tree_after[0]["children"][0]["children"][0]
         self.assertEqual({c["id"] for c in test_node_after["data"]["assesses"]}, {"comp_ec_x"})
 
+    def test_set_element_mandatory_toggles_flag_in_tree(self):
+        elements = [
+            CourseElement(element_id="course_im", element_type=ElementType.COURSE, name="IM Course", is_mandatory=True),
+            CourseElement(element_id="mod_im", element_type=ElementType.MODULE, name="IM Module", parent_id="course_im", is_mandatory=True),
+            CourseElement(element_id="lec_im", element_type=ElementType.LECTURE, name="IM Lec", parent_id="mod_im", is_mandatory=True),
+        ]
+        self.integration_service.sync_course_structure(
+            "course_im", CourseSyncPayload(course_name="IM", elements=elements),
+        )
+
+        tree_before = self.integration_service.get_course_tree("course_im")
+        lec_before = tree_before[0]["children"][0]["children"][0]
+        self.assertTrue(lec_before["data"]["is_mandatory"])
+
+        result = self.integration_service.set_element_mandatory("lec_im", False)
+        self.assertEqual(result, {"element_id": "lec_im", "is_mandatory": False})
+
+        tree_after = self.integration_service.get_course_tree("course_im")
+        lec_after = tree_after[0]["children"][0]["children"][0]
+        self.assertFalse(lec_after["data"]["is_mandatory"])
+
+        # Возврат
+        self.integration_service.set_element_mandatory("lec_im", True)
+        tree_back = self.integration_service.get_course_tree("course_im")
+        self.assertTrue(tree_back[0]["children"][0]["children"][0]["data"]["is_mandatory"])
+
+    def test_set_element_mandatory_unknown_raises(self):
+        with self.assertRaises(ValueError):
+            self.integration_service.set_element_mandatory("nonexistent_element", True)
+
     def test_set_element_competencies_unknown_raises(self):
         elements = [
             CourseElement(element_id="course_ec2", element_type=ElementType.COURSE, name="EC2", is_mandatory=True),
