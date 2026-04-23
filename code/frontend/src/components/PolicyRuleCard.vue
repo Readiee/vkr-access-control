@@ -128,7 +128,7 @@ const validationHint = computed<string>(() => {
       if (!f.aggregate_function) return 'Выберите функцию агрегирования';
       if (!Array.isArray(f.aggregate_element_ids) || !f.aggregate_element_ids.length)
         return 'Выберите хотя бы один элемент с оценкой';
-      if (f.passing_threshold == null) return 'Задайте порог';
+      if (f.passing_threshold == null) return 'Задайте минимальный балл (0–100)';
       return '';
     default:
       return '';
@@ -246,13 +246,11 @@ const isDateRule = computed(() => form.value.rule_type === RuleType.DATE_RESTRIC
            </div>
         </div>
 
-        <!-- Редактирование составного условия — полноценная форма с детальными
-             подусловиями, а не MultiSelect по id — иначе методист не может
-             менять содержание composite, только переназначать ссылки. -->
+        <!-- Редактирование составного условия -->
         <CompositePolicyEditor
           v-else-if="editMode && initialData && (initialData.rule_type === RuleType.AND_COMBINATION || initialData.rule_type === RuleType.OR_COMBINATION)"
           :target-node="targetNode"
-          :tree-data="treeData"
+          :tree-data="treeData ?? []"
           :initial-data="initialData"
           @saved="isEditing = false; $emit('saved');"
           @cancelled="isEditing = false"
@@ -316,6 +314,21 @@ const isDateRule = computed(() => form.value.rule_type === RuleType.DATE_RESTRIC
                 <label class="text-[11px] font-bold text-surface-500 uppercase">Мин. балл</label>
                 <InputNumber v-model="form.passing_threshold" :min="0" :max="100" placeholder="0-100" class="w-20" inputClass="w-full" />
               </div>
+
+              <div v-if="isAggregateRule" class="flex flex-col gap-1">
+                <label class="text-[11px] font-bold text-surface-500 uppercase">Функция</label>
+                <Select
+                  v-model="form.aggregate_function"
+                  :options="aggregateFunctionOptions"
+                  optionLabel="label"
+                  optionValue="value"
+                  class="w-full"
+                />
+              </div>
+              <div v-if="isAggregateRule" class="flex flex-col gap-1">
+                <label class="text-[11px] font-bold text-surface-500 uppercase">Мин. балл</label>
+                <InputNumber v-model="form.passing_threshold" :min="0" :max="100" placeholder="0-100" class="w-20" inputClass="w-full" />
+              </div>
            </div>
 
            <div v-if="isDateRule" class="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2 border-t border-surface-50">
@@ -366,39 +379,23 @@ const isDateRule = computed(() => form.value.rule_type === RuleType.DATE_RESTRIC
               />
            </div>
 
-           <div v-if="isAggregateRule" class="grid grid-cols-1 md:grid-cols-3 gap-5 pt-2 border-t border-surface-50">
-              <div class="flex flex-col gap-1">
-                <label class="text-[11px] font-bold text-surface-500 uppercase">Функция</label>
-                <Select
-                  v-model="form.aggregate_function"
-                  :options="aggregateFunctionOptions"
-                  optionLabel="label"
-                  optionValue="value"
-                  class="w-full"
-                />
-              </div>
-              <div class="flex flex-col gap-1">
-                <label class="text-[11px] font-bold text-surface-500 uppercase">Порог</label>
-                <InputNumber v-model="form.passing_threshold" :min="0" :max="100" placeholder="0-100" class="w-full" />
-              </div>
-              <div class="flex flex-col gap-1 col-span-3">
-                <label class="text-[11px] font-bold text-surface-500 uppercase">
-                  Элементы с оценками
-                </label>
-                <MultiSelect
-                  v-model="form.aggregate_element_ids"
-                  :options="gradableElementOptions"
-                  optionLabel="name"
-                  optionValue="id"
-                  placeholder="Выберите тесты/практики"
-                  display="chip"
-                  filter
-                  class="w-full"
-                />
-                <p class="text-[11px] text-surface-400 mt-1">
-                  Доступны только тесты, практики и задания (элементы, за которые ставится оценка).
-                </p>
-              </div>
+           <div v-if="isAggregateRule" class="flex flex-col gap-1 pt-2 border-t border-surface-50">
+              <label class="text-[11px] font-bold text-surface-500 uppercase">
+                Элементы с оценками
+              </label>
+              <MultiSelect
+                v-model="form.aggregate_element_ids"
+                :options="gradableElementOptions"
+                optionLabel="name"
+                optionValue="id"
+                placeholder="Выберите тесты/практики"
+                display="chip"
+                filter
+                class="w-full"
+              />
+              <p class="text-[11px] text-surface-400 mt-1">
+                Доступны только тесты, практики и задания (элементы, за которые ставится оценка).
+              </p>
            </div>
 
            <div class="flex justify-between items-center pt-2 border-t border-surface-50">
