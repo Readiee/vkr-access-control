@@ -1,15 +1,19 @@
-"""ProgressController (DSL §28): приём событий прогресса от внешней СДО.
+"""ProgressController: приём событий прогресса от внешней СДО.
 
 Webhook UC-5: СДО отправляет событие (`viewed`, `completed`, `graded`,
 `competency_acquired`), ProgressService записывает факт в ABox, запускает reasoning
-в фоне, каскадно обновляет завершённость родителя (UC-8, А3) и пересобирает
+в фоне, каскадно обновляет завершённость родителя и пересобирает
 Redis-кэш доступа студента через AccessService.
 """
+import logging
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 
 from api.dependencies import get_progress_service
 from schemas.schemas import ProgressEvent
 from services.progress_service import ProgressService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/events", tags=["Progress"])
 
@@ -40,8 +44,9 @@ async def register_progress(
         }
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    except Exception as exc:
+    except Exception:
+        logger.exception("register_progress упал на payload %s", data)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Ошибка: {exc}",
+            detail="Внутренняя ошибка обработки события",
         )

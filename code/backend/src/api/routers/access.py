@@ -1,8 +1,12 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 
 from api.dependencies import get_access_service
 from schemas.schemas import AvailableElements
 from services.access import AccessService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/access", tags=["Access"])
 
@@ -20,9 +24,11 @@ async def get_student_access(
     """Доступные элементы курса из кэша Redis (через AccessService)."""
     try:
         return service.get_course_access(student_id, course_id)
-    except Exception as exc:
+    except Exception:
+        logger.exception("get_student_access %s/%s упал", student_id, course_id)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Внутренняя ошибка чтения доступа",
         )
 
 
