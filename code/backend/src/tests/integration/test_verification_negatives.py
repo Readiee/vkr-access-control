@@ -27,8 +27,8 @@ class VerificationNegativeTests(unittest.TestCase):
     остаются в глобальном графе и портят Pellet."""
 
     def setUp(self):
-        self.test_owl = f"test_verify_neg_{id(self)}.owl"
-        shutil.copy(DEFAULT_ONTOLOGY_PATH, self.test_owl)
+        from tests._factory import make_temp_onto_copy
+        self.test_owl = make_temp_onto_copy(prefix="vkr_verify_neg_")
         self.world = World()
         self.core = OntologyCore(self.test_owl, world=self.world)
         from services.cache_manager import CacheManager

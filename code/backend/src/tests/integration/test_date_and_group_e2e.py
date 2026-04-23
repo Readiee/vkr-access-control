@@ -24,8 +24,8 @@ from services.ontology_core import OntologyCore  # noqa: E402
 
 class DateAndGroupReasoningTests(unittest.TestCase):
     def setUp(self):
-        self.test_owl = "test_date_group.owl"
-        shutil.copy(DEFAULT_ONTOLOGY_PATH, self.test_owl)
+        from tests._factory import make_temp_onto_copy
+        self.test_owl = make_temp_onto_copy(prefix="vkr_date_group_")
         self.core = OntologyCore(self.test_owl)
         from services.cache_manager import CacheManager
         from services.reasoning import ReasoningOrchestrator

@@ -18,10 +18,10 @@ from services.progress_service import ProgressService
 
 class TestOntologyIntegration(unittest.TestCase):
     def setUp(self):
+        from tests._factory import make_temp_onto_copy
         self.original_owl = DEFAULT_ONTOLOGY_PATH
-        self.test_owl = "test_integration.owl"
-        shutil.copy(self.original_owl, self.test_owl)
-        
+        self.test_owl = make_temp_onto_copy(prefix="vkr_integration_")
+
         self.core = OntologyCore(self.test_owl)
         from services.cache_manager import CacheManager
         from services.reasoning import ReasoningOrchestrator

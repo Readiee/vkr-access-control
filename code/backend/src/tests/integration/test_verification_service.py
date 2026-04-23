@@ -19,9 +19,9 @@ from services.verification import VerificationService  # noqa: E402
 
 class VerificationServiceIntegrationTests(unittest.TestCase):
     def setUp(self):
+        from tests._factory import make_temp_onto_copy
         self.source_owl = DEFAULT_ONTOLOGY_PATH
-        self.test_owl = "test_verification.owl"
-        shutil.copy(self.source_owl, self.test_owl)
+        self.test_owl = make_temp_onto_copy(prefix="vkr_verification_")
 
         self.core = OntologyCore(self.test_owl)
         from services.cache_manager import CacheManager
