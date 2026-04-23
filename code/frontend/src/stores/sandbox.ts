@@ -5,6 +5,7 @@ import {
   resetSandbox as apiResetSandbox,
   rollbackSandboxProgress,
   setSandboxCompetencies,
+  setSandboxGroup,
   simulateSandboxProgress,
 } from '@/api/sandbox';
 import type { SandboxProgressEntry, SandboxProgressPayload } from '@/types';
@@ -18,6 +19,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
   const currentStudentId = ref<string | null>(null);
   const currentStudentName = ref<string>('');
   const activeCompetencies = ref<string[]>([]);
+  const currentGroupId = ref<string | null>(null);
 
   // Runtime-оверлей над ontology.currentCourseTree: что доступно студенту сейчас
   // и какой прогресс по какому элементу. Храним отдельно, не мутируя дерево онтологии.
@@ -53,6 +55,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
       availableElementIds.value = new Set(state.available_elements);
       progressById.value = state.progress ?? {};
       activeCompetencies.value = state.active_competencies ?? [];
+      currentGroupId.value = state.group_id ?? null;
       currentStudentId.value = state.student_id;
       currentStudentName.value = state.student_name;
     } catch (e) {
@@ -110,11 +113,23 @@ export const useSandboxStore = defineStore('sandbox', () => {
     }
   };
 
+  const setGroup = async (groupId: string | null) => {
+    isLoading.value = true;
+    try {
+      await setSandboxGroup(groupId);
+      await refreshCourseData();
+      toastService.showSuccess(groupId ? 'Группа обновлена' : 'Группа снята');
+    } finally {
+      isLoading.value = false;
+    }
+  };
+
   return {
     isLoading,
     currentStudentId,
     currentStudentName,
     activeCompetencies,
+    currentGroupId,
     progressById,
     lockedIds,
     isElementLocked,
@@ -124,5 +139,6 @@ export const useSandboxStore = defineStore('sandbox', () => {
     rollbackProgress,
     resetSandbox,
     setCompetencies,
+    setGroup,
   };
 });

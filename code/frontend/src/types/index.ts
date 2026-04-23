@@ -102,6 +102,8 @@ export interface SandboxState {
   available_elements: string[];
   progress: Record<string, SandboxProgressEntry>;
   active_competencies: string[];
+  group_id?: string | null;
+  group_name?: string | null;
 }
 
 export interface SandboxActionResult {
