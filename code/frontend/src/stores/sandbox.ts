@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import { SandboxAPI, type SandboxProgressPayload } from '@/api/sandbox';
+import { SandboxAPI, type SandboxProgressPayload, type SandboxStudent } from '@/api/sandbox';
 import { useOntologyStore } from '@/stores/ontology';
 import { toastService } from '@/utils/toastService';
 
@@ -8,7 +8,22 @@ export const useSandboxStore = defineStore('sandbox', () => {
   const isLoading = ref(false);
   const ontologyStore = useOntologyStore();
   const activeCompetencies = ref<string[]>([]);
-  
+  const students = ref<SandboxStudent[]>([]);
+  const currentStudentId = ref<string | null>(null);
+  const currentStudentName = ref<string>('');
+
+  const loadStudents = async () => {
+    students.value = await SandboxAPI.listStudents();
+    if (!currentStudentId.value && students.value.length) {
+      currentStudentId.value = students.value[0].id;
+    }
+  };
+
+  const selectStudent = async (id: string) => {
+    currentStudentId.value = id;
+    await syncTreeWithSandbox();
+  };
+
   /**
    * Синхронизация дерева с бэкендом (доступы и статусы)
    */
@@ -17,11 +32,12 @@ export const useSandboxStore = defineStore('sandbox', () => {
     if (!courseId || !ontologyStore.currentCourseTree) return;
 
     try {
-      const state = await SandboxAPI.getState(courseId);
-      const { available_elements, progress, active_competencies } = state;
+      const state = await SandboxAPI.getState(courseId, currentStudentId.value);
+      const { available_elements, progress, active_competencies, student_name, student_id } = state;
 
-      // Синхронизируем компетенции
       activeCompetencies.value = active_competencies || [];
+      if (student_id) currentStudentId.value = student_id;
+      if (student_name) currentStudentName.value = student_name;
 
       // Рекурсивный хелпер для обогащения узлов
       const enrichNodes = (nodes: any[]) => {
@@ -70,25 +86,21 @@ export const useSandboxStore = defineStore('sandbox', () => {
   const simulateProgress = async (payload: SandboxProgressPayload) => {
     isLoading.value = true;
     try {
-      await SandboxAPI.simulateProgress(payload);
+      await SandboxAPI.simulateProgress(payload, currentStudentId.value);
       await refreshCourseData();
       toastService.showSuccess(`Статус элемента ${payload.element_id} обновлен`);
     } catch (error) {
       console.error('Ошибка симуляции:', error);
-      // Ошибка уже показана через перехватчик в apiClient
       throw error;
     } finally {
       isLoading.value = false;
     }
   };
 
-  /**
-   * Откат прохождения (удаление рекорда).
-   */
   const rollbackProgress = async (elementId: string) => {
     isLoading.value = true;
     try {
-      await SandboxAPI.rollbackProgress(elementId);
+      await SandboxAPI.rollbackProgress(elementId, currentStudentId.value);
       await refreshCourseData();
       toastService.showSuccess(`Прогресс для ${elementId} откачен`);
     } catch (error) {
@@ -99,13 +111,10 @@ export const useSandboxStore = defineStore('sandbox', () => {
     }
   };
 
-  /**
-   * Полный сброс прогресса и компетенций Sandbox-студента.
-   */
   const resetSandbox = async () => {
     isLoading.value = true;
     try {
-      await SandboxAPI.resetAll();
+      await SandboxAPI.resetAll(currentStudentId.value);
       await refreshCourseData();
       toastService.showSuccess('Песочница полностью очищена');
     } catch (error) {
@@ -116,13 +125,10 @@ export const useSandboxStore = defineStore('sandbox', () => {
     }
   };
 
-  /**
-   * Установка списка компетенций.
-   */
   const setCompetencies = async (competencyIds: string[]) => {
     isLoading.value = true;
     try {
-      await SandboxAPI.setCompetencies(competencyIds);
+      await SandboxAPI.setCompetencies(competencyIds, currentStudentId.value);
       await refreshCourseData();
       toastService.showSuccess(`Компетенции обновлены`);
     } catch (error) {
@@ -136,11 +142,16 @@ export const useSandboxStore = defineStore('sandbox', () => {
   return {
     isLoading,
     activeCompetencies,
+    students,
+    currentStudentId,
+    currentStudentName,
+    loadStudents,
+    selectStudent,
     syncTreeWithSandbox,
     refreshCourseData,
     simulateProgress,
     rollbackProgress,
     resetSandbox,
-    setCompetencies
+    setCompetencies,
   };
 });

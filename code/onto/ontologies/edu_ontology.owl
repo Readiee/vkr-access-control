@@ -221,6 +221,10 @@
   <rdfs:subClassOf rdf:resource="#User"/>
 </owl:Class>
 
+<owl:Class rdf:about="#SandboxStudent">
+  <rdfs:subClassOf rdf:resource="#Student"/>
+</owl:Class>
+
 <owl:Class rdf:about="#Group">
   <rdfs:subClassOf rdf:resource="http://www.w3.org/2002/07/owl#Thing"/>
 </owl:Class>

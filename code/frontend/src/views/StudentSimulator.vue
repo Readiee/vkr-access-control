@@ -16,15 +16,22 @@ const confirm = useConfirm();
 const { selectedNode, selectedNodeKey, expandedKeys, onNodeSelect } = useCourseTree(() => ontologyStore.currentCourseTree);
 
 
-// При загрузке страницы подгружаем список метаданных (курсов)
+// При загрузке страницы подгружаем список метаданных (курсов) + sandbox-студентов
 onMounted(async () => {
   if (ontologyStore.courses.length === 0) {
     await ontologyStore.fetchMeta();
+  }
+  if (!sandboxStore.students.length) {
+    await sandboxStore.loadStudents();
   }
   if (ontologyStore.currentCourseId) {
     await loadCourseData(ontologyStore.currentCourseId);
   }
 });
+
+const onStudentChange = async (id: string) => {
+  await sandboxStore.selectStudent(id);
+};
 
 const loadCourseData = async (courseId: string) => {
   await ontologyStore.fetchCourseTree(courseId);
@@ -116,19 +123,33 @@ const confirmReset = (event: Event) => {
       <div class="flex flex-wrap items-center gap-6">
         <div class="flex flex-col gap-1">
           <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Выбор курса</label>
-          <Select 
-            v-model="ontologyStore.currentCourseId" 
-            :options="ontologyStore.courses" 
-            optionLabel="name" 
-            optionValue="id" 
-            placeholder="Выберите курс" 
+          <Select
+            v-model="ontologyStore.currentCourseId"
+            :options="ontologyStore.courses"
+            optionLabel="name"
+            optionValue="id"
+            placeholder="Выберите курс"
             emptyMessage="Нет доступных курсов"
             filter
             filterPlaceholder="Поиск курса..."
-            class="w-96"
+            class="w-80"
           />
         </div>
-        
+
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Тестовый студент</label>
+          <Select
+            :modelValue="sandboxStore.currentStudentId"
+            :options="sandboxStore.students"
+            optionLabel="name"
+            optionValue="id"
+            placeholder="Выберите профиль"
+            emptyMessage="Нет тестовых студентов"
+            class="w-56"
+            @update:modelValue="onStudentChange"
+          />
+        </div>
+
         <div class="flex flex-col gap-1">
           <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Компетенции студента</label>
           <TreeSelect 

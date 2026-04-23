@@ -247,6 +247,29 @@ def build(onto: Any) -> None:
         _progress(onto, "pr_sidorov_q3", student_sidorov, quiz3, grade=75.0, status=onto.status_completed)
         _progress(onto, "pr_sidorov_pr3", student_sidorov, prac3, grade=70.0, status=onto.status_completed)
 
+        # --- Песочница методиста: 3 тестовых студента разных профилей ---
+        sb_new = onto.SandboxStudent("sandbox_new"); sb_new.label = ["Песочница — новичок"]
+        sb_new.belongs_to_group = [grp_standard]
+
+        sb_mid = onto.SandboxStudent("sandbox_midway"); sb_mid.label = ["Песочница — середняк"]
+        sb_mid.belongs_to_group = [grp_standard]
+        _progress(onto, "pr_sb_mid_l0", sb_mid, lec0, status=onto.status_viewed)
+        _progress(onto, "pr_sb_mid_l1", sb_mid, lec1, status=onto.status_completed)
+        _progress(onto, "pr_sb_mid_q1", sb_mid, quiz1, grade=78.0, status=onto.status_completed)
+        _progress(onto, "pr_sb_mid_pr1", sb_mid, prac1, grade=65.0, status=onto.status_completed)
+
+        sb_adv = onto.SandboxStudent("sandbox_advanced"); sb_adv.label = ["Песочница — отличник"]
+        sb_adv.belongs_to_group = [grp_advanced]
+        sb_adv.has_competency = [comp_basic_syntax, comp_functions]
+        _progress(onto, "pr_sb_adv_l0", sb_adv, lec0, status=onto.status_viewed)
+        _progress(onto, "pr_sb_adv_l1", sb_adv, lec1, status=onto.status_completed)
+        _progress(onto, "pr_sb_adv_l2", sb_adv, lec2, status=onto.status_completed)
+        _progress(onto, "pr_sb_adv_q1", sb_adv, quiz1, grade=95.0, status=onto.status_completed)
+        _progress(onto, "pr_sb_adv_pr1", sb_adv, prac1, grade=90.0, status=onto.status_completed)
+        _progress(onto, "pr_sb_adv_l3", sb_adv, lec3, status=onto.status_completed)
+        _progress(onto, "pr_sb_adv_q2", sb_adv, quiz2, grade=88.0, status=onto.status_completed)
+        _progress(onto, "pr_sb_adv_pr2", sb_adv, prac2, grade=82.0, status=onto.status_completed)
+
         # CurrentTime подставит enricher при reasoning; но для корректной валидации
         # онтологии (disjointness + load через Pellet) оставим заглушку.
         onto.CurrentTime("current_time_ind").has_value = datetime.datetime.utcnow()

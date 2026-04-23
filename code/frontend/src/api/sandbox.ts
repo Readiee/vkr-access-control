@@ -16,44 +16,45 @@ export interface SandboxCompetencyPayload {
 
 // TODO: добавить явные типы для возвращаемых данных
 
+export interface SandboxStudent {
+  id: string;
+  name: string;
+}
+
 export const SandboxAPI = {
-  /**
-   * Получить состояние песочницы (доступы и прогресс)
-   */
-  getState: async (courseId: string) => {
-    const { data } = await apiClient.get('/sandbox/state', { params: { course_id: courseId } });
+  listStudents: async (): Promise<SandboxStudent[]> => {
+    const { data } = await apiClient.get('/sandbox/students');
     return data;
   },
 
-  /**
-   * Эмулирует прохождение учебного элемента в песочнице.
-   */
-  simulateProgress: async (payload: SandboxProgressPayload) => {
-    const { data } = await apiClient.post('/sandbox/progress', payload);
+  getState: async (courseId: string, studentId?: string | null) => {
+    const params: Record<string, string> = { course_id: courseId };
+    if (studentId) params.student_id = studentId;
+    const { data } = await apiClient.get('/sandbox/state', { params });
     return data;
   },
 
-  /**
-   * Удаляет запись о прогрессе конкретного элемента и каскадно чистит родителей.
-   */
-  rollbackProgress: async (elementId: string) => {
-    const { data } = await apiClient.delete(`/sandbox/progress/${elementId}`);
+  simulateProgress: async (payload: SandboxProgressPayload, studentId?: string | null) => {
+    const params = studentId ? { student_id: studentId } : undefined;
+    const { data } = await apiClient.post('/sandbox/progress', payload, { params });
     return data;
   },
 
-  /**
-   * Полная очистка песочницы (удаление всех рекордов и компетенций).
-   */
-  resetAll: async () => {
-    const { data } = await apiClient.post('/sandbox/reset');
+  rollbackProgress: async (elementId: string, studentId?: string | null) => {
+    const params = studentId ? { student_id: studentId } : undefined;
+    const { data } = await apiClient.delete(`/sandbox/progress/${elementId}`, { params });
     return data;
   },
 
-  /**
-   * Перезаписывает список компетенций студента.
-   */
-  setCompetencies: async (competencyIds: string[]) => {
-    const { data } = await apiClient.put('/sandbox/competencies', competencyIds);
+  resetAll: async (studentId?: string | null) => {
+    const params = studentId ? { student_id: studentId } : undefined;
+    const { data } = await apiClient.post('/sandbox/reset', null, { params });
     return data;
-  }
+  },
+
+  setCompetencies: async (competencyIds: string[], studentId?: string | null) => {
+    const params = studentId ? { student_id: studentId } : undefined;
+    const { data } = await apiClient.put('/sandbox/competencies', competencyIds, { params });
+    return data;
+  },
 };

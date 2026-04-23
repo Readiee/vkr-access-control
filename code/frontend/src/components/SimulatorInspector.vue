@@ -2,6 +2,8 @@
 import { reactive, ref, watch, computed } from 'vue';
 import { useSandboxStore } from '@/stores/sandbox';
 import { useOntologyStore } from '@/stores/ontology';
+// sandboxStudentId берём из store, чтобы explain-ручка работала с выбранным
+// в хедере сценарии студентом, а не с жёстко зашитым 'sandbox'.
 import {
   ProgressStatusMap,
   ProgressStatusColorMap,
@@ -123,7 +125,7 @@ const describePolicy = (pol: any): string => {
 };
 
 const explanationVisible = ref(false);
-const sandboxStudentId = 'sandbox';
+const sandboxStudentId = computed(() => sandboxStore.currentStudentId || '');
 
 const openExplanation = () => {
   explanationVisible.value = true;
@@ -179,7 +181,7 @@ const submitSimulation = async () => {
         />
       </div>
       <p class="text-sm text-gray-600 mb-3">
-        Для получения доступа необходимо выполнить требования:
+        Для получения доступа необходимо выполнить одно из требований:
       </p>
       
       <ul

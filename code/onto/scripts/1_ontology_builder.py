@@ -25,6 +25,10 @@ with onto:
     class Student(User): pass
     class Teacher(User): pass
     class Methodologist(User): pass
+    # SandboxStudent — тестовый студент методиста-песочницы. Наследует от Student,
+    # все SWRL-правила работают прозрачно; разделение нужно только в API, чтобы
+    # методист не трогал прогресс реальных студентов при симуляции сценариев.
+    class SandboxStudent(Student): pass
 
     # Группы студентов для правил group_restricted
     class Group(Thing): pass
