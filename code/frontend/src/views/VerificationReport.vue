@@ -33,6 +33,14 @@ const orderedEntries = computed<[string, PropertyReport][]>(() => {
     .map((k) => [k, report.value!.properties[k]] as [string, PropertyReport]);
 });
 
+/** По умолчанию раскрываем только свойства с нарушениями или неопределённые —
+ *  passed остаются свёрнутыми, методист сразу видит что требует внимания. */
+const expandedKeys = computed<string[]>(() =>
+  orderedEntries.value
+    .filter(([, p]) => p.status !== VerificationPropertyStatus.PASSED)
+    .map(([k]) => k),
+);
+
 const statusSeverity = (status: string): string => {
   if (status === VerificationPropertyStatus.PASSED) return 'success';
   if (status === VerificationPropertyStatus.FAILED) return 'danger';
@@ -137,7 +145,7 @@ watch(() => store.currentCourseId, (id) => {
         </div>
       </div>
 
-      <Accordion :multiple="true" :value="orderedEntries.map(([k]) => k)">
+      <Accordion :multiple="true" :value="expandedKeys">
         <AccordionPanel
           v-for="[key, prop] in orderedEntries"
           :key="key"

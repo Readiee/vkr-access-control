@@ -95,28 +95,45 @@ const handleFinalDelete = (policyId: string) => {
   });
 };
 
-const isFormValid = computed(() => {
+/** Первая невыполненная валидация — то, что показываем методисту, чтобы он
+ *  понимал, почему кнопка disabled. Пустая строка — форма валидна. */
+const validationHint = computed<string>(() => {
   const f = form.value;
-  if (f.rule_type === RuleType.COMPETENCY_REQUIRED) return !!f.target_competency_id;
-  if (f.rule_type === RuleType.DATE_RESTRICTED) {
-    if (!f.valid_from || !f.valid_until) return false;
-    return f.valid_from < f.valid_until;
+  switch (f.rule_type) {
+    case RuleType.COMPLETION_REQUIRED:
+    case RuleType.VIEWED_REQUIRED:
+      return f.target_element_id ? '' : 'Выберите целевой элемент';
+    case RuleType.GRADE_REQUIRED:
+      if (!f.target_element_id) return 'Выберите целевой элемент';
+      if (f.passing_threshold == null) return 'Задайте минимальный балл (0–100)';
+      return '';
+    case RuleType.COMPETENCY_REQUIRED:
+      return f.target_competency_id ? '' : 'Выберите требуемую компетенцию';
+    case RuleType.DATE_RESTRICTED:
+      if (!f.valid_from) return 'Задайте дату начала доступа';
+      if (!f.valid_until) return 'Задайте дату окончания доступа';
+      if (f.valid_from >= f.valid_until) return 'Дата начала должна быть раньше даты окончания';
+      return '';
+    case RuleType.GROUP_RESTRICTED:
+      return f.restricted_to_group_id ? '' : 'Выберите группу студентов';
+    case RuleType.AND_COMBINATION:
+    case RuleType.OR_COMBINATION: {
+      const subs = Array.isArray(f.subpolicy_ids) ? f.subpolicy_ids : [];
+      if (new Set(subs).size < 2) return 'Выберите не менее 2 подусловий';
+      return '';
+    }
+    case RuleType.AGGREGATE_REQUIRED:
+      if (!f.aggregate_function) return 'Выберите функцию агрегирования';
+      if (!Array.isArray(f.aggregate_element_ids) || !f.aggregate_element_ids.length)
+        return 'Выберите хотя бы один элемент с оценкой';
+      if (f.passing_threshold == null) return 'Задайте порог';
+      return '';
+    default:
+      return '';
   }
-  if (f.rule_type === RuleType.GROUP_RESTRICTED) return !!f.restricted_to_group_id;
-  if (f.rule_type === RuleType.AND_COMBINATION || f.rule_type === RuleType.OR_COMBINATION) {
-    return Array.isArray(f.subpolicy_ids) && new Set(f.subpolicy_ids).size >= 2;
-  }
-  if (f.rule_type === RuleType.AGGREGATE_REQUIRED) {
-    return !!f.aggregate_function
-      && Array.isArray(f.aggregate_element_ids)
-      && f.aggregate_element_ids.length >= 1
-      && f.passing_threshold != null;
-  }
-  if (f.rule_type === RuleType.GRADE_REQUIRED) {
-    return !!f.target_element_id && f.passing_threshold != null;
-  }
-  return !!f.target_element_id;
 });
+
+const isFormValid = computed(() => validationHint.value === '');
 
 const isGroupRule = computed(() => form.value.rule_type === RuleType.GROUP_RESTRICTED);
 const isCompositeRule = computed(
@@ -298,7 +315,12 @@ const isDateRule = computed(() => form.value.rule_type === RuleType.DATE_RESTRIC
               </div>
               <div class="flex flex-col gap-1">
                 <label class="text-[11px] font-bold text-surface-500 uppercase">Доступно ПО</label>
-                <DatePicker v-model="form.valid_until" manualInput showTime hourFormat="24" dateFormat="dd.mm.yy" class="w-full" />
+                <DatePicker
+                  v-model="form.valid_until"
+                  manualInput showTime hourFormat="24" dateFormat="dd.mm.yy"
+                  :minDate="form.valid_from || undefined"
+                  class="w-full"
+                />
               </div>
            </div>
 
@@ -374,7 +396,10 @@ const isDateRule = computed(() => form.value.rule_type === RuleType.DATE_RESTRIC
                 <ToggleSwitch v-model="form.is_active" inputId="isActiveSwitch" size="small" />
                 <label for="isActiveSwitch" class="text-xs font-medium text-surface-600">{{ form.is_active ? 'Активно' : 'Выключено' }}</label>
               </div>
-              <div class="flex gap-4">
+              <div class="flex items-center gap-4">
+                <span v-if="validationHint" class="text-xs text-surface-500 italic">
+                  <i class="pi pi-info-circle mr-1"></i>{{ validationHint }}
+                </span>
                 <Button v-if="!editMode" label="Отмена" severity="secondary" variant="text" size="small" @click="$emit('cancelled')" />
                 <Button :label="editMode ? 'Сохранить' : 'Добавить'" size="small" :icon="editMode ? 'pi pi-check' : 'pi pi-plus'" @click="submitForm" :loading="isSaving" :disabled="!isFormValid" />
               </div>

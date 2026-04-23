@@ -77,6 +77,21 @@ const gradableElementOptions = computed(() =>
   elementOptions.value.filter((el) => GRADABLE_ELEMENT_TYPES.has(el.type)),
 );
 
+/** Для completion/viewed допустимы атомарные элементы (лекции/тесты/практики/задания).
+ *  На курс/модуль завершение навешивать семантически бессмысленно: у них нет
+ *  собственного has_status — только агрегация потомков. */
+const PROGRESSABLE_TYPES = new Set(['lecture', 'test', 'practice', 'assignment']);
+const progressableElementOptions = computed(() =>
+  elementOptions.value.filter((el) => PROGRESSABLE_TYPES.has(el.type)),
+);
+
+const elementOptionsFor = (rt: RuleType) => {
+  if (rt === RuleType.GRADE_REQUIRED) return gradableElementOptions.value;
+  if (rt === RuleType.COMPLETION_REQUIRED || rt === RuleType.VIEWED_REQUIRED)
+    return progressableElementOptions.value;
+  return elementOptions.value;
+};
+
 const addChild = () => children.value.push(newChild());
 const removeChild = (key: number) => {
   if (children.value.length <= 2) return;
@@ -119,6 +134,41 @@ const isChildValid = (c: ChildDraft): boolean => {
 const isFormValid = computed(() =>
   children.value.length >= 2 && children.value.every(isChildValid),
 );
+
+const childHint = (c: ChildDraft): string => {
+  switch (c.rule_type) {
+    case RuleType.COMPLETION_REQUIRED:
+    case RuleType.VIEWED_REQUIRED:
+      return c.target_element_id ? '' : 'выберите элемент';
+    case RuleType.GRADE_REQUIRED:
+      if (!c.target_element_id) return 'выберите тест/практику';
+      if (c.passing_threshold == null) return 'задайте балл';
+      return '';
+    case RuleType.COMPETENCY_REQUIRED:
+      return c.target_competency_id ? '' : 'выберите компетенцию';
+    case RuleType.DATE_RESTRICTED:
+      if (!c.valid_from || !c.valid_until) return 'задайте даты';
+      if (c.valid_from.getTime() >= c.valid_until.getTime()) return 'начало раньше конца';
+      return '';
+    case RuleType.GROUP_RESTRICTED:
+      return c.restricted_to_group_id ? '' : 'выберите группу';
+    case RuleType.AGGREGATE_REQUIRED:
+      if (!c.aggregate_function) return 'выберите функцию';
+      if (!c.aggregate_element_ids?.length) return 'выберите элементы';
+      if (c.passing_threshold == null) return 'задайте порог';
+      return '';
+    default:
+      return 'заполните поля';
+  }
+};
+
+const validationHint = computed<string>(() => {
+  for (let i = 0; i < children.value.length; i++) {
+    const h = childHint(children.value[i]);
+    if (h) return `Условие ${i + 1}: ${h}`;
+  }
+  return '';
+});
 
 const toPolicyCreate = (c: ChildDraft): PolicyCreate => ({
   rule_type: c.rule_type,
@@ -163,9 +213,9 @@ const submit = async () => {
         <div class="flex justify-between items-center border-b border-surface-100 pb-3">
           <span class="font-bold text-xs text-surface-600 uppercase tracking-widest flex items-center gap-2">
             <i class="pi pi-sitemap"></i>
-            Составное условие "И"
+            Составное условие (И)
           </span>
-           <p>Все условия ниже должны быть выполнены</p>
+           <p class="text-xs text-surface-500">Все условия ниже должны быть выполнены</p>
           <Button icon="pi pi-times" text rounded size="small" @click="$emit('cancelled')" />
         </div>
 
@@ -214,10 +264,10 @@ const submit = async () => {
               <label class="text-[11px] font-bold text-surface-500 uppercase">Целевой элемент</label>
               <Select
                 v-model="child.target_element_id"
-                :options="elementOptions"
+                :options="elementOptionsFor(child.rule_type)"
                 optionLabel="name"
                 optionValue="id"
-                placeholder="Выберите элемент"
+                :placeholder="child.rule_type === RuleType.GRADE_REQUIRED ? 'Тест/практика/задание' : 'Выберите элемент'"
                 filter
                 class="w-full"
               />
@@ -244,7 +294,12 @@ const submit = async () => {
               <label class="text-[11px] font-bold text-surface-500 uppercase">Даты</label>
               <div class="grid grid-cols-2 gap-2">
                 <DatePicker v-model="child.valid_from" showTime manualInput dateFormat="dd.mm.yy" class="w-full" placeholder="с" />
-                <DatePicker v-model="child.valid_until" showTime manualInput dateFormat="dd.mm.yy" class="w-full" placeholder="по" />
+                <DatePicker
+                  v-model="child.valid_until"
+                  showTime manualInput dateFormat="dd.mm.yy"
+                  :minDate="child.valid_from || undefined"
+                  class="w-full" placeholder="по"
+                />
               </div>
             </div>
 
@@ -303,7 +358,10 @@ const submit = async () => {
           @click="addChild"
         />
 
-        <div class="flex justify-end gap-3 pt-2 border-t border-surface-100">
+        <div class="flex justify-end items-center gap-4 pt-2 border-t border-surface-100">
+          <span v-if="validationHint" class="text-xs text-surface-500 italic">
+            <i class="pi pi-info-circle mr-1"></i>{{ validationHint }}
+          </span>
           <Button label="Отмена" severity="secondary" variant="text" size="small" @click="$emit('cancelled')" />
           <Button
             label="Создать составное правило"
