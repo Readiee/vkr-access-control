@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { getMeta, getCourseTree } from '@/api';
-import type { Competency, CourseElement, CourseTreeNode, Group } from '@/types';
+import type { Competency, CourseElement, CourseTreeNode, Group, PolicyResponse } from '@/types';
 
 export const useOntologyStore = defineStore('ontology', () => {
   // --- State ---
@@ -66,6 +66,52 @@ export const useOntologyStore = defineStore('ontology', () => {
     }
   };
 
+  const _findNodeById = (nodes: CourseTreeNode[], id: string): CourseTreeNode | null => {
+    for (const node of nodes) {
+      if (node.data.id === id) return node;
+      if (node.children?.length) {
+        const found = _findNodeById(node.children, id);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  /**
+   * Применяет созданную или обновлённую политику к дереву: находит source-элемент
+   * и patchit его data.policies, вместо перезагрузки всего дерева.
+   * Политика без source_element_id (вложенная в композит) не видна на дереве — игнорируем.
+   */
+  const upsertPolicyInTree = (policy: PolicyResponse) => {
+    const sourceId = policy.source_element_id;
+    if (!sourceId || !currentCourseTree.value.length) return;
+    const target = _findNodeById(currentCourseTree.value, sourceId);
+    if (!target) return;
+    const policies = (target.data.policies ??= []);
+    const idx = policies.findIndex((p) => p.id === policy.id);
+    if (idx >= 0) policies.splice(idx, 1, policy);
+    else policies.push(policy);
+  };
+
+  const removePolicyFromTree = (policyId: string) => {
+    if (!currentCourseTree.value.length) return;
+    const walk = (nodes: CourseTreeNode[]): boolean => {
+      for (const node of nodes) {
+        const policies = node.data.policies;
+        if (policies) {
+          const idx = policies.findIndex((p) => p.id === policyId);
+          if (idx >= 0) {
+            policies.splice(idx, 1);
+            return true;
+          }
+        }
+        if (node.children?.length && walk(node.children)) return true;
+      }
+      return false;
+    };
+    walk(currentCourseTree.value);
+  };
+
   return {
     ruleTypes,
     statuses,
@@ -78,6 +124,8 @@ export const useOntologyStore = defineStore('ontology', () => {
     error,
     isLoaded,
     fetchMeta,
-    fetchCourseTree
+    fetchCourseTree,
+    upsertPolicyInTree,
+    removePolicyFromTree,
   };
 });

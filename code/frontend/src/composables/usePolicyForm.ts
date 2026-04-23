@@ -1,5 +1,6 @@
 import { computed, ref, watch } from 'vue';
 import { AggregateFunction, RuleType, type PolicyCreate } from '@/types';
+import { SANDBOX_AUTHOR_ID } from '@/utils/auth';
 
 interface PolicyFormState extends Omit<PolicyCreate, 'valid_from' | 'valid_until'> {
   valid_from: Date | null;
@@ -10,7 +11,7 @@ export function usePolicyForm(props: any, emit: any) {
   const defaultForm = (): PolicyFormState => ({
     source_element_id: props.targetNode?.data?.id ?? null,
     rule_type: RuleType.COMPLETION_REQUIRED,
-    author_id: 'methodist_1', // TODO(bulat): подставить реальный ID методиста, когда появится авторизация
+    author_id: SANDBOX_AUTHOR_ID,
     target_element_id: null,
     target_competency_id: null,
     passing_threshold: null,
@@ -31,12 +32,17 @@ export function usePolicyForm(props: any, emit: any) {
       return targetId ? { [targetId]: true } : null;
     },
     set: (val: any) => {
-      if (val && typeof val === 'object') {
-        const keys = Object.keys(val);
-        form.value.target_element_id = keys.length ? keys[0] : null;
-      } else {
+      if (!val || typeof val !== 'object') {
         form.value.target_element_id = null;
+        return;
       }
+      // В single-mode PrimeVue отдаёт { id: true } или { id: { checked: true } }.
+      // partialChecked у родителей в single-mode не используется, но фильтр
+      // по явному checked-true защитит нас, если тип когда-нибудь расширят.
+      const picked = Object.entries(val).find(
+        ([, v]) => v === true || (v as any)?.checked === true,
+      );
+      form.value.target_element_id = picked ? picked[0] : null;
     },
   });
 
@@ -46,8 +52,9 @@ export function usePolicyForm(props: any, emit: any) {
       form.value = {
         source_element_id: d.source_element_id || props.targetNode?.data?.id || null,
         rule_type: d.rule_type,
-        author_id: d.author_id || 'methodist_1',
+        author_id: d.author_id || SANDBOX_AUTHOR_ID,
         target_element_id: d.target_element_id ?? null,
+        // course_service сериализует поле как competency_id, policy_service — как target_competency_id
         target_competency_id: d.target_competency_id ?? d.competency_id ?? null,
         passing_threshold: d.passing_threshold ?? null,
         valid_from: d.valid_from ? new Date(d.valid_from) : null,

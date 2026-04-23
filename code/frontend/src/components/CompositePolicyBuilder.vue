@@ -10,6 +10,7 @@ import {
   AggregateFunctionLabels,
   GRADABLE_ELEMENT_TYPES,
 } from '@/utils/formatters';
+import { SANDBOX_AUTHOR_ID } from '@/utils/auth';
 
 const props = defineProps<{
   targetNode: any;
@@ -180,7 +181,7 @@ const toPolicyCreate = (c: ChildDraft): PolicyCreate => ({
   restricted_to_group_id: c.restricted_to_group_id ?? null,
   aggregate_function: c.aggregate_function ?? null,
   aggregate_element_ids: c.aggregate_element_ids ?? null,
-  author_id: 'methodologist_smirnov',
+  author_id: SANDBOX_AUTHOR_ID,
   is_active: true,
 });
 
@@ -191,15 +192,16 @@ const submit = async () => {
     const payload: PolicyCreate = {
       rule_type: RuleType.AND_COMBINATION,
       source_element_id: props.targetNode?.data?.id,
-      author_id: 'methodologist_smirnov',
+      author_id: SANDBOX_AUTHOR_ID,
       is_active: true,
       nested_subpolicies: children.value.map(toPolicyCreate),
     } as PolicyCreate;
-    await createPolicy(payload);
+    const saved = await createPolicy(payload);
+    store.upsertPolicyInTree(saved);
     toastService.showSuccess('Составное правило создано');
     emit('saved');
-  } catch (err: any) {
-    toastService.showError(err?.response?.data?.detail || 'Не удалось создать правило');
+  } catch {
+    // toast с текстом ошибки уже показал axios interceptor
   } finally {
     isSaving.value = false;
   }

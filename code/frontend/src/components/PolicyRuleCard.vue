@@ -49,20 +49,21 @@ const isSaving = ref(false);
 const handleFinalSubmit = async (payload: PolicyCreate) => {
   isSaving.value = true;
   payload.source_element_id = props.targetNode?.data?.id || payload.source_element_id;
-  
+
   try {
+    let saved: PolicyResponse;
     if (props.editMode && props.initialData?.id) {
-      await updatePolicy(props.initialData.id, payload);
+      saved = await updatePolicy(props.initialData.id, payload);
       toastService.showSuccess('Правило обновлено');
     } else {
-      await createPolicy(payload);
+      saved = await createPolicy(payload);
       toastService.showSuccess('Правило создано');
     }
-    await store.fetchCourseTree(store.currentCourseId || '');
+    store.upsertPolicyInTree(saved);
     isEditing.value = false;
     emit('saved');
-  } catch (err) {
-    toastService.showError('Ошибка при сохранении правила');
+  } catch {
+    // toast с текстом ошибки уже показал axios interceptor
   } finally {
     isSaving.value = false;
   }
@@ -86,10 +87,10 @@ const handleFinalDelete = (policyId: string) => {
       try {
         await deletePolicy(policyId);
         toastService.showInfo('Правило удалено');
-        await store.fetchCourseTree(store.currentCourseId || '');
+        store.removePolicyFromTree(policyId);
         emit('saved');
-      } catch (err) {
-        toastService.showError('Ошибка при удалении');
+      } catch {
+        // toast с текстом ошибки уже показал axios interceptor
       }
     }
   });

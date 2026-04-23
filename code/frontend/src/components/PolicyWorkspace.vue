@@ -13,8 +13,8 @@ const props = defineProps<{
 const newPolicies = ref<any[]>([]);
 const compositeDraftOpen = ref(false);
 
-// Когда выбираем новый узел, обнуляем список новых полей
-watch(() => props.targetNode?.id, () => {
+// id узла лежит в data, не на верхнем уровне CourseTreeNode
+watch(() => props.targetNode?.data?.id, () => {
   newPolicies.value = [];
   compositeDraftOpen.value = false;
 });
@@ -144,20 +144,3 @@ const handleSaved = () => {
     </div>
   </div>
 </template>
-
-<style scoped>
-/* Чтобы Button во Splitter не заезжала за прокрутку */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #e2e8f0;
-  border-radius: 10px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #cbd5e1;
-}
-</style>
