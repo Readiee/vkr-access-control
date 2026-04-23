@@ -173,16 +173,56 @@ class IntegrationService:
 
             children = [build_node(child) for child in children_objs]
 
+            assesses_items = []
+            for comp in getattr(node_obj, "assesses", []) or []:
+                comp_name = comp.label[0] if getattr(comp, "label", None) else comp.name
+                assesses_items.append({"id": comp.name, "name": comp_name})
+
             return {
                 "key": node_id,
                 "data": {
-                    "id": node_id, 
-                    "name": node_name, 
-                    "type": get_owl_prop(node_obj, "type", raw_type), 
+                    "id": node_id,
+                    "name": node_name,
+                    "type": get_owl_prop(node_obj, "type", raw_type),
                     "policies": policies,
-                    "is_mandatory": get_owl_prop(node_obj, "is_mandatory", True)
+                    "is_mandatory": get_owl_prop(node_obj, "is_mandatory", True),
+                    "assesses": assesses_items,
                 },
                 "children": children
             }
 
         return [build_node(course, ElementType.COURSE.value)]
+
+    def set_element_competencies(self, element_id: str, competency_ids: List[str]) -> dict:
+        """Перезаписать assesses у элемента: список компетенций, которые он выдаёт
+        студенту при прохождении (SWRL H-2). Инвалидирует кэш доступа и верификации
+        и гоняет reasoner — без этого has_competency у уже существующих ProgressRecord
+        не обновится (OWL монотонен).
+        """
+        element = self.core.courses.find_by_id(element_id)
+        if element is None:
+            raise ValueError(f"Элемент {element_id} не найден.")
+
+        comp_cls = getattr(self.core.onto, "Competency", None)
+        if comp_cls is None:
+            raise ValueError("В онтологии нет класса Competency.")
+
+        competencies: List[Any] = []
+        for cid in competency_ids:
+            comp = self.core.onto.search_one(type=comp_cls, iri=f"*{cid}")
+            if comp is None:
+                raise ValueError(f"Компетенция {cid} не найдена.")
+            competencies.append(comp)
+
+        element.assesses = competencies
+        self.core.save()
+        # После изменения assesses SWRL H-2 может изменить has_competency у всех
+        # студентов с ProgressRecord этого элемента → is_available_for тоже.
+        # Инвалидируем access-кэш и запускаем reasoner через verification-путь
+        # не будем (он дорогой); AccessService пересчитает лениво на первом чтении.
+        self.cache.invalidate_all_access()
+        self.cache.invalidate_verification()
+        return {
+            "element_id": element_id,
+            "assesses": [{"id": c.name, "name": (c.label[0] if getattr(c, "label", None) else c.name)} for c in competencies],
+        }

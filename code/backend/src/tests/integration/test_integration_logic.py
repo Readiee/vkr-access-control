@@ -19,10 +19,12 @@ from services.progress_service import ProgressService
 class TestOntologyIntegration(unittest.TestCase):
     def setUp(self):
         from tests._factory import make_temp_onto_copy
+        from owlready2 import World
         self.original_owl = DEFAULT_ONTOLOGY_PATH
         self.test_owl = make_temp_onto_copy(prefix="vkr_integration_")
 
-        self.core = OntologyCore(self.test_owl)
+        self.world = World()
+        self.core = OntologyCore(self.test_owl, world=self.world)
         from services.cache_manager import CacheManager
         from services.reasoning import ReasoningOrchestrator
         from services.rollup_service import RollupService
@@ -40,6 +42,7 @@ class TestOntologyIntegration(unittest.TestCase):
         print(f"\n[CHECKPOINT 1] Ontology Core initialized: {self.test_owl}")
         
     def tearDown(self):
+        self.world.close()
         if os.path.exists(self.test_owl):
             os.remove(self.test_owl)
         print("[CHECKPOINT END] Test environment cleaned up.")
@@ -140,6 +143,53 @@ class TestOntologyIntegration(unittest.TestCase):
         self.assertEqual(get_status("mod_rollup"), ProgressStatus.COMPLETED.value, "Module should be completed")
         self.assertEqual(get_status("course_rollup"), ProgressStatus.COMPLETED.value, "Course should be completed (recursion)")
         print("[CHECKPOINT] Recursive Roll-up worked perfectly!")
+
+    def test_set_element_competencies_updates_assesses_and_tree(self):
+        """set_element_competencies пишет assesses и возвращает его в tree."""
+        elements = [
+            CourseElement(element_id="course_ec", element_type=ElementType.COURSE, name="EC Course", is_mandatory=True),
+            CourseElement(element_id="mod_ec", element_type=ElementType.MODULE, name="EC Module", parent_id="course_ec", is_mandatory=True),
+            CourseElement(element_id="test_ec", element_type=ElementType.TEST, name="EC Test", parent_id="mod_ec", is_mandatory=True),
+        ]
+        self.integration_service.sync_course_structure(
+            "course_ec", CourseSyncPayload(course_name="EC", elements=elements),
+        )
+        with self.core.onto:
+            comp_x = self.core.onto.Competency("comp_ec_x")
+            comp_x.label = ["EC X"]
+            comp_y = self.core.onto.Competency("comp_ec_y")
+            comp_y.label = ["EC Y"]
+        self.core.save()
+
+        result = self.integration_service.set_element_competencies(
+            "test_ec", ["comp_ec_x", "comp_ec_y"],
+        )
+        self.assertEqual({c["id"] for c in result["assesses"]}, {"comp_ec_x", "comp_ec_y"})
+
+        tree = self.integration_service.get_course_tree("course_ec")
+        test_node = tree[0]["children"][0]["children"][0]
+        assesses_ids = {c["id"] for c in test_node["data"]["assesses"]}
+        self.assertEqual(assesses_ids, {"comp_ec_x", "comp_ec_y"})
+
+        # Переустановка на один элемент — старый отваливается
+        self.integration_service.set_element_competencies("test_ec", ["comp_ec_x"])
+        tree_after = self.integration_service.get_course_tree("course_ec")
+        test_node_after = tree_after[0]["children"][0]["children"][0]
+        self.assertEqual({c["id"] for c in test_node_after["data"]["assesses"]}, {"comp_ec_x"})
+
+    def test_set_element_competencies_unknown_raises(self):
+        elements = [
+            CourseElement(element_id="course_ec2", element_type=ElementType.COURSE, name="EC2", is_mandatory=True),
+            CourseElement(element_id="test_ec2", element_type=ElementType.TEST, name="EC2 Test", parent_id="course_ec2", is_mandatory=True),
+        ]
+        self.integration_service.sync_course_structure(
+            "course_ec2", CourseSyncPayload(course_name="EC2", elements=elements),
+        )
+        with self.assertRaises(ValueError):
+            self.integration_service.set_element_competencies("test_ec2", ["nonexistent_comp"])
+        with self.assertRaises(ValueError):
+            self.integration_service.set_element_competencies("nonexistent_element", [])
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -67,3 +67,19 @@ async def get_course_tree(
         return service.get_course_tree(course_id)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
+@router.put(
+    "/elements/{element_id}/competencies",
+    summary="Перезаписать список выдаваемых элементом компетенций (SWRL H-2)",
+)
+async def set_element_competencies(
+    payload: dict,
+    element_id: str = Path(..., description="ID элемента курса"),
+    service: IntegrationService = Depends(get_integration_service),
+) -> dict:
+    """Элемент курса через assesses выдаёт указанные компетенции при прохождении."""
+    try:
+        return service.set_element_competencies(element_id, payload.get("competency_ids", []))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
