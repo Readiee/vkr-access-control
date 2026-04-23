@@ -54,7 +54,7 @@ watch(() => store.currentCourseId, (newId) => {
        <p>Выберите курс для загрузки структуры</p>
     </div>
     
-    <div v-else class="grid grid-cols-5 md:grid-cols-5 gap-4 h-[calc(100vh-220px)]">
+    <div v-else class="grid grid-cols-5 md:grid-cols-5 gap-4 h-[calc(100vh-156px)]">
       <div class="col-span-2 bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col h-full overflow-hidden">
         <h3 class="text-lg font-bold mb-4 text-surface-800">Дерево курса</h3>
         

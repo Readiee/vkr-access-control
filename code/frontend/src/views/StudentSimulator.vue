@@ -178,7 +178,7 @@ const confirmReset = (event: Event) => {
     </div>
 
     <!-- Main Content Area -->
-    <div class="grid grid-cols-5 md:grid-cols-5 gap-4 h-[calc(100vh-220px)]">
+    <div class="grid grid-cols-5 md:grid-cols-5 gap-4 h-[calc(100vh-156px)]">
       <!-- Left: Navigation Tree -->
       <div class="col-span-2 bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex flex-col h-full overflow-hidden">
         <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
