@@ -128,6 +128,34 @@ class SandboxSmokeTests(unittest.TestCase):
         state = self.sandbox.get_sandbox_state("course_sb")
         self.assertNotIn("final_sb", state.get("available_elements", []))
 
+    def test_set_competencies_unlocks_competency_required_element(self):
+        """set_competencies прописывает has_competency → competency_required пускает.
+
+        Регрессия: ранее компетенции искались через core.courses.find_by_id,
+        который фильтрует по CourseStructure — Competency при этом не
+        находился и has_competency оставался пустым, хотя сервис возвращал ok.
+        """
+        with self.core.onto:
+            comp = self.core.onto.Competency("comp_sb_smoke")
+            comp.label = ["Sandbox competency"]
+        self.core.save()
+
+        self.policy_service.create_policy(PolicyCreate(
+            source_element_id="test_sb",
+            rule_type=RuleType.COMPETENCY,
+            target_competency_id="comp_sb_smoke",
+            author_id="methodologist_smirnov",
+        ))
+
+        state_before = self.sandbox.get_sandbox_state("course_sb")
+        self.assertEqual(state_before.get("active_competencies"), [])
+        self.assertNotIn("test_sb", state_before.get("available_elements", []))
+
+        self.sandbox.set_competencies(["comp_sb_smoke"])
+        state_after = self.sandbox.get_sandbox_state("course_sb")
+        self.assertIn("comp_sb_smoke", state_after.get("active_competencies", []))
+        self.assertIn("test_sb", state_after.get("available_elements", []))
+
     def test_set_group_unlocks_group_restricted_element(self):
         """set_group вписывает belongs_to_group → group_restricted правило пропускает."""
         with self.core.onto:

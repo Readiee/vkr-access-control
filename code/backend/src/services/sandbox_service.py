@@ -159,11 +159,15 @@ class SandboxService:
 
     def set_competencies(self, competency_ids: list[str]) -> dict:
         student = self._sandbox_student()
+        comp_cls = getattr(self.core.onto, "Competency", None)
         student.has_competency = []
-        for cid in competency_ids:
-            comp = self.core.courses.find_by_id(cid)
-            if comp:
-                student.has_competency.append(comp)
+        if comp_cls is not None:
+            for cid in competency_ids:
+                # Competency — самостоятельный класс (не CourseStructure),
+                # поэтому courses.find_by_id его не находит.
+                comp = self.core.onto.search_one(type=comp_cls, iri=f"*{cid}")
+                if comp is not None:
+                    student.has_competency.append(comp)
 
         self._clear_inferred_access(student)
         self.core.save()

@@ -49,58 +49,6 @@ class PolicyService:
     def _rule_type_str(self, value: Any) -> str:
         return value if isinstance(value, str) else value.value
 
-    def _map_policy_to_dict(self, policy_node: Any, source_id: str) -> dict:
-        subs = getattr(policy_node, "has_subpolicy", []) or []
-        result = {
-            "id": policy_node.name,
-            "source_element_id": source_id,
-            "rule_type": policy_node.rule_type[0] if policy_node.rule_type else "",
-            "target_element_id": (
-                policy_node.targets_element[0].name
-                if getattr(policy_node, "targets_element", None)
-                else None
-            ),
-            "target_competency_id": (
-                policy_node.targets_competency[0].name
-                if getattr(policy_node, "targets_competency", None)
-                else None
-            ),
-            "passing_threshold": (
-                policy_node.passing_threshold[0]
-                if getattr(policy_node, "passing_threshold", None)
-                else None
-            ),
-            "valid_from": (
-                policy_node.valid_from[0]
-                if getattr(policy_node, "valid_from", None)
-                else None
-            ),
-            "valid_until": (
-                policy_node.valid_until[0]
-                if getattr(policy_node, "valid_until", None)
-                else None
-            ),
-            "restricted_to_group_id": (
-                policy_node.restricted_to_group[0].name
-                if getattr(policy_node, "restricted_to_group", None)
-                else None
-            ),
-            "subpolicy_ids": [sub.name for sub in subs] or None,
-            "aggregate_function": getattr(policy_node, "aggregate_function", None),
-            "aggregate_element_ids": (
-                [e.name for e in getattr(policy_node, "aggregate_elements", []) or []] or None
-            ),
-            "is_active": policy_node.is_active[0] if getattr(policy_node, "is_active", None) else False,
-            "author_id": policy_node.has_author[0].name if getattr(policy_node, "has_author", None) else "system",
-        }
-        # composite'у нужен развёрнутый список подусловий, чтобы фронт мог
-        # редактировать его сразу после create/update без повторного fetch-а
-        if subs:
-            result["subpolicies_detail"] = [
-                serialize_policy(sub, include_subpolicies_detail=False) for sub in subs
-            ]
-        return result
-
     def _build_probe(self, policy_data: PolicyCreate) -> ProbePolicy:
         rule_type = self._rule_type_str(policy_data.rule_type)
         return ProbePolicy(
@@ -111,6 +59,35 @@ class PolicyService:
             subpolicy_ids=list(policy_data.subpolicy_ids or []),
             aggregate_element_ids=list(policy_data.aggregate_element_ids or []),
         )
+
+    _SNAPSHOT_LIST_PROPS = (
+        "rule_type",
+        "is_active",
+        "passing_threshold",
+        "targets_element",
+        "targets_competency",
+        "valid_from",
+        "valid_until",
+        "restricted_to_group",
+        "has_subpolicy",
+        "aggregate_elements",
+    )
+
+    def _snapshot_policy(self, policy: Any) -> dict:
+        snap = {p: list(getattr(policy, p, []) or []) for p in self._SNAPSHOT_LIST_PROPS}
+        snap["aggregate_function"] = getattr(policy, "aggregate_function", None)
+        return snap
+
+    def _restore_policy(self, policy: Any, snap: dict) -> None:
+        for p in self._SNAPSHOT_LIST_PROPS:
+            setattr(policy, p, list(snap[p]))
+        policy.aggregate_function = snap["aggregate_function"]
+
+    def _delete_policies_by_id(self, ids: List[str]) -> None:
+        for pid in ids:
+            pol = self.core.policies.find_by_id(pid)
+            if pol is not None:
+                self.core.policies.delete(pol)
 
     def _check_cycle(self, policy_data: PolicyCreate) -> None:
         # Политика без source — только подполитика композита, в граф зависимостей
@@ -135,6 +112,45 @@ class PolicyService:
             readable = [self.core._get_node_label(nid) for nid in cycle_path]
             raise ValueError(f"Циклическая зависимость: {' -> '.join(readable)}")
 
+    def _materialize_nested(self, data: PolicyCreate) -> tuple[PolicyCreate, List[str]]:
+        """Создать вложенные подусловия композита и вернуть (обновлённые данные, id созданных).
+
+        При сбое на i-м ребёнке уже созданные (0..i-1) удаляются — наружу
+        уходит свежее исключение, ABox остаётся как был до вызова.
+        """
+        nested = list(getattr(data, "nested_subpolicies", None) or [])
+        if not nested:
+            return data, []
+        created: List[str] = []
+        for child in nested:
+            child_copy = child.model_copy(update={
+                "source_element_id": None,
+                "is_active": True,
+                "nested_subpolicies": None,
+            })
+            try:
+                child_dict = self.create_policy(child_copy)
+            except Exception:
+                self._delete_policies_by_id(created)
+                raise
+            created.append(child_dict["id"])
+        merged_ids = list(data.subpolicy_ids or []) + created
+        updated = data.model_copy(update={
+            "subpolicy_ids": merged_ids,
+            "nested_subpolicies": None,
+        })
+        return updated, created
+
+    def _attach_to_source(self, policy: Any, source_element_id: Optional[str]) -> Any:
+        """Повесить политику на элемент-источник, создать элемент при отсутствии."""
+        if not source_element_id:
+            return None
+        source = self.core.courses.find_by_id(source_element_id)
+        if not source:
+            source = self.core.courses.get_or_create_element(source_element_id, "CourseStructure")
+        source.has_access_policy.append(policy)
+        return source
+
     def create_policy(self, policy_data: PolicyCreate) -> dict:
         """Создать AccessPolicy в графе и сохранить онтологию.
 
@@ -142,24 +158,13 @@ class PolicyService:
         подусловия — они создаются рекурсивно в том же порядке, их id добавляются
         к subpolicy_ids родителя.
         """
-        nested = list(getattr(policy_data, "nested_subpolicies", None) or [])
-        created_children: List[Any] = []
-        if nested:
-            for child in nested:
-                child_copy = child.model_copy(update={
-                    "source_element_id": None,
-                    "is_active": True,
-                    "nested_subpolicies": None,
-                })
-                child_dict = self.create_policy(child_copy)
-                created_children.append(child_dict["id"])
-            merged_ids = list(policy_data.subpolicy_ids or []) + created_children
-            policy_data = policy_data.model_copy(update={
-                "subpolicy_ids": merged_ids,
-                "nested_subpolicies": None,
-            })
+        policy_data, created_children = self._materialize_nested(policy_data)
 
-        self._check_cycle(policy_data)
+        try:
+            self._check_cycle(policy_data)
+        except Exception:
+            self._delete_policies_by_id(created_children)
+            raise
 
         policy_id = f"policy_{uuid.uuid4().hex[:8]}"
         new_policy = self.core.policies.create_or_update(policy_id)
@@ -167,35 +172,27 @@ class PolicyService:
         rule_type_value = self._rule_type_str(policy_data.rule_type)
         new_policy.rule_type = [rule_type_value]
         new_policy.is_active = [getattr(policy_data, 'is_active', True)]
-
         self._apply_type_specific_fields(new_policy, policy_data, rule_type_value)
 
         author = self.core._get_or_create_element(policy_data.author_id, self.core.onto.Methodologist)
         new_policy.has_author = [author]
 
-        source = None
-        if policy_data.source_element_id:
-            source = self.core.courses.find_by_id(policy_data.source_element_id)
-            if not source:
-                source = self.core.courses.get_or_create_element(
-                    policy_data.source_element_id, "CourseStructure"
-                )
-            source.has_access_policy.append(new_policy)
+        source = self._attach_to_source(new_policy, policy_data.source_element_id)
 
         result = self.reasoner.reason()
-        if result.status == "inconsistent":
-            logger.warning("Политика %s сделала онтологию inconsistent: %s", policy_id, result.error)
+        if result.status != "ok":
             self._rollback_policy(new_policy, source)
-            raise PolicyConflictError(
-                f"Политика создаёт логическое противоречие: {result.error or 'онтология inconsistent'}"
-            )
-        if result.status == "error":
-            self._rollback_policy(new_policy, source)
-            raise PolicyConflictError(f"Ошибка reasoning: {result.error}")
+            self._delete_policies_by_id(created_children)
+            if result.status == "inconsistent":
+                logger.warning("Политика %s сделала онтологию inconsistent: %s", policy_id, result.error)
+                raise PolicyConflictError(
+                    f"Политика создаёт логическое противоречие: {result.error or 'онтология inconsistent'}"
+                )
+            raise PolicyConflictError(f"Reasoning {result.status}: {result.error or '—'}")
 
         self.core.save()
         self._invalidate_all_access_caches()
-        return self._map_policy_to_dict(new_policy, policy_data.source_element_id)
+        return serialize_policy(new_policy, source_id=policy_data.source_element_id)
 
     def _apply_type_specific_fields(
         self,
@@ -204,55 +201,75 @@ class PolicyService:
         rule_type: str,
     ) -> None:
         """Перенести поля PolicyCreate в ABox в зависимости от rule_type."""
+        self._apply_common_fields(policy, data)
+        if rule_type == RuleType.GROUP.value:
+            self._apply_group_field(policy, data)
+        if rule_type in {RuleType.AND.value, RuleType.OR.value}:
+            self._apply_composite_fields(policy, data, rule_type)
+        if rule_type == RuleType.AGGREGATE.value:
+            self._apply_aggregate_fields(policy, data)
+
+    def _apply_common_fields(self, policy: Any, data: PolicyCreate) -> None:
         if data.passing_threshold is not None:
             policy.passing_threshold = [data.passing_threshold]
         if data.valid_from:
             policy.valid_from = [data.valid_from]
         if data.valid_until:
             policy.valid_until = [data.valid_until]
-
         if data.target_element_id:
             target = self.core.courses.find_by_id(data.target_element_id)
             if not target:
                 target = self.core.courses.get_or_create_element(data.target_element_id, "CourseStructure")
             policy.targets_element = [target]
-
         if data.target_competency_id:
-            comp = self.core.courses.find_by_id(data.target_competency_id)
-            if comp:
-                policy.targets_competency = [comp]
-
-        if rule_type == RuleType.GROUP.value and data.restricted_to_group_id:
-            group = self.core.onto.search_one(
-                type=self.core.onto.Group, iri=f"*{data.restricted_to_group_id}"
+            # Competency — отдельный класс (не CourseStructure), courses.find_by_id
+            # его не находит; без явного поиска по type=Competency targets_competency
+            # оставался пустым, и competency_required-правила не срабатывали SWRL-ом.
+            comp_cls = getattr(self.core.onto, "Competency", None)
+            comp = (
+                self.core.onto.search_one(type=comp_cls, iri=f"*{data.target_competency_id}")
+                if comp_cls is not None
+                else None
             )
-            if group is None:
-                raise ValueError(f"Группа {data.restricted_to_group_id} не найдена.")
-            policy.restricted_to_group = [group]
+            if comp is None:
+                raise ValueError(f"Компетенция {data.target_competency_id} не найдена.")
+            policy.targets_competency = [comp]
 
-        if rule_type in {RuleType.AND.value, RuleType.OR.value} and data.subpolicy_ids:
-            subs: List[Any] = []
-            for sub_id in data.subpolicy_ids:
-                sub = self.core.policies.find_by_id(sub_id)
-                if sub is None:
-                    raise ValueError(f"Подполитика {sub_id} не найдена.")
-                subs.append(sub)
-            policy.has_subpolicy = subs
-            # Unique Name Assumption выключен в OWL (OWA); SWRL DifferentFrom
-            # срабатывает только при явной декларации AllDifferent.
-            if rule_type == RuleType.AND.value and len(subs) >= 2:
-                AllDifferent(subs)
+    def _apply_group_field(self, policy: Any, data: PolicyCreate) -> None:
+        if not data.restricted_to_group_id:
+            return
+        group = self.core.onto.search_one(
+            type=self.core.onto.Group, iri=f"*{data.restricted_to_group_id}"
+        )
+        if group is None:
+            raise ValueError(f"Группа {data.restricted_to_group_id} не найдена.")
+        policy.restricted_to_group = [group]
 
-        if rule_type == RuleType.AGGREGATE.value:
-            fn = data.aggregate_function.value if hasattr(data.aggregate_function, "value") else data.aggregate_function
-            policy.aggregate_function = fn
-            agg_elements: List[Any] = []
-            for eid in data.aggregate_element_ids or []:
-                elem = self.core.courses.find_by_id(eid)
-                if elem is None:
-                    raise ValueError(f"Элемент агрегата {eid} не найден.")
-                agg_elements.append(elem)
-            policy.aggregate_elements = agg_elements
+    def _apply_composite_fields(self, policy: Any, data: PolicyCreate, rule_type: str) -> None:
+        if not data.subpolicy_ids:
+            return
+        subs: List[Any] = []
+        for sub_id in data.subpolicy_ids:
+            sub = self.core.policies.find_by_id(sub_id)
+            if sub is None:
+                raise ValueError(f"Подполитика {sub_id} не найдена.")
+            subs.append(sub)
+        policy.has_subpolicy = subs
+        # Unique Name Assumption выключен в OWL (OWA); SWRL DifferentFrom
+        # срабатывает только при явной декларации AllDifferent.
+        if rule_type == RuleType.AND.value and len(subs) >= 2:
+            AllDifferent(subs)
+
+    def _apply_aggregate_fields(self, policy: Any, data: PolicyCreate) -> None:
+        fn = data.aggregate_function
+        policy.aggregate_function = fn.value if hasattr(fn, "value") else fn
+        agg_elements: List[Any] = []
+        for eid in data.aggregate_element_ids or []:
+            elem = self.core.courses.find_by_id(eid)
+            if elem is None:
+                raise ValueError(f"Элемент агрегата {eid} не найден.")
+            agg_elements.append(elem)
+        policy.aggregate_elements = agg_elements
 
     def _rollback_policy(self, policy_node: Any, source_node: Any) -> None:
         """Снять политику с элемента и удалить её из ABox."""
@@ -275,7 +292,7 @@ class PolicyService:
             source_id: str = source_elements[0].name if source_elements else "unknown"
             if element_id and source_id != element_id:
                 continue
-            policies.append(self._map_policy_to_dict(policy, source_id))
+            policies.append(serialize_policy(policy, source_id=source_id))
         return policies
 
     def delete_policy(self, policy_id: str) -> bool:
@@ -288,8 +305,17 @@ class PolicyService:
             if policy in element.has_access_policy:
                 element.has_access_policy.remove(policy)
         self.core.policies.delete(policy)
+        result = self.reasoner.reason()
+        if result.status != "ok":
+            # на диск пишем только согласованное состояние; в памяти политика
+            # уже удалена, но без save следующий запуск увидит её снова
+            logger.warning("Reasoning после delete_policy %s вернул %s: %s",
+                           policy_id, result.status, result.error)
+            self._invalidate_all_access_caches()
+            raise PolicyConflictError(
+                f"После удаления политики reasoning {result.status}: {result.error or '—'}"
+            )
         self.core.save()
-        self.reasoner.reason()
         self._invalidate_all_access_caches()
         return True
 
@@ -304,26 +330,16 @@ class PolicyService:
         if not policy:
             raise ValueError(f"Политика с ID {policy_id} не найдена")
 
+        snapshot = self._snapshot_policy(policy)
         old_subs = list(getattr(policy, "has_subpolicy", []) or [])
 
-        nested = list(getattr(data, "nested_subpolicies", None) or [])
-        if nested:
-            created_ids: List[str] = []
-            for child in nested:
-                child_copy = child.model_copy(update={
-                    "source_element_id": None,
-                    "is_active": True,
-                    "nested_subpolicies": None,
-                })
-                child_dict = self.create_policy(child_copy)
-                created_ids.append(child_dict["id"])
-            merged = list(data.subpolicy_ids or []) + created_ids
-            data = data.model_copy(update={
-                "subpolicy_ids": merged,
-                "nested_subpolicies": None,
-            })
+        data, created_nested = self._materialize_nested(data)
 
-        self._check_cycle(data)
+        try:
+            self._check_cycle(data)
+        except Exception:
+            self._delete_policies_by_id(created_nested)
+            raise
 
         new_type = self._rule_type_str(data.rule_type)
         policy.rule_type = [new_type]
@@ -339,16 +355,24 @@ class PolicyService:
         policy.aggregate_function = None
 
         self._apply_type_specific_fields(policy, data, new_type)
-
         self._cleanup_orphan_nested(policy, old_subs)
 
+        result = self.reasoner.reason()
+        if result.status != "ok":
+            self._restore_policy(policy, snapshot)
+            self._delete_policies_by_id(created_nested)
+            if result.status == "inconsistent":
+                raise PolicyConflictError(
+                    f"Политика создаёт логическое противоречие: {result.error or 'онтология inconsistent'}"
+                )
+            raise PolicyConflictError(f"Reasoning {result.status}: {result.error or '—'}")
+
         self.core.save()
-        self.reasoner.reason()
         self._invalidate_all_access_caches()
 
         source_elements = self.core.policies.find_by_source_element(policy)
         source_id = source_elements[0].name if source_elements else data.source_element_id
-        return self._map_policy_to_dict(policy, source_id)
+        return serialize_policy(policy, source_id=source_id)
 
     def _cleanup_orphan_nested(self, parent_policy: Any, old_subs: List[Any]) -> None:
         """Удаляет подусловия, которые были вложены только в parent_policy и не
@@ -380,7 +404,13 @@ class PolicyService:
         policy = self.core.policies.find_by_id(policy_id)
         if not policy:
             raise ValueError(f"Политика с ID {policy_id} не найдена")
+        previous = list(getattr(policy, "is_active", []) or [])
         policy.is_active = [is_active]
+        result = self.reasoner.reason()
+        if result.status != "ok":
+            policy.is_active = previous
+            raise PolicyConflictError(
+                f"Переключение активности привело к reasoning {result.status}: {result.error or '—'}"
+            )
         self.core.save()
-        self.reasoner.reason()
         self._invalidate_all_access_caches()
