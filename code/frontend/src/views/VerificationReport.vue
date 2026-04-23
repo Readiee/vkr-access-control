@@ -145,12 +145,6 @@ onMounted(async () => {
     >
       <i class="pi pi-shield text-4xl text-surface-300 mb-3"></i>
       <p class="mb-4">Отчёт по этому курсу ещё не построен.</p>
-      <Button
-        icon="pi pi-play"
-        label="Запустить проверку"
-        @click="runVerification"
-        :loading="isLoading"
-      />
     </div>
 
     <div v-else class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -174,7 +168,7 @@ onMounted(async () => {
               v-if="isStale"
               severity="warn"
               icon="pi pi-exclamation-triangle"
-              value="Устарел — политики изменились"
+              value="Устарел - политики изменились"
             />
           </div>
           <span class="text-sm text-surface-500">

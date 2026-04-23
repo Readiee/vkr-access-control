@@ -129,11 +129,11 @@ const saveAssesses = async () => {
     </div>
 
     <!-- Выдаваемые компетенции (SWRL H-2) -->
-    <div class="flex gap-1 pb-4 border-b border-surface-100">
+    <div class="flex flex-col gap-1 pb-4 border-b border-surface-100">
       <h3 class="text-lg font-bold text-surface-800 flex items-center">
         Выдаваемые компетенции
       </h3>
-      <span class="text-[10px] text-surface-400 font-normal normal-case tracking-normal">
+      <span class="text-[10px] text-surface-400 font-normal">
         студент получит их при прохождении элемента
       </span>
       <TreeSelect
@@ -218,7 +218,7 @@ const saveAssesses = async () => {
       <div class="grid grid-cols-2 gap-3">
         <Button
           v-if="newPolicies.length < 3"
-          label="Добавить простое правило"
+          label="Простое правило"
           icon="pi pi-plus"
           variant="outlined"
           class="border-dashed py-4 bg-white/50 hover:bg-white hover:border-primary-400 transition-colors"
