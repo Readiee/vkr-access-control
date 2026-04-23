@@ -10,6 +10,7 @@ from services.cache_manager import CacheManager
 from services.graph_validator import GraphValidator, ProbePolicy
 from services.ontology_core import OntologyCore
 from services.reasoning import ReasoningOrchestrator
+from utils.policy_formatters import serialize_policy
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,8 @@ class PolicyService:
         return value if isinstance(value, str) else value.value
 
     def _map_policy_to_dict(self, policy_node: Any, source_id: str) -> dict:
-        return {
+        subs = getattr(policy_node, "has_subpolicy", []) or []
+        result = {
             "id": policy_node.name,
             "source_element_id": source_id,
             "rule_type": policy_node.rule_type[0] if policy_node.rule_type else "",
@@ -83,7 +85,7 @@ class PolicyService:
                 if getattr(policy_node, "restricted_to_group", None)
                 else None
             ),
-            "subpolicy_ids": [sub.name for sub in getattr(policy_node, "has_subpolicy", []) or []] or None,
+            "subpolicy_ids": [sub.name for sub in subs] or None,
             "aggregate_function": getattr(policy_node, "aggregate_function", None),
             "aggregate_element_ids": (
                 [e.name for e in getattr(policy_node, "aggregate_elements", []) or []] or None
@@ -91,6 +93,13 @@ class PolicyService:
             "is_active": policy_node.is_active[0] if getattr(policy_node, "is_active", None) else False,
             "author_id": policy_node.has_author[0].name if getattr(policy_node, "has_author", None) else "system",
         }
+        # composite'у нужен развёрнутый список подусловий, чтобы фронт мог
+        # редактировать его сразу после create/update без повторного fetch-а
+        if subs:
+            result["subpolicies_detail"] = [
+                serialize_policy(sub, include_subpolicies_detail=False) for sub in subs
+            ]
+        return result
 
     def _build_probe(self, policy_data: PolicyCreate) -> ProbePolicy:
         rule_type = self._rule_type_str(policy_data.rule_type)
