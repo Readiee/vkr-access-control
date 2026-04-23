@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { getBlockingExplanation } from '@/api';
 import type { BlockingExplanation } from '@/types';
 import { RuleTypeMap } from '@/utils/formatters';
@@ -20,17 +20,17 @@ const report = ref<BlockingExplanation | null>(null);
 const isLoading = ref(false);
 const errorMsg = ref<string | null>(null);
 
-const localVisible = ref(props.visible);
+const localVisible = computed<boolean>({
+  get: () => props.visible,
+  set: (v) => emit('update:visible', v),
+});
 
 watch(() => props.visible, (v) => {
-  localVisible.value = v;
   if (v) {
     showTrace.value = false;
     fetchReport();
   }
 });
-
-watch(() => localVisible.value, (v) => emit('update:visible', v));
 
 const fetchReport = async () => {
   if (!props.studentId || !props.elementId) return;

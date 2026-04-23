@@ -16,5 +16,15 @@ export default defineConfig({
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
     }
+  },
+  server: {
+    // В dev axios бьёт по относительному /api/v1 (VITE_API_BASE_URL не задан).
+    // Прокся это на локальный backend, чтобы не требовать CORS и .env у каждого.
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      }
+    }
   }
 })

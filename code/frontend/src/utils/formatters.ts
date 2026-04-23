@@ -63,6 +63,32 @@ export const AggregateFunctionLabels: Record<string, string> = {
 /** Типы элементов, у которых может появиться has_grade — только они годны для агрегата. */
 export const GRADABLE_ELEMENT_TYPES = new Set<string>(['test', 'practice', 'assignment']);
 
+/** Дата из ISO/Date → ru-RU «дд.мм.гггг чч:мм». Пустой вход → пустая строка. */
+export const formatDate = (value: string | Date | null | undefined): string => {
+  if (!value) return '';
+  const d = typeof value === 'string' ? new Date(value) : value;
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+/** Компактная дата без времени: «дд.мм.гггг». Для бейджей правил. */
+export const formatDateShort = (value: string | Date | null | undefined): string => {
+  if (!value) return '';
+  const d = typeof value === 'string' ? new Date(value) : value;
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+};
+
 // ---------------------------------------------------------------------------
 // Рекурсивный поиск названия узла по ID в дереве
 // ---------------------------------------------------------------------------
@@ -118,12 +144,8 @@ export const formatPolicyBadgeText = (
       break;
     }
     case RuleType.DATE_RESTRICTED: {
-      const formatDate = (dateStr: string) => {
-        const [year, month, day] = dateStr.split('T')[0].split('-');
-        return `${day}.${month}.${year}`;
-      };
-      const from = policy.valid_from ? ` с ${formatDate(policy.valid_from)}` : '';
-      const until = policy.valid_until ? ` по ${formatDate(policy.valid_until)}` : '';
+      const from = policy.valid_from ? ` с ${formatDateShort(policy.valid_from)}` : '';
+      const until = policy.valid_until ? ` по ${formatDateShort(policy.valid_until)}` : '';
       description = from || until ? `${label}:${from}${until}` : label;
       break;
     }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, watch, computed } from 'vue';
+import { onMounted, watch } from 'vue';
 import { useOntologyStore } from '@/stores/ontology';
 import { useCourseTree } from '@/composables/useCourseTree';
 
@@ -8,16 +8,9 @@ import PolicyWorkspace from '@/components/PolicyWorkspace.vue';
 import { formatPolicyBadgeText } from '@/utils/formatters';
 import { RuleType } from '@/types';
 
-// Состояние
 const store = useOntologyStore();
 const { selectedNode, selectedNodeKey, expandedKeys, onNodeSelect } = useCourseTree(() => store.currentCourseTree);
 
-const availableCourses = computed(() => {
-  return store.courses;
-});
-
-
-// Методы
 onMounted(async () => {
   await store.fetchMeta();
 });
@@ -43,7 +36,7 @@ watch(() => store.currentCourseId, (newId) => {
         <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Выбор курса</label>
         <Select 
           v-model="store.currentCourseId" 
-          :options="availableCourses" 
+          :options="store.courses"
           optionLabel="name" 
           optionValue="id"
           placeholder="Выберите курс" 
@@ -120,20 +113,3 @@ watch(() => store.currentCourseId, (newId) => {
     <ConfirmDialog></ConfirmDialog>
   </div>
 </template>
-
-<style scoped>
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #e2e8f0;
-  border-radius: 10px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #cbd5e1;
-}
-</style>
-

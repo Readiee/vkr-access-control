@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import type { JustificationNode } from '@/types';
 
+// имя нужно для рекурсивной ссылки шаблона на сам себя
+defineOptions({ name: 'JustificationTreeView' });
+
 defineProps<{
   node: JustificationNode;
   depth: number;
