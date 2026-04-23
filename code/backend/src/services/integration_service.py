@@ -159,7 +159,7 @@ class IntegrationService:
             
             policies = []
             for pol in getattr(node_obj, "has_access_policy", []):
-                policies.append(serialize_policy(pol))
+                policies.append(serialize_policy(pol, source_id=node_id))
 
             if raw_type == ElementType.COURSE.value:
                 children_objs = getattr(node_obj, "has_module", [])

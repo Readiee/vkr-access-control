@@ -147,9 +147,20 @@ PolicyCreate.model_rebuild()
 
 
 class Policy(PolicyBase):
-    """Политика доступа с идентификатором и статусом активности."""
+    """Политика доступа с идентификатором, статусом активности и UI-extras."""
     id: str = Field(..., description="Сгенерированный ID политики")
     is_active: bool = Field(..., description="Флаг активности правила")
+    name: Optional[str] = Field(None, description="Человеческое название (label или auto-описание)")
+    target_element_name: Optional[str] = Field(None, description="Название целевого элемента")
+    target_competency_name: Optional[str] = Field(None, description="Название целевой компетенции")
+    restricted_to_group_name: Optional[str] = Field(None, description="Название группы")
+    aggregate_element_names: Optional[List[str]] = Field(None, description="Названия элементов агрегата")
+    subpolicies_detail: Optional[List["Policy"]] = Field(
+        None, description="Развёрнутые подусловия композита (только верхний уровень)"
+    )
+
+
+Policy.model_rebuild()
 
 
 class TogglePolicy(BaseModel):
