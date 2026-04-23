@@ -30,6 +30,10 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT_SEC = 10  # дальше синхронный HTTP-запрос теряет смысл
 
+# Pellet вызывается через подменённый subprocess.run. Глобальный attr нельзя
+# патчить из двух потоков одновременно — восстановление перетрётся.
+_PELLET_PATCH_LOCK = threading.Lock()
+
 
 @dataclass
 class ReasoningResult:
@@ -143,21 +147,22 @@ class ReasoningOrchestrator:
 
     def _patched_sync_reasoner(self) -> None:
         """Подменить Jena-loader на OWLAPI в команде запуска Pellet."""
-        original_run = subprocess.run
+        with _PELLET_PATCH_LOCK:
+            original_run = subprocess.run
 
-        def patched_run(cmd, *args, **kwargs):
-            if isinstance(cmd, list) and "java" in cmd and "Jena" in cmd:
-                cmd[cmd.index("Jena")] = "OWLAPI"
-            return original_run(cmd, *args, **kwargs)
+            def patched_run(cmd, *args, **kwargs):
+                if isinstance(cmd, list) and "java" in cmd and "Jena" in cmd:
+                    cmd[cmd.index("Jena")] = "OWLAPI"
+                return original_run(cmd, *args, **kwargs)
 
-        subprocess.run = patched_run
-        try:
-            # Первый аргумент: онтология/мир. Без него Pellet берёт default_world
-            # и пропускает индивидов из изолированных World (тесты, многопоточка).
-            sync_reasoner_pellet(
-                self.onto.world,
-                infer_property_values=True,
-                infer_data_property_values=True,
-            )
-        finally:
-            subprocess.run = original_run
+            subprocess.run = patched_run
+            try:
+                # Первый аргумент: онтология/мир. Без него Pellet берёт default_world
+                # и пропускает индивидов из изолированных World (тесты, многопоточка).
+                sync_reasoner_pellet(
+                    self.onto.world,
+                    infer_property_values=True,
+                    infer_data_property_values=True,
+                )
+            finally:
+                subprocess.run = original_run
