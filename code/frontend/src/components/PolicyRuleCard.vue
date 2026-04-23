@@ -9,6 +9,7 @@ import {
   findNodeNameById,
   formatPolicyBadgeText,
   AggregateFunctionLabels,
+  buildCompetencyTree,
 } from '@/utils/formatters';
 import { useTreeHelpers } from '@/composables/useTreeHelpers';
 import { usePolicyForm } from '@/composables/usePolicyForm';
@@ -204,6 +205,28 @@ const pickAggregateElements = (val: any) => {
     .map(([k]) => k);
 };
 
+const competencyTree = computed(() => buildCompetencyTree(store.competencies));
+
+const competencyModel = computed<Record<string, boolean> | null>(() =>
+  form.value.target_competency_id ? { [form.value.target_competency_id]: true } : null,
+);
+
+const pickCompetency = (val: any) => {
+  if (!val || typeof val !== 'object') {
+    form.value.target_competency_id = null;
+    return;
+  }
+  const picked = Object.entries(val).find(
+    ([, v]) => v === true || (v as any)?.checked === true,
+  );
+  form.value.target_competency_id = picked ? picked[0] : null;
+};
+
+const competencyNameById = (id: string): string | null => {
+  const c = store.competencies.find((x) => x.id === id);
+  return c ? c.name : null;
+};
+
 const requiresTargetElement = computed(() => {
   return [RuleType.COMPLETION_REQUIRED, RuleType.GRADE_REQUIRED, RuleType.VIEWED_REQUIRED].includes(form.value.rule_type as RuleType);
 });
@@ -298,14 +321,21 @@ const isDateRule = computed(() => form.value.rule_type === RuleType.DATE_RESTRIC
 
               <div v-if="isCompetencyRule" class="flex flex-col gap-1 col-span-2">
                 <label class="text-[11px] font-bold text-surface-500 uppercase">Требуемая компетенция</label>
-                <Select
-                  v-model="form.target_competency_id"
-                  :options="store.competencies"
-                  optionLabel="name"
-                  optionValue="id"
-                  placeholder="Выберите..."
+                <TreeSelect
+                  :modelValue="competencyModel"
+                  @update:modelValue="pickCompetency"
+                  :options="competencyTree"
+                  placeholder="Выберите компетенцию"
                   class="w-full"
-                />
+                  selection-mode="single"
+                >
+                  <template #value>
+                    <span v-if="form.target_competency_id">
+                      {{ competencyNameById(form.target_competency_id) ?? form.target_competency_id }}
+                    </span>
+                    <span v-else class="text-surface-400">Выбор...</span>
+                  </template>
+                </TreeSelect>
               </div>
 
               <div v-if="isGroupRule" class="flex flex-col gap-1 col-span-2">

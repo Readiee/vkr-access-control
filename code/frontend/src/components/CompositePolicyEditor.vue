@@ -9,6 +9,7 @@ import {
   ruleTypeOptions,
   AggregateFunctionLabels,
   findNodeNameById,
+  buildCompetencyTree,
 } from '@/utils/formatters';
 import { useTreeHelpers } from '@/composables/useTreeHelpers';
 import { SANDBOX_AUTHOR_ID } from '@/utils/auth';
@@ -76,6 +77,27 @@ const pickAggregateElements = (c: ChildDraft, val: any) => {
   c.aggregate_element_ids = Object.entries(val)
     .filter(([, v]) => v === true || (v as any)?.checked === true)
     .map(([k]) => k);
+};
+
+const competencyTree = computed(() => buildCompetencyTree(store.competencies));
+
+const competencyModelFor = (c: ChildDraft): Record<string, boolean> | null =>
+  c.target_competency_id ? { [c.target_competency_id]: true } : null;
+
+const pickCompetency = (c: ChildDraft, val: any) => {
+  if (!val || typeof val !== 'object') {
+    c.target_competency_id = null;
+    return;
+  }
+  const picked = Object.entries(val).find(
+    ([, v]) => v === true || (v as any)?.checked === true,
+  );
+  c.target_competency_id = picked ? picked[0] : null;
+};
+
+const competencyNameById = (id: string): string | null => {
+  const item = store.competencies.find((x) => x.id === id);
+  return item ? item.name : null;
 };
 
 type ChildDraft = {
@@ -256,6 +278,7 @@ const submit = async () => {
 <template>
   <div class="flex flex-col gap-5">
         <div class="flex justify-between items-center border-b border-surface-100 pb-3">
+          <div class="flex flex-col gap-1"></div>
           <span class="font-bold text-xs text-surface-600 uppercase tracking-widest flex items-center gap-2">
             <i class="pi pi-sitemap"></i>
             {{ isEditMode
@@ -340,14 +363,21 @@ const submit = async () => {
 
             <div v-if="child.rule_type === RuleType.COMPETENCY_REQUIRED" class="flex flex-col gap-1 col-span-2">
               <label class="text-[11px] font-bold text-surface-500 uppercase">Компетенция</label>
-              <Select
-                v-model="child.target_competency_id"
-                :options="store.competencies"
-                optionLabel="name"
-                optionValue="id"
-                placeholder="Выберите..."
+              <TreeSelect
+                :modelValue="competencyModelFor(child)"
+                @update:modelValue="(val: any) => pickCompetency(child, val)"
+                :options="competencyTree"
+                placeholder="Выберите компетенцию"
                 class="w-full"
-              />
+                selection-mode="single"
+              >
+                <template #value>
+                  <span v-if="child.target_competency_id">
+                    {{ competencyNameById(child.target_competency_id) ?? child.target_competency_id }}
+                  </span>
+                  <span v-else class="text-surface-400">Выбор...</span>
+                </template>
+              </TreeSelect>
             </div>
 
             <div v-if="child.rule_type === RuleType.DATE_RESTRICTED" class="flex flex-col gap-1 col-span-2">

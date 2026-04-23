@@ -6,6 +6,7 @@ import { useCourseTree } from '@/composables/useCourseTree';
 import SimulatorInspector from '@/components/SimulatorInspector.vue';
 import { useConfirm } from 'primevue/useconfirm';
 import ConfirmDialog from 'primevue/confirmdialog';
+import { buildCompetencyTree } from '@/utils/formatters';
 
 // Сторы для работы с данными
 const ontologyStore = useOntologyStore();
@@ -39,27 +40,6 @@ watch(() => ontologyStore.currentCourseId, async (newId) => {
     await loadCourseData(newId);
   }
 });
-
-// Хелпер: из плоского списка {id, name, parent_id} в иерархию {key, label, data, children}
-const buildCompetencyTree = (flatList: any[]) => {
-  const map = new Map();
-  const roots: any[] = [];
-
-  flatList.forEach(item => {
-    map.set(item.id, { key: item.id, label: item.name, data: item, children: [] });
-  });
-
-  flatList.forEach(item => {
-    const node = map.get(item.id);
-    if (item.parent_id && map.has(item.parent_id)) {
-      map.get(item.parent_id).children.push(node);
-    } else {
-      roots.push(node);
-    }
-  });
-
-  return roots;
-};
 
 // Реактивное дерево
 const competencyTree = computed(() => buildCompetencyTree(ontologyStore.competencies || []));
