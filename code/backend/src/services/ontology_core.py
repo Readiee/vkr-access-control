@@ -56,8 +56,12 @@ class OntologyCore:
         return node_id
 
     def _get_or_create_element(self, element_id: str, element_class: Any) -> Any:
-        """Находит OWL-индивид по ID или создаёт новый."""
-        element = self.onto.search_one(iri=f"*{element_id}")
+        """Находит OWL-индивид по ID или создаёт новый.
+
+        Поиск ограничен переданным классом, иначе суффикс `*element_id` может
+        матчить индивид другого класса с тем же хвостом IRI.
+        """
+        element = self.onto.search_one(type=element_class, iri=f"*{element_id}")
         if not element:
             element = element_class(element_id)
         return element

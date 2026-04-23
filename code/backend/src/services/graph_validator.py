@@ -217,7 +217,7 @@ class GraphValidator:
     @staticmethod
     def get_parent_of(onto: Any, element_id: str) -> Any:
         """Найти родителя элемента по has_module/contains_element (совместимость)."""
-        element = onto.search_one(iri=f"*{element_id}")
+        element = onto.search_one(type=onto.CourseStructure, iri=f"*{element_id}")
         if not element:
             return None
         for candidate in onto.CourseStructure.instances():
