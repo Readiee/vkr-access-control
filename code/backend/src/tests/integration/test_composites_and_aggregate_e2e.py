@@ -28,8 +28,8 @@ class CompositeAndAggregateEndToEndTests(unittest.TestCase):
     """Each test gets a fresh World — Pellet видит только свои индивиды."""
 
     def setUp(self):
-        self.test_owl = f"test_composite_agg_{id(self)}.owl"
-        shutil.copy(DEFAULT_ONTOLOGY_PATH, self.test_owl)
+        from tests._factory import make_temp_onto_copy
+        self.test_owl = make_temp_onto_copy(prefix="vkr_composite_agg_")
         self.world = World()
         self.core = OntologyCore(self.test_owl, world=self.world)
         from services.cache_manager import CacheManager
@@ -352,6 +352,17 @@ class CompositeAndAggregateEndToEndTests(unittest.TestCase):
 
         old_sub_ids = set(composite["subpolicy_ids"] or [])
         self.assertEqual(len(old_sub_ids), 2)
+
+        # subpolicies_detail должен приходить сразу после create — иначе
+        # фронт показывает «2 подусловий» вместо имён правил и не может
+        # открыть composite в editor с заполненными целевыми элементами.
+        details = composite.get("subpolicies_detail") or []
+        self.assertEqual(len(details), 2)
+        self.assertTrue(all("name" in d and d["name"] for d in details))
+        self.assertEqual(
+            {d["target_element_id"] for d in details},
+            {"quiz_a", "quiz_b"},
+        )
 
         updated = self.policy_service.update_policy(
             composite["id"],
