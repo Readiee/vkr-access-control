@@ -128,6 +128,42 @@ class SandboxSmokeTests(unittest.TestCase):
         state = self.sandbox.get_sandbox_state("course_sb")
         self.assertNotIn("final_sb", state.get("available_elements", []))
 
+    def test_h2_grants_competency_from_completed_assessor(self):
+        """H-2: прохождение элемента с assesses выдаёт студенту компетенцию,
+        открывая элементы, заблокированные competency_required. Rollback
+        прогресса — компетенция снова исчезает."""
+        with self.core.onto:
+            comp = self.core.onto.Competency("comp_grant_smoke")
+            comp.label = ["Grant smoke competency"]
+            test_sb_el = self.core.onto.search_one(iri="*test_sb")
+            test_sb_el.assesses = [comp]
+        self.core.save()
+
+        self.policy_service.create_policy(PolicyCreate(
+            source_element_id="final_sb",
+            rule_type=RuleType.COMPETENCY,
+            target_competency_id="comp_grant_smoke",
+            author_id="methodologist_smirnov",
+        ))
+
+        initial = self.sandbox.get_sandbox_state("course_sb")
+        self.assertNotIn("comp_grant_smoke", initial.get("active_competencies", []))
+        self.assertNotIn("final_sb", initial.get("available_elements", []))
+
+        self.sandbox.simulate_progress(SimpleNamespace(
+            element_id="test_sb",
+            status=ProgressStatus.COMPLETED.value,
+            grade=None,
+        ))
+        granted = self.sandbox.get_sandbox_state("course_sb")
+        self.assertIn("comp_grant_smoke", granted.get("active_competencies", []))
+        self.assertIn("final_sb", granted.get("available_elements", []))
+
+        self.sandbox.rollback_progress("test_sb")
+        rolled_back = self.sandbox.get_sandbox_state("course_sb")
+        self.assertNotIn("comp_grant_smoke", rolled_back.get("active_competencies", []))
+        self.assertNotIn("final_sb", rolled_back.get("available_elements", []))
+
     def test_set_competencies_unlocks_competency_required_element(self):
         """set_competencies прописывает has_competency → competency_required пускает.
 

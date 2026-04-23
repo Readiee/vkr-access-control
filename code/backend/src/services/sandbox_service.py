@@ -34,6 +34,12 @@ class SandboxService:
         self.reasoner = reasoner
         self.access = access
         self.progress = progress
+        # Manual-override компетенций (перезачёт). SWRL H-2 выводит competencies
+        # из ProgressRecord — но OWL монотонен, убрать их без очистки не получится.
+        # Перед каждым прогоном reasoner-а перезаписываем has_competency на manual:
+        # reasoner уже сверху допишет inferred из актуального progress.
+        # In-memory: рестарт uvicorn теряет manual-override, пользователь задаёт его заново.
+        self._manual_competencies: dict[str, list[str]] = {}
 
     def _sandbox_student(self):
         """Единственный sandbox-студент. Создаёт индивида, если его ещё нет."""
@@ -111,6 +117,7 @@ class SandboxService:
                 record.has_grade = payload.grade
                 self.core.save()
 
+        self._reset_competencies_to_manual(student)
         self.reasoner.reason()
         self.access.rebuild_student_access(sandbox_user_id)
         return {"status": "success", "message": f"Прогресс для {payload.element_id} обновлен"}
@@ -126,6 +133,7 @@ class SandboxService:
 
         self._cascade_delete_parent_records(student, element)
         self._clear_inferred_access(student)
+        self._reset_competencies_to_manual(student)
         self.core.save()
         self.reasoner.reason()
         self.access.rebuild_student_access(student.name)
@@ -137,9 +145,29 @@ class SandboxService:
             if student in getattr(elem, "is_available_for", []):
                 elem.is_available_for.remove(student)
 
+    def _reset_competencies_to_manual(self, student) -> None:
+        """Откат has_competency к manual-override методиста.
+
+        SWRL H-2 выводит компетенции из ProgressRecord, но OWL монотонен и
+        отзыв prerequisite сам по себе не удаляет ранее выведенный has_competency.
+        Перед каждым прогоном reasoner-а перезаписываем has_competency на то,
+        что задал методист вручную через set_competencies — дальше reasoner
+        допишет H-2-выводы из актуального состояния прогресса.
+        """
+        comp_cls = getattr(self.core.onto, "Competency", None)
+        manual_ids = self._manual_competencies.get(student.name, [])
+        manual: list = []
+        if comp_cls is not None:
+            for cid in manual_ids:
+                comp = self.core.onto.search_one(type=comp_cls, iri=f"*{cid}")
+                if comp is not None:
+                    manual.append(comp)
+        student.has_competency = manual
+
     def reset_all(self) -> dict:
         student = self._sandbox_student()
 
+        self._manual_competencies.pop(student.name, None)
         student.has_competency = []
         records = self.core.progress.find_all_for_student(student)
         for r in records:
@@ -154,15 +182,18 @@ class SandboxService:
     def set_competencies(self, competency_ids: list[str]) -> dict:
         student = self._sandbox_student()
         comp_cls = getattr(self.core.onto, "Competency", None)
-        student.has_competency = []
+        # Сначала валидируем, что все id — действительно Competency.
+        # Пишем в manual-tracker валидный список; некорректные id игнорируем молча —
+        # фронт не должен их слать, но контрактная защита.
+        valid_ids: list[str] = []
         if comp_cls is not None:
             for cid in competency_ids:
-                # Competency — самостоятельный класс (не CourseStructure),
-                # поэтому courses.find_by_id его не находит.
                 comp = self.core.onto.search_one(type=comp_cls, iri=f"*{cid}")
                 if comp is not None:
-                    student.has_competency.append(comp)
+                    valid_ids.append(cid)
+        self._manual_competencies[student.name] = valid_ids
 
+        self._reset_competencies_to_manual(student)
         self._clear_inferred_access(student)
         self.core.save()
         self.reasoner.reason()
