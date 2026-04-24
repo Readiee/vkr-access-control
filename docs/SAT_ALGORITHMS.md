@@ -527,7 +527,7 @@ procedure reason_and_materialize(ontology O, student_id s_id?):
 
 Итого на один прогон с full materialize: доминирует Pellet. НФТ-2 (≤ 2 с для типичного курса) выполнима.
 
-**Cache hit path.** Без pre-enrich и reason — только Redis GET + фильтрация `DateAccessFilter`. Миллисекунды, легко укладывается в НФТ-1 (50 мс).
+**Cache hit path.** Без pre-enrich и reason — только Redis GET + проверка `ontology_version`. Миллисекунды, легко укладывается в НФТ-1 (50 мс). Датная фильтрация внутрь reasoning перенесена (FIX11, см. §А2.11).
 
 ### А2.11. Историческая справка: перенос `date_restricted` с `DateAccessFilter` на SWRL-шаблон 5
 
@@ -1179,7 +1179,7 @@ procedure compute_student_ttl(student) → seconds:
 
 ### А5.8. Диф с текущим кодом (вход в 3.6)
 
-Текущий `CacheService` реализует скелет, нужны расширения.
+Исторический диф фазы 2: тогда `CacheService` (ныне `CacheManager`, rename 23.04) реализовывал только SET/GET/DEL. Расширения перечислены ниже, актуальный статус — в блоке после таблицы.
 
 | # | Пункт | Категория | Приоритет |
 |---|---|---|---|

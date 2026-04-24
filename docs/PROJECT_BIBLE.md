@@ -1642,7 +1642,7 @@ backend/
                           DI-граф строится в api/dependencies.py — сервисы получают явные зависимости,
                           OntologyCore тонкий (только onto + save + репозитории)
     repositories/       — 1 файл (4 repos: Student, Course, Progress, Policy)
-    schemas/            — 19 Pydantic BaseModel (включая VerificationReportResponse,
+    schemas/            — 20 Pydantic BaseModel (включая VerificationReportResponse,
                           BlockingExplanationResponse, JustificationNodeResponse,
                           BlockedPolicyResponse, PropertyReportResponse) + 1 Enum
     core/               — Конфиг, Enums
