@@ -56,7 +56,7 @@ class ServiceBundle:
 def build_bundle(owl_path: str, world: Optional[World] = None) -> ServiceBundle:
     """Собрать полный граф сервисов для тестового World (Redis=None)."""
     core = OntologyCore(owl_path, world=world)
-    cache = CacheManager(None)  # без Redis — CacheManager становится no-op
+    cache = CacheManager(None, onto_path=owl_path)  # без Redis — CacheManager становится no-op
     reasoner = ReasoningOrchestrator(core.onto)
     rollup = RollupService(core)
     access = AccessService(core, cache=cache, reasoner=reasoner)

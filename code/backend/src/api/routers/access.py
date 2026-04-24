@@ -3,7 +3,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 
 from api.dependencies import get_access_service
-from schemas.schemas import AvailableElements
+from schemas.schemas import AvailableElements, BlockingExplanationResponse
 from services.access import AccessService
 
 logger = logging.getLogger(__name__)
@@ -35,6 +35,7 @@ async def get_student_access(
 @router.get(
     "/student/{student_id}/element/{element_id}/explain",
     summary="Объяснение (не)доступа к элементу (UC-9)",
+    response_model=BlockingExplanationResponse,
 )
 async def explain_access(
     student_id: str = Path(..., description="ID студента"),

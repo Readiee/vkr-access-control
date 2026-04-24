@@ -178,6 +178,21 @@ class AccessServiceTests(unittest.TestCase):
         self.assertEqual(just["rule_template"], "default_allow")
         self.assertEqual(just["status"], "available")
 
+    def test_explain_blocking_matches_pydantic_response_schema(self):
+        """Ответ explain_blocking валидно ложится на BlockingExplanationResponse."""
+        from schemas.schemas import BlockingExplanationResponse
+
+        self.lec_guarded.is_available_for = [self.student]
+        self.student.satisfies = [self.policy]
+
+        report = self.service.explain_blocking("acc_ivan", "lec_acc_guarded")
+        validated = BlockingExplanationResponse.model_validate(report)
+
+        self.assertEqual(validated.element_id, "lec_acc_guarded")
+        self.assertTrue(validated.is_available)
+        self.assertEqual(validated.justification.rule_template, "meta:is_available_for")
+        self.assertEqual(len(validated.justification.children), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

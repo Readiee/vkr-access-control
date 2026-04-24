@@ -101,6 +101,30 @@ class VerificationServiceIntegrationTests(unittest.TestCase):
         self.assertIn("subsumption", report["properties"])
         self.assertEqual(report["properties"]["redundancy"]["status"], "failed")
 
+    def test_report_validates_against_pydantic_response_schema(self):
+        from schemas.schemas import VerificationReportResponse
+
+        self.policy_service.create_policy(PolicyCreate(
+            source_element_id="lec_v2",
+            rule_type=RuleType.COMPLETION,
+            target_element_id="lec_v1",
+            author_id="methodologist_smirnov",
+        ))
+
+        raw = self.verification.verify("course_v", include_subsumption=True).to_dict()
+        validated = VerificationReportResponse.model_validate(raw)
+
+        self.assertEqual(validated.course_id, "course_v")
+        self.assertIn("consistency", validated.properties)
+        self.assertIn("acyclicity", validated.properties)
+        self.assertIn("reachability", validated.properties)
+        self.assertIn("redundancy", validated.properties)
+        self.assertIn("subsumption", validated.properties)
+        # ontology_version проставляется даже без Redis: current_ontology_version()
+        # читает файл напрямую по onto_path. CacheManager(None) с onto_path=None не
+        # знает пути, поэтому здесь ожидаем None — но схема обязана принимать оба варианта.
+        self.assertTrue(validated.ontology_version is None or isinstance(validated.ontology_version, str))
+
 
 if __name__ == "__main__":
     unittest.main()

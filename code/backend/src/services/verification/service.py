@@ -39,13 +39,12 @@ class VerificationReport:
     duration_ms: int
     partial: bool
     properties: Dict[str, PropertyReport]
+    ontology_version: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         props = {}
         for name, report in self.properties.items():
-            entry: Dict[str, Any] = {"status": report.status}
-            if report.violations:
-                entry["violations"] = report.violations
+            entry: Dict[str, Any] = {"status": report.status, "violations": report.violations}
             props[name] = entry
 
         passed = sum(1 for r in self.properties.values() if r.status == "passed")
@@ -59,6 +58,7 @@ class VerificationReport:
             "partial": self.partial,
             "properties": props,
             "summary": summary,
+            "ontology_version": self.ontology_version,
         }
 
 
@@ -85,6 +85,7 @@ def _report_from_dict(data: Dict[str, Any]) -> VerificationReport:
         duration_ms=int(data.get("duration_ms", 0)),
         partial=bool(data.get("partial", False)),
         properties=props,
+        ontology_version=data.get("ontology_version"),
     )
 
 
@@ -218,6 +219,7 @@ class VerificationService:
             duration_ms=duration_ms,
             partial=partial,
             properties=properties,
+            ontology_version=self.cache.current_ontology_version(),
         )
 
         if use_cache and not partial:

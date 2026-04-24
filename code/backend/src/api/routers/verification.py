@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 
 from api.dependencies import get_verification_service
+from schemas.schemas import VerificationReportResponse
 from services.verification import VerificationService
 
 router = APIRouter(prefix="/api/v1/verify", tags=["Verification"])
@@ -10,6 +11,7 @@ router = APIRouter(prefix="/api/v1/verify", tags=["Verification"])
     "/course/{course_id}",
     summary="Базовая верификация курса (СВ-1/2/3)",
     status_code=status.HTTP_200_OK,
+    response_model=VerificationReportResponse,
 )
 async def verify_course(
     course_id: str = Path(..., description="ID курса в онтологии"),

@@ -4,6 +4,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from api.dependencies import get_cache_manager
 from api.routers import access, policies, integration, progress, sandbox, verification
 
 APP_TITLE = "OntoRule API"
@@ -38,6 +39,14 @@ app.include_router(access.router)
 app.include_router(progress.router)
 app.include_router(verification.router)
 app.include_router(sandbox.router)
+
+
+@app.on_event("startup")
+async def _sync_cache_with_ontology_version() -> None:
+    # Файл онтологии мог измениться между перезапусками — пустой кэш безопаснее устаревшего.
+    cache = get_cache_manager()
+    cache.ensure_version_consistency()
+    cache.publish_ontology_version()
 
 
 @app.get("/", tags=["Health"])

@@ -244,3 +244,76 @@ if hasattr(CourseTreeNode, 'model_rebuild'):
     CourseTreeNode.model_rebuild()
 else:
     CourseTreeNode.update_forward_refs()
+
+
+# ---------------------------------------------------------------------------
+# Верификация (UC-6) и объяснение блокировки (UC-9)
+# ---------------------------------------------------------------------------
+
+
+class PropertyReportResponse(BaseModel):
+    """Отчёт по одному верифицируемому свойству (СВ-1…СВ-5)."""
+    status: str = Field(..., description='"passed" | "failed" | "unknown"')
+    violations: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Список найденных нарушений со структурой, специфичной для свойства",
+    )
+
+
+class VerificationReportResponse(BaseModel):
+    """Сводный отчёт по курсу: СВ-1/2/3 (+ СВ-4/5 при full=true)."""
+    course_id: str
+    run_id: str
+    timestamp: str
+    duration_ms: int
+    partial: bool = Field(
+        ...,
+        description="True, если reasoning не завершился штатно (timeout/error) и часть свойств — unknown",
+    )
+    properties: Dict[str, PropertyReportResponse] = Field(
+        ..., description="Ключи: consistency, acyclicity, reachability, redundancy, subsumption"
+    )
+    summary: str
+    ontology_version: Optional[str] = Field(
+        None, description="sha256 онтологии на момент расчёта отчёта"
+    )
+
+
+class JustificationNodeResponse(BaseModel):
+    """Узел дерева обоснования доступа/блокировки (rule-based SLD-trace)."""
+    status: str = Field(..., description='"satisfied" | "unsatisfied" | "available" | "unavailable"')
+    rule_template: str = Field(..., description="Имя шаблона: completion_required, meta:is_available_for, …")
+    policy_id: Optional[str] = None
+    variable_bindings: Dict[str, Any] = Field(default_factory=dict)
+    body_facts: List[Dict[str, Any]] = Field(default_factory=list)
+    children: List["JustificationNodeResponse"] = Field(default_factory=list)
+    note: Optional[str] = None
+
+
+JustificationNodeResponse.model_rebuild()
+
+
+class BlockedPolicyResponse(BaseModel):
+    """Краткое описание конкретной политики на элементе в контексте объяснения."""
+    policy_id: str
+    policy_name: str
+    rule_type: str
+    satisfied: bool
+    failure_reason: Optional[str] = None
+    witness: Dict[str, Any] = Field(default_factory=dict)
+
+
+class BlockingExplanationResponse(BaseModel):
+    """Ответ UC-9: почему элемент (не)доступен конкретному студенту."""
+    element_id: str
+    element_name: str
+    student_id: str
+    student_name: str
+    is_available: bool
+    cascade_blocker: Optional[str] = Field(
+        None, description="ID ближайшего родительского элемента, который заблокировал доступ каскадно"
+    )
+    cascade_blocker_name: Optional[str] = None
+    cascade_reason: Optional[str] = None
+    applicable_policies: List[BlockedPolicyResponse] = Field(default_factory=list)
+    justification: JustificationNodeResponse

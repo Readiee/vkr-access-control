@@ -34,10 +34,11 @@ def get_redis_client() -> Optional[redis.Redis]:
     return connect_redis(settings.REDIS_URL)
 
 
-def get_cache_manager(
-    redis_client: Optional[redis.Redis] = Depends(get_redis_client),
-) -> CacheManager:
-    return CacheManager(redis_client)
+@lru_cache()
+def get_cache_manager() -> CacheManager:
+    # Singleton: хэш онтологии кэшируется внутри CacheManager по mtime файла,
+    # Redis-клиент тоже singleton через get_redis_client.
+    return CacheManager(get_redis_client(), onto_path=settings.ONTOLOGY_FILE_PATH)
 
 
 def get_reasoning_orchestrator(
