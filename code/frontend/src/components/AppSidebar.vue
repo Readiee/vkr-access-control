@@ -5,7 +5,7 @@ const router = useRouter();
 const menuItems = [
   { label: 'Правила', icon: 'pi pi-sliders-h', route: '/' },
   { label: 'Верификация', icon: 'pi pi-shield', route: '/verify' },
-  { label: 'Песочница', icon: 'pi pi-flask', route: '/sandbox' }
+  { label: 'Песочница', icon: 'pi pi-box', route: '/sandbox' }
 ];
 </script>
 
