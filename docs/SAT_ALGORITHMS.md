@@ -284,6 +284,21 @@ G5/G6 (композитные и агрегатные правила) — без
 
 G10 (интерфейс) — требует расширения до `(onto, probe_policy: {source, target|competency|group|subpolicies|aggregate_elements, rule_type})`. Без этого новые типы не могут вызывать UC-3 валидацию.
 
+**Статус реализации (22.04).** `GraphValidator` переписан Блоком 2 фазы 2. Закрыты:
+
+- G1/G2/G4 — типозависимые дуги по таблице А1.4 (completion/grade/aggregate → `tgt.complete→src.access`; viewed → `tgt.access→src.access`; date/group дуг не добавляют).
+- G5/G8 — AND/OR раскрываются рекурсивно через `has_subpolicy` с защитой глубины.
+- G6 — `aggregate_required` раскрывается через `aggregate_elements`.
+- G9 — `find_all_cycles` через SCC-декомпозицию + `nx.find_cycle` по SCC.
+- G10 — интерфейс переделан на `ProbePolicy` с `rule_type` и нужными полями.
+
+Остаются как улучшения:
+
+- G3 — `competency_required` раскрывается через `assesses` и транзитив `is_subcompetency_of` (закрыто Блоком 2, но оставлено как 🟡 — требует больше тестов на глубину ≥3).
+- G7 — реконструкция пути с пометкой состояния `access/complete` (🟢, улучшение диагностики UC-3/UC-6).
+
+Файл: [services/graph_validator.py](../code/backend/src/services/graph_validator.py). Тесты — [test_graph_validator.py](../code/backend/src/tests/unit/test_graph_validator.py) (15 кейсов).
+
 ---
 
 ## А2. Reasoning pipeline с enricher + CWA-enforcement
@@ -514,20 +529,20 @@ procedure reason_and_materialize(ontology O, student_id s_id?):
 
 **Cache hit path.** Без pre-enrich и reason — только Redis GET + фильтрация `DateAccessFilter`. Миллисекунды, легко укладывается в НФТ-1 (50 мс).
 
-### А2.11. Критическая особенность: `DateAccessFilter` против SWRL-шаблона 5
+### А2.11. Историческая справка: перенос `date_restricted` с `DateAccessFilter` на SWRL-шаблон 5
 
-Текущий код реализует `date_restricted` *на стадии чтения из кэша* через `DateAccessFilter`: reasoning кэширует `available_from`/`available_until`, фильтр на каждом запросе сравнивает с `utcnow()`. Проектное решение SAT_DATA_MODELS шаблон 5 работает *внутри reasoning* через `CurrentTime`.
+**Статус (21.04, FIX11 закрыт).** `utils/access_postprocessors.py` и фильтры `DateAccessFilter`/`DateRestrictionEnricher`/`DateWindowPostProcessor` удалены из кода. Дата полностью обсчитывается SWRL-шаблоном 5 + `CurrentTime`-enricher из [services/reasoning/_enricher.py](../code/backend/src/services/reasoning/_enricher.py). Раздел ниже — обоснование, зачем это было сделано.
+
+До фазы 2 код реализовывал `date_restricted` *на стадии чтения из кэша* через `DateAccessFilter`: reasoning кэшировал `available_from`/`available_until`, фильтр на каждом запросе сравнивал с `utcnow()`. Проектное решение SAT_DATA_MODELS шаблон 5 работает *внутри reasoning* через `CurrentTime`.
 
 **Разница существенная.** При подходе через `DateAccessFilter`:
 - Reasoning не знает о временных окнах: `is_available_for(e, s)` выводится без учёта даты; фильтр на чтении снимает доступ, если сейчас не в окне.
 - Консистентность при верификации СВ-1 (consistency) теряется: Pellet не увидит конфликт «окно `[01.06–15.06]` для активной политики A и окно `[16.06–30.06]` для политики B, обе требуются одновременно» — оба кажутся совместимыми, reasoner даёт `is_available_for` для пересекающегося класса студентов.
 
-При подходе через `CurrentTime` (SAT_DATA_MODELS):
+При подходе через `CurrentTime` (реализовано):
 - Правило 5 срабатывает только если `utcnow() ∈ [from, until]`; вне окна `satisfies` не выводится → мета-правило не выводит `is_available_for` → CWA блокирует.
 - СВ-1 работает: пересечение несовместимых окон даёт неудовлетворимое условие, резонер обнаруживает.
-- Цена: reasoning запускается чаще (окно «закрывается» во времени, прежний `is_available_for` устаревает без события прогресса). Это решается периодическим re-reasoning (cron в фазе 2) или пересчётом по TTL.
-
-**Решение для фазы 2** — перенос логики даты с фильтра на SWRL-шаблон 5 (пункт R2 в SAT_DATA_MODELS §5.4). Фильтр `DateAccessFilter` удаляется вместе с `DateRestrictionEnricher` (D2 в диффе). Это упрощает pipeline: всё — внутри reasoning, CWA-слой становится единственным Python-овским шагом.
+- Цена: reasoning запускается чаще (окно «закрывается» во времени, прежний `is_available_for` устаревает без события прогресса). Решение 24.04 — фиксированный `cache_manager` TTL=3600 с + часовые границы датных политик (подробнее в §А5.5).
 
 ### А2.12. Диф с текущим кодом (вход в 3.6)
 
@@ -548,7 +563,24 @@ procedure reason_and_materialize(ontology O, student_id s_id?):
 | O11 | Материализация кэша сейчас per-student (запускается по requests). Для UC-1/UC-2 (глобальные изменения) должна триггерить full materialize всех студентов, не `invalidate_all_access` пустой инвалидацией. Иначе первый UC-4 после изменения политики вызовет lazy re-reasoning с полной задержкой | Переделать | 🟡 (НФТ-1 miss risk) |
 | O12 | Нет единого API `reason_and_materialize(student_id?)` — каждый UC вызывает свой набор: `save + run_reasoner + invalidate_all_access` или `save + run_reasoner + invalidate_student_cache` | Переделать | 🔴 (следует из O1) |
 
-Пункты 🔴 O1, O3, O4, O5, O7, O12 блокируют корректность fазы 2; O2 блокирует реализацию шаблонов 5 и 10. Все — входят в раздел 3.6 Project Bible.
+Пункты 🔴 O1, O3, O4, O5, O7, O12 блокируют корректность фазы 2; O2 блокирует реализацию шаблонов 5 и 10. Все — входят в раздел 3.6 Project Bible.
+
+**Статус реализации (23.04).** Pipeline собран решениями 21.04 (Блок 1) и 23.04 (DI-рефакторинг). Закрыты:
+
+- O1 — `ReasoningOrchestrator` выделен как отдельный компонент [services/reasoning/orchestrator.py](../code/backend/src/services/reasoning/orchestrator.py). В DSL — компонент Core Layer.
+- O2 — pre-enrich реализован в [services/reasoning/_enricher.py](../code/backend/src/services/reasoning/_enricher.py): `CurrentTime` (R2) + `AggregateFact` per (student, policy) (R4).
+- O3 — очистка `is_available_for` перед каждым прогоном — в `_enricher.py`, идемпотентно.
+- O4 — `DateAccessFilter` удалён, дата через шаблон 5 + `CurrentTime` (FIX11 закрыт 21.04, см. §А2.11).
+- O5 — таймаут через `sync_reasoner_pellet(..., graph_lang="SWRL")` обёрнут в `concurrent.futures` таймаут НФТ-3.
+- O7 — `OwlReadyInconsistentOntologyError` ловится в `PolicyService.create_policy` → откат ABox-мутаций + HTTP 409 (FIX1).
+- O12 — единый API `reason_and_materialize(student_id=None)` в `ReasoningOrchestrator`.
+- O8/O9 — CWA-enforcement вынесен в [services/access/service.py](../code/backend/src/services/access/service.py) (FIX11 + решение 22.04), иерархическая блокировка — там же, дублирование `is_really_available` убрано.
+- O10 — Java/Jena→OWLAPI-патч оформлен как `_patched_sync_reasoner` в Orchestrator.
+
+Остаются:
+
+- O6 — fallback на stale-cache при таймауте: можно считывать `access:{s}` с просроченным TTL и отмечать `stale=true`. Не реализовано, 🟡. Для демо-нагрузок таймауты не наблюдаются (p95 reasoning 1.3 с, НФТ-3 запас 8.7 с).
+- O11 — материализация per-student вместо full-materialize при UC-1/UC-2. Сейчас `PolicyService._invalidate_all_access_caches` делает пустую инвалидацию → первый UC-4 ловит lazy re-reasoning. Не блокер демо, 🟡.
 
 ## А3. Восходящая агрегация завершённости (roll-up)
 
@@ -692,6 +724,21 @@ Roll-up изменяет ABox (устанавливает `has_status` у зап
 | U8 | `has_module` и `contains_activity` смешаны в одном `children`. После переименования `contains_element → contains_activity` (T10) и при появлении `Submodule`-уровня — нужно единый хелпер `children_of(e)`, а не конкатенация | Улучшить | 🟢 (после T10) |
 
 Пункт 🔴 U7 — блокирует тестирование корректности иерархии из решения 16.04 и попадает в FIX2 (unit-тесты). Остальные — улучшения среднего/низкого приоритета.
+
+**Статус реализации (22.04).** Закрыты:
+
+- U7 — многоуровневая иерархия Course → Module → Activity покрыта тестами в [test_verification_service.py](../code/backend/src/tests/integration/test_verification_service.py) и scenario-прогонах через `happy_path`.
+- U1/U8 — `is_required → is_mandatory` переименован в TBox (T10) и в `rollup_service.get_owl_prop(..., "is_mandatory")`.
+- U2 — дефолт `is_mandatory=True` в коде оставлен по решению: отсутствие явного значения трактуется как «обязательный элемент» (консистентно с решением 16.04 о явном `is_mandatory` при создании, но защищает от legacy-ABox).
+- U6 — задокументировано: rollup только при `status=COMPLETED`.
+
+Остаются:
+
+- U3 — `find_parent` линейным поиском: при курсе 500 элементов это O(n²), что упирается в НФТ-1 (50 мс) при массовом прогрессе. Для демо (4 студента × 21 запись) не проявляется, 🟡.
+- U4 — callback-injection `update_callback` в `RollupService.execute` оставлен как есть: кольцевая зависимость с `ProgressService` мягкая (через `Protocol`), тестируется мок-колбеком. Альтернатива через `OntologyCore.progress.set_status` отложена, 🟡.
+- U5 — `completed ⊇ viewed` сделано в `ProgressService.update_progress`, не в rollup. Задокументировано, 🟡.
+
+Файл: [services/rollup_service.py](../code/backend/src/services/rollup_service.py).
 
 ## А4. Обнаружение недостижимых состояний
 
@@ -979,6 +1026,19 @@ procedure detect_unreachable(ontology O) → list[UnreachableReport]:
 
 Все 🔴 — часть FIX1 (consistency check) из §4.4, расширенного до полной СВ-1/2/3.
 
+**Статус реализации (21.04).** Закрыты Блоком 2:
+
+- N1 — [services/verification/service.py](../code/backend/src/services/verification/service.py) создан (подпакет `verification/` с DI-рефакторинга 23.04).
+- N2 — `check_atomic_satisfiability` покрывает grade/date/aggregate-границы; кейсы в [test_verification_atomic.py](../code/backend/src/tests/unit/test_verification_atomic.py) (11 тестов).
+- N3 — `can_grant_element` с мемоизацией через `functools.lru_cache` на parent-map.
+- N5 — эндпоинт `GET /api/v1/verify/course/{id}` (+ `?full=true` для СВ-4/5) в [api/routers/verification.py](../code/backend/src/api/routers/verification.py).
+- N6 — `build_dependency_graph` переиспользуется из `GraphValidator` (А1) без дублирования.
+- N7 — unit + integration тесты: [test_verification_service.py](../code/backend/src/tests/integration/test_verification_service.py), [test_verification_negatives.py](../code/backend/src/tests/integration/test_verification_negatives.py), [test_verification_scenarios.py](../code/backend/src/tests/integration/test_verification_scenarios.py) — суммарно 14 тестов.
+
+**В перспективы ВКР (решение 24.04, §4 ПЗ):**
+
+- N4 — joint-satisfiability (Проход 3 А4.5) через synthetic_prerequisites + Pellet. На ground-truth сценариях EXP1 (8 scenarios + adversarial) синтаксические проходы 1+2 дают F1=1.0 по reachability — ресурс на Pellet-интеграцию Прохода 3 перенесён в направления развития. Оформляется в pz/05_conclusion.md как «полная DL-верификация Класса 3 через изолированный owlready2 World на synthetic_prerequisites».
+
 ## А5. Инвалидация кэша
 
 ### А5.1. Назначение
@@ -1135,6 +1195,23 @@ procedure compute_student_ttl(student) → seconds:
 | C10 | На startup-hook — проверка `onto:version` и условный `FLUSHDB access:*` | Добавить | 🟡 |
 
 Пункты 🔴 отсутствуют — кэш в текущем коде работает, нужны улучшения актуальности и масштабируемости, но ни один пункт не блокирует фазу 2.
+
+**Статус реализации (24.04, обновлён после закрытия TD10).** Решение 24.04 зафиксировало простую схему кэша: фиксированный TTL=3600 с + часовая гранулярность датных границ. Второй заход 24.04 поздно закрыл ontology_version и SCAN-инвалидацию — из 10 пунктов С1–С10 открытыми остаются три (C7/C8/C9), все низкой критичности.
+
+| Пункт | Статус | Комментарий |
+|---|---|---|
+| C1 `updated_at` / `ontology_version` / `duration_ms` в payload | 🟡 частично | `ontology_version` добавлено в payload; `updated_at` и `duration_ms` пока не требуются (fallback stale-cache на таймаут — отдельная задача) |
+| C2 `current_ontology_version()` + `onto:version` ключ | ✅ закрыт | `CacheManager.current_ontology_version()` — sha256 по mtime; `publish_ontology_version()` пишет `onto:version` |
+| C3 Адаптивный TTL | ⏭ заменён | Решение 24.04: фиксированный TTL=3600 + часовые границы (см. §А5.5) |
+| C4 Проверка `ontology_version` при GET | ✅ закрыт | `get_student_access`/`get_verification` проверяют `_version_matches`, stale payload удаляется и возвращается miss |
+| C5 `SCAN` вместо `KEYS access:*` | ✅ закрыт | `_scan_and_delete(pattern)` через `scan_iter` + батчи DEL по 500 |
+| C6 `CacheManager.rebuild_for(student_id)` | ✅ закрыт | `CacheService→CacheManager` переименован, ребилд через `AccessService.rebuild_student_access` |
+| C7 Lock per student | 🟡 открыт | Для single-worker FastAPI гонок нет; при Docker multi-worker потребуется (TD12) |
+| C8 `recent:students` для preemptive rebuild | 🟢 открыт | Оптимизация, не блокер (TD12) |
+| C9 `verify:{course_id}` кэш | 🟡 открыт | verify сводится к 1–2 с, кэш не нужен при текущих объёмах (TD12) |
+| C10 Startup-hook проверки `onto:version` | ✅ закрыт | FastAPI `@on_event("startup")` вызывает `ensure_version_consistency()` — при рассинхроне делает `SCAN`-инвалидацию `access:*` + `verify:*` и публикует текущий хэш |
+
+Остающиеся C7/C8/C9 — TD12 в PROJECT_BIBLE §4.3: актуально при multi-worker/1000+ студентах.
 
 ---
 
