@@ -307,6 +307,64 @@ class CompositeAndAggregateEndToEndTests(unittest.TestCase):
                 author_id="methodologist_smirnov",
             )
 
+    def test_and_combination_rejects_more_than_three_subs(self):
+        """SWRL-шаблоны покрывают только арности 2 и 3; 4+ подполитик не выведется."""
+        with self.assertRaises(ValueError) as ctx:
+            PolicyCreate(
+                source_element_id="target_cmp",
+                rule_type=RuleType.AND,
+                subpolicy_ids=["p1", "p2", "p3", "p4"],
+                author_id="methodologist_smirnov",
+            )
+        self.assertIn("максимум 3", str(ctx.exception))
+
+    def test_and_combination_accepts_exactly_three_subs(self):
+        PolicyCreate(
+            source_element_id="target_cmp",
+            rule_type=RuleType.AND,
+            subpolicy_ids=["p1", "p2", "p3"],
+            author_id="methodologist_smirnov",
+        )
+
+    def test_or_combination_allows_more_than_three_subs(self):
+        """Для OR верхнего предела нет — шаблон 7 унарный по sub."""
+        PolicyCreate(
+            source_element_id="target_cmp",
+            rule_type=RuleType.OR,
+            subpolicy_ids=["p1", "p2", "p3", "p4", "p5"],
+            author_id="methodologist_smirnov",
+        )
+
+    def test_date_restricted_rejects_non_whole_hour(self):
+        """valid_from/valid_until должны быть на целом часе (минуты/секунды = 0)."""
+        with self.assertRaises(ValueError) as ctx:
+            PolicyCreate(
+                source_element_id="target_cmp",
+                rule_type=RuleType.DATE,
+                valid_from=datetime(2026, 5, 1, 10, 30, 0),
+                valid_until=datetime(2026, 5, 1, 18, 0, 0),
+                author_id="methodologist_smirnov",
+            )
+        self.assertIn("целый час", str(ctx.exception))
+
+        with self.assertRaises(ValueError):
+            PolicyCreate(
+                source_element_id="target_cmp",
+                rule_type=RuleType.DATE,
+                valid_from=datetime(2026, 5, 1, 10, 0, 0),
+                valid_until=datetime(2026, 5, 1, 18, 0, 15),
+                author_id="methodologist_smirnov",
+            )
+
+    def test_date_restricted_accepts_whole_hour(self):
+        PolicyCreate(
+            source_element_id="target_cmp",
+            rule_type=RuleType.DATE,
+            valid_from=datetime(2026, 5, 1, 10, 0, 0),
+            valid_until=datetime(2026, 5, 1, 18, 0, 0),
+            author_id="methodologist_smirnov",
+        )
+
     def test_aggregate_requires_function_and_elements(self):
         with self.assertRaises(ValueError):
             PolicyCreate(

@@ -37,6 +37,12 @@ const { getBlockedIds, getExpandedKeys, buildSelectableTree } = useTreeHelpers()
 
 const isEditing = ref(!props.editMode);
 
+/** Политика по минимальному шагу дат — 1 час. Синхронизовано с Pydantic-валидацией. */
+const isOnWholeHour = (d: Date | null | undefined): boolean => {
+  if (!d) return false;
+  return d.getMinutes() === 0 && d.getSeconds() === 0 && d.getMilliseconds() === 0;
+};
+
 // Адаптация для usePolicyForm
 const formEmit = (event: string, data: any) => {
   if (event === 'submit') handleFinalSubmit(data);
@@ -115,10 +121,18 @@ const validationHint = computed<string>(() => {
       if (!f.valid_from) return 'Задайте дату начала доступа';
       if (!f.valid_until) return 'Задайте дату окончания доступа';
       if (f.valid_from >= f.valid_until) return 'Дата начала должна быть раньше даты окончания';
+      if (!isOnWholeHour(f.valid_from)) return 'Дата начала — строго на целый час';
+      if (!isOnWholeHour(f.valid_until)) return 'Дата окончания — строго на целый час';
       return '';
     case RuleType.GROUP_RESTRICTED:
       return f.restricted_to_group_id ? '' : 'Выберите группу студентов';
-    case RuleType.AND_COMBINATION:
+    case RuleType.AND_COMBINATION: {
+      const subs = Array.isArray(f.subpolicy_ids) ? f.subpolicy_ids : [];
+      const uniq = new Set(subs).size;
+      if (uniq < 2) return 'Выберите не менее 2 подусловий';
+      if (uniq > 3) return 'AND поддерживает максимум 3 подусловия';
+      return '';
+    }
     case RuleType.OR_COMBINATION: {
       const subs = Array.isArray(f.subpolicy_ids) ? f.subpolicy_ids : [];
       if (new Set(subs).size < 2) return 'Выберите не менее 2 подусловий';
@@ -142,6 +156,7 @@ const isCompositeRule = computed(
   () => form.value.rule_type === RuleType.AND_COMBINATION
     || form.value.rule_type === RuleType.OR_COMBINATION,
 );
+const isAndRule = computed(() => form.value.rule_type === RuleType.AND_COMBINATION);
 const isAggregateRule = computed(() => form.value.rule_type === RuleType.AGGREGATE_REQUIRED);
 
 const atomicRuleTypeOptions = ruleTypeOptions.filter((o) =>
@@ -375,17 +390,23 @@ const isDateRule = computed(() => form.value.rule_type === RuleType.DATE_RESTRIC
            <div v-if="isDateRule" class="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2 border-t border-surface-50">
               <div class="flex flex-col gap-1">
                 <label class="text-[11px] font-bold text-surface-500 uppercase">Доступно С</label>
-                <DatePicker v-model="form.valid_from" manualInput showTime hourFormat="24" dateFormat="dd.mm.yy" class="w-full" />
+                <DatePicker
+                  v-model="form.valid_from"
+                  showTime hourFormat="24" :stepMinute="60"
+                  dateFormat="dd.mm.yy" class="w-full"
+                />
               </div>
               <div class="flex flex-col gap-1">
                 <label class="text-[11px] font-bold text-surface-500 uppercase">Доступно ПО</label>
                 <DatePicker
                   v-model="form.valid_until"
-                  manualInput showTime hourFormat="24" dateFormat="dd.mm.yy"
+                  showTime hourFormat="24" :stepMinute="60"
+                  dateFormat="dd.mm.yy"
                   :minDate="form.valid_from || undefined"
                   class="w-full"
                 />
               </div>
+              <small class="md:col-span-2 text-surface-500">Шаг времени — 1 час.</small>
            </div>
 
            <!--
@@ -401,8 +422,10 @@ const isDateRule = computed(() => form.value.rule_type === RuleType.DATE_RESTRIC
                 optionValue="id"
                 display="chip"
                 filter
+                :selectionLimit="isAndRule ? 3 : undefined"
                 class="w-full"
               />
+              <small v-if="isAndRule" class="text-surface-500">Для И — до 3 условий.</small>
            </div>
 
            <div v-if="isAggregateRule" class="flex flex-col gap-1 pt-2 border-t border-surface-50">

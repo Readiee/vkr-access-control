@@ -76,7 +76,11 @@ class PolicyBase(BaseModel):
     restricted_to_group_id: Optional[str] = Field(None, description="ID группы студентов для group_restricted")
     subpolicy_ids: Optional[List[str]] = Field(
         None,
-        description="ID подполитик для and_combination/or_combination (минимум 2, различные)",
+        description=(
+            "ID подполитик для and_combination/or_combination. "
+            "Для and_combination — от 2 до 3 (ограничение SWRL-шаблонов, см. PROJECT_BIBLE §7 24.04). "
+            "Для or_combination — от 2 без верхней границы."
+        ),
     )
     aggregate_function: Optional[AggregateFunction] = Field(
         None, description="AVG/SUM/COUNT для aggregate_required"
@@ -118,12 +122,27 @@ class PolicyCreate(PolicyBase):
                 raise ValueError("Для date_restricted обязательны valid_from и valid_until.")
             if self.valid_from > self.valid_until:
                 raise ValueError("valid_from должно быть раньше valid_until.")
+            # Шаг границ — ровно 1 час. Позволяет держать фиксированный TTL=3600
+            # кэша доступа без отдельного cron-воркера: к моменту истечения TTL
+            # все датные границы уже пересечены.
+            for field_name, ts in (("valid_from", self.valid_from), ("valid_until", self.valid_until)):
+                if ts.minute != 0 or ts.second != 0 or ts.microsecond != 0:
+                    raise ValueError(
+                        f"{field_name} должен быть выставлен на целый час "
+                        f"(минуты/секунды = 0), получено {ts.isoformat()}."
+                    )
         elif rt in {RuleType.AND.value, RuleType.OR.value}:
             nested = self.nested_subpolicies or []
             ids = self.subpolicy_ids or []
             total = len(nested) + len(ids)
             if total < 2:
                 raise ValueError(f"Для {rt} нужно минимум 2 подполитики (через nested или subpolicy_ids).")
+            if rt == RuleType.AND.value and total > 3:
+                raise ValueError(
+                    "and_combination поддерживает максимум 3 подполитики. "
+                    "Для более широких условий — соберите их в отдельные правила "
+                    "и свяжите AND-правилом верхнего уровня."
+                )
             if ids and len(set(ids)) != len(ids):
                 raise ValueError("subpolicy_ids должны быть уникальны.")
             for child in nested:

@@ -50,37 +50,10 @@ class VerificationNegativeTests(unittest.TestCase):
         if os.path.exists(self.test_owl):
             os.remove(self.test_owl)
 
-    def test_sv1_failed_when_reasoner_returns_inconsistent(self):
-        """СВ-1 отчёт корректно заполняется, когда ReasoningOrchestrator возвращает inconsistent.
-        Реальная Pellet-inconsistency (disjointness/functional) зависит от версии Owlready2;
-        здесь мокаем run_reasoner — тестируем контракт, а не Pellet.
-        """
-        self.integration_service.sync_course_structure(
-            "course_neg1",
-            CourseSyncPayload(
-                course_name="Neg1",
-                elements=[
-                    CourseElement(
-                        element_id="mod_neg1",
-                        name="M",
-                        element_type=ElementType.MODULE,
-                        parent_id="course_neg1",
-                    )
-                ],
-            ),
-        )
-
-        from services.reasoning import ReasoningResult
-        self.reasoner.reason = lambda: ReasoningResult(
-            status="inconsistent", error="disjointness violated on user_mixed_role"
-        )
-
-        report = self.verification.verify("course_neg1").to_dict()
-        self.assertEqual(report["properties"]["consistency"]["status"], "failed")
-        violations = report["properties"]["consistency"]["violations"]
-        self.assertEqual(violations[0]["code"], "SV1_INCONSISTENT")
-        # Reachability при inconsistent не запускается — status unknown
-        self.assertEqual(report["properties"]["reachability"]["status"], "unknown")
+    # СВ-1 happy-case (onto → inconsistent → отчёт failed) покрыт настоящим Pellet в
+    # tests/integration/test_verification_scenarios.py::test_bad_sv1_consistency_failed
+    # на сценарии bad_sv1_disjointness. Здесь остаётся только ветка timeout/error,
+    # её через реальный Pellet не воспроизвести.
 
     def test_sv1_timeout_returns_partial_unknown(self):
         """При reasoning timeout отчёт помечается partial=True."""

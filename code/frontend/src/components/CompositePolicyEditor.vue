@@ -27,6 +27,12 @@ const emit = defineEmits<{
 
 const isEditMode = computed(() => !!props.initialData?.id);
 
+/** Шаг границ date_restricted — 1 час. Синхронизовано с Pydantic. */
+const isOnWholeHour = (d: Date | null | undefined): boolean => {
+  if (!d) return false;
+  return d.getMinutes() === 0 && d.getSeconds() === 0 && d.getMilliseconds() === 0;
+};
+
 // При create всегда AND — для ИЛИ методист создаёт два простых правила,
 // между которыми уже работает неявный OR через мета-правило SWRL.
 // При edit сохраняем rule_type из initialData (может быть OR у legacy-правил).
@@ -155,7 +161,13 @@ const aggregateFunctionOptions = Object.values(AggregateFunction).map((fn) => ({
   value: fn,
 }));
 
-const addChild = () => children.value.push(newChild());
+const MAX_AND_CHILDREN = 3;
+const isAndComposite = computed(() => compositeRuleType.value === RuleType.AND_COMBINATION);
+const canAddChild = computed(() => !isAndComposite.value || children.value.length < MAX_AND_CHILDREN);
+const addChild = () => {
+  if (!canAddChild.value) return;
+  children.value.push(newChild());
+};
 const removeChild = (key: number) => {
   if (children.value.length <= 2) return;
   children.value = children.value.filter((c) => c._key !== key);
@@ -181,7 +193,9 @@ const isChildValid = (c: ChildDraft): boolean => {
     case RuleType.COMPETENCY_REQUIRED:
       return !!c.target_competency_id;
     case RuleType.DATE_RESTRICTED:
-      return !!c.valid_from && !!c.valid_until && c.valid_from.getTime() < c.valid_until.getTime();
+      return !!c.valid_from && !!c.valid_until
+        && c.valid_from.getTime() < c.valid_until.getTime()
+        && isOnWholeHour(c.valid_from) && isOnWholeHour(c.valid_until);
     case RuleType.GROUP_RESTRICTED:
       return !!c.restricted_to_group_id;
     case RuleType.AGGREGATE_REQUIRED:
@@ -194,9 +208,11 @@ const isChildValid = (c: ChildDraft): boolean => {
   }
 };
 
-const isFormValid = computed(() =>
-  children.value.length >= 2 && children.value.every(isChildValid),
-);
+const isFormValid = computed(() => {
+  if (children.value.length < 2) return false;
+  if (isAndComposite.value && children.value.length > MAX_AND_CHILDREN) return false;
+  return children.value.every(isChildValid);
+});
 
 const childHint = (c: ChildDraft): string => {
   switch (c.rule_type) {
@@ -212,6 +228,7 @@ const childHint = (c: ChildDraft): string => {
     case RuleType.DATE_RESTRICTED:
       if (!c.valid_from || !c.valid_until) return 'задайте даты';
       if (c.valid_from.getTime() >= c.valid_until.getTime()) return 'начало раньше конца';
+      if (!isOnWholeHour(c.valid_from) || !isOnWholeHour(c.valid_until)) return 'время — на целый час';
       return '';
     case RuleType.GROUP_RESTRICTED:
       return c.restricted_to_group_id ? '' : 'выберите группу';
@@ -226,6 +243,9 @@ const childHint = (c: ChildDraft): string => {
 };
 
 const validationHint = computed<string>(() => {
+  if (isAndComposite.value && children.value.length > MAX_AND_CHILDREN) {
+    return `И поддерживает максимум ${MAX_AND_CHILDREN} условия`;
+  }
   for (let i = 0; i < children.value.length; i++) {
     const h = childHint(children.value[i]);
     if (h) return `Условие ${i + 1}: ${h}`;
@@ -384,14 +404,20 @@ const submit = async () => {
             <div v-if="child.rule_type === RuleType.DATE_RESTRICTED" class="flex flex-col gap-1 col-span-2">
               <label class="text-[11px] font-bold text-surface-500 uppercase">Даты</label>
               <div class="grid grid-cols-2 gap-2">
-                <DatePicker v-model="child.valid_from" showTime manualInput dateFormat="dd.mm.yy" class="w-full" placeholder="с" />
+                <DatePicker
+                  v-model="child.valid_from"
+                  showTime hourFormat="24" :stepMinute="60"
+                  dateFormat="dd.mm.yy" class="w-full" placeholder="с"
+                />
                 <DatePicker
                   v-model="child.valid_until"
-                  showTime manualInput dateFormat="dd.mm.yy"
+                  showTime hourFormat="24" :stepMinute="60"
+                  dateFormat="dd.mm.yy"
                   :minDate="child.valid_from || undefined"
                   class="w-full" placeholder="по"
                 />
               </div>
+              <small class="text-surface-500">Шаг времени — 1 час.</small>
             </div>
 
             <div v-if="child.rule_type === RuleType.GROUP_RESTRICTED" class="flex flex-col gap-1 col-span-2">
@@ -440,7 +466,7 @@ const submit = async () => {
         </template>
 
         <Button
-          v-if="children.length < 5"
+          v-if="canAddChild"
           label="Добавить ещё условие"
           icon="pi pi-plus"
           severity="secondary"
@@ -448,6 +474,12 @@ const submit = async () => {
           class="self-start"
           @click="addChild"
         />
+        <small
+          v-else-if="isAndComposite"
+          class="text-surface-500 self-start"
+        >
+          И-правило поддерживает не более 3 условий. Объедините оставшиеся условия в отдельное правило.
+        </small>
 
     <div class="flex justify-between items-center pt-2 border-t border-surface-100">
       <span v-if="validationHint" class="text-xs text-surface-500 italic">
