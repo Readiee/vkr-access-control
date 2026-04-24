@@ -1,0 +1,16 @@
+# Сгенерированные сценарии — детерминированно пересобираются из generator.py с seed=42
+*/scenarios/*.owl
+*/scenarios/*.rdf
+
+# Локальные результаты прогонов — финальные копии уезжают в pz/figures/exp*/
+*/results/*.csv
+*/results/*.png
+*/results/*.md
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_meta
+
+# Python
+__pycache__/
+*.pyc

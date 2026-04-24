@@ -1,0 +1,9 @@
+scenario,duration_ms
+happy_path,1528.7
+bad_sv1_disjointness,1003.0
+bad_sv2_cycle,1017.1
+bad_sv3_atomic_threshold,1025.7
+bad_sv3_empty_date,1042.4
+bad_sv3_structural,1051.3
+bad_sv4_redundant,1041.0
+bad_sv5_subject,1042.4

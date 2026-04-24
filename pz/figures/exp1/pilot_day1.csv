@@ -1,0 +1,6 @@
+property,tp,fp,fn,tn,precision,recall,f1,support
+consistency,1,0,0,7,1.0000,1.0000,1.0000,1
+acyclicity,2,0,0,5,1.0000,1.0000,1.0000,2
+reachability,3,0,0,3,1.0000,1.0000,1.0000,3
+redundancy,1,0,0,1,1.0000,1.0000,1.0000,1
+subsumption,1,0,0,1,1.0000,1.0000,1.0000,1
