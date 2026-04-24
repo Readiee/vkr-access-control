@@ -1,0 +1,11 @@
+rule_type,total_cells,agreed_cells,accuracy
+completion_required,10,10,1.0000
+grade_required,10,10,1.0000
+viewed_required,7,7,1.0000
+competency_required,10,10,1.0000
+date_restricted,13,13,1.0000
+group_restricted,10,10,1.0000
+aggregate_required,7,7,1.0000
+and_combination,7,7,1.0000
+or_combination,7,7,1.0000
+default_allow,320,320,1.0000
