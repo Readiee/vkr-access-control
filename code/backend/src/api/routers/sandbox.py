@@ -61,12 +61,12 @@ def set_competencies(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.put("/group", summary="Перезаписать группу тестового студента (null — снять)")
-def set_group(
+@router.put("/groups", summary="Перезаписать набор групп тестового студента (пустой список — снять все)")
+def set_groups(
     payload: dict,
     service: SandboxService = Depends(get_sandbox_service),
 ):
     try:
-        return service.set_group(payload.get("group_id"))
+        return service.set_groups(payload.get("group_ids") or [])
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

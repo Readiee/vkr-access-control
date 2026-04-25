@@ -187,11 +187,13 @@ class SandboxSmokeTests(unittest.TestCase):
         self.assertIn("comp_sb_smoke", state_after.get("active_competencies", []))
         self.assertIn("test_sb", state_after.get("available_elements", []))
 
-    def test_set_group_unlocks_group_restricted_element(self):
-        """set_group вписывает belongs_to_group → group_restricted правило пропускает."""
+    def test_set_groups_unlocks_group_restricted_element(self):
+        """set_groups вписывает belongs_to_group (множество) → group_restricted правило пропускает."""
         with self.core.onto:
-            group = self.core.onto.Group("grp_sb_smoke")
-            group.label = ["Sandbox group"]
+            group_target = self.core.onto.Group("grp_sb_smoke")
+            group_target.label = ["Sandbox group"]
+            group_other = self.core.onto.Group("grp_sb_other")
+            group_other.label = ["Other group"]
         self.core.save()
 
         self.policy_service.create_policy(PolicyCreate(
@@ -202,17 +204,21 @@ class SandboxSmokeTests(unittest.TestCase):
         ))
 
         state_before = self.sandbox.get_sandbox_state("course_sb")
-        self.assertIsNone(state_before.get("group_id"))
+        self.assertEqual(state_before.get("group_ids"), [])
         self.assertNotIn("test_sb", state_before.get("available_elements", []))
 
-        self.sandbox.set_group("grp_sb_smoke")
+        # Несколько групп: правило group_restricted сматчит, если хотя бы одна совпадает
+        self.sandbox.set_groups(["grp_sb_other", "grp_sb_smoke"])
         state_after = self.sandbox.get_sandbox_state("course_sb")
-        self.assertEqual(state_after.get("group_id"), "grp_sb_smoke")
+        self.assertEqual(
+            sorted(state_after.get("group_ids", [])),
+            sorted(["grp_sb_other", "grp_sb_smoke"]),
+        )
         self.assertIn("test_sb", state_after.get("available_elements", []))
 
-        self.sandbox.set_group(None)
+        self.sandbox.set_groups([])
         state_reset = self.sandbox.get_sandbox_state("course_sb")
-        self.assertIsNone(state_reset.get("group_id"))
+        self.assertEqual(state_reset.get("group_ids"), [])
         self.assertNotIn("test_sb", state_reset.get("available_elements", []))
 
 

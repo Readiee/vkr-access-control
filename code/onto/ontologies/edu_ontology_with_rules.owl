@@ -106,6 +106,12 @@
   <rdfs:range rdf:resource="#Group"/>
 </owl:ObjectProperty>
 
+<owl:ObjectProperty rdf:about="#is_subgroup_of">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#TransitiveProperty"/>
+  <rdfs:domain rdf:resource="#Group"/>
+  <rdfs:range rdf:resource="#Group"/>
+</owl:ObjectProperty>
+
 <owl:ObjectProperty rdf:about="#restricted_to_group">
   <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#AccessPolicy"/>
@@ -331,13 +337,13 @@
 
 <swrl:Variable rdf:about="urn:swrl#c"/>
 
+<swrl:Variable rdf:about="urn:swrl#g"/>
+
 <swrl:Variable rdf:about="urn:swrl#p"/>
 
 <swrl:Variable rdf:about="urn:swrl#target"/>
 
 <swrl:Variable rdf:about="urn:swrl#th"/>
-
-<swrl:Variable rdf:about="urn:swrl#g"/>
 
 <swrl:Variable rdf:about="urn:swrl#req_comp"/>
 
@@ -1629,6 +1635,54 @@
           <swrl:propertyPredicate rdf:resource="#satisfies"/>
           <swrl:argument1 rdf:resource="urn:swrl#s"/>
           <swrl:argument2 rdf:resource="urn:swrl#p"/>
+        </swrl:IndividualPropertyAtom>
+      </rdf:first>
+      <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+    </rdf:Description>
+  </swrl:head>
+</swrl:Imp>
+
+<swrl:Imp>
+  <swrl:body>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:ClassAtom>
+          <swrl:classPredicate rdf:resource="#Student"/>
+          <swrl:argument1 rdf:resource="urn:swrl#s"/>
+        </swrl:ClassAtom>
+      </rdf:first>
+      <rdf:rest>
+        <rdf:Description>
+          <rdf:first>
+            <swrl:IndividualPropertyAtom>
+              <swrl:propertyPredicate rdf:resource="#belongs_to_group"/>
+              <swrl:argument1 rdf:resource="urn:swrl#s"/>
+              <swrl:argument2 rdf:resource="urn:swrl#g"/>
+            </swrl:IndividualPropertyAtom>
+          </rdf:first>
+          <rdf:rest>
+            <rdf:Description>
+              <rdf:first>
+                <swrl:IndividualPropertyAtom>
+                  <swrl:propertyPredicate rdf:resource="#is_subgroup_of"/>
+                  <swrl:argument1 rdf:resource="urn:swrl#g"/>
+                  <swrl:argument2 rdf:resource="urn:swrl#parent"/>
+                </swrl:IndividualPropertyAtom>
+              </rdf:first>
+              <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>
+            </rdf:Description>
+          </rdf:rest>
+        </rdf:Description>
+      </rdf:rest>
+    </rdf:Description>
+  </swrl:body>
+  <swrl:head>
+    <rdf:Description>
+      <rdf:first>
+        <swrl:IndividualPropertyAtom>
+          <swrl:propertyPredicate rdf:resource="#belongs_to_group"/>
+          <swrl:argument1 rdf:resource="urn:swrl#s"/>
+          <swrl:argument2 rdf:resource="urn:swrl#parent"/>
         </swrl:IndividualPropertyAtom>
       </rdf:first>
       <rdf:rest rdf:resource="http://www.w3.org/1999/02/22-rdf-syntax-ns#nil"/>

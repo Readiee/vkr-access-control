@@ -32,6 +32,16 @@ with onto:
         -> has_competency(?s, ?c)
     """)
 
+    # -- H-3. Наследование членства в группе вверх по is_subgroup_of --
+    # Если студент в подгруппе, он автоматически считается членом всех
+    # родительских групп. is_subgroup_of транзитивен на уровне TBox, поэтому
+    # одно правило покрывает любую глубину иерархии
+    rule_group_inheritance = Imp()
+    rule_group_inheritance.set_as_rule("""
+        Student(?s), belongs_to_group(?s, ?g), is_subgroup_of(?g, ?parent)
+        -> belongs_to_group(?s, ?parent)
+    """)
+
     # -- Шаблон 3b — viewed_required через completion --
     # Если элемент завершён, он автоматически считается просмотренным.
     # Второе правило с той же головой satisfies даёт дизъюнкцию (rule 3
@@ -159,5 +169,5 @@ with onto:
 
 onto.save(file="../ontologies/edu_ontology_with_rules.owl", format="rdfxml")
 print("SWRL-каталог встроён: edu_ontology_with_rules.owl")
-print("  ступень 1: 10 шаблонов (1-3, 3b, 4-5, 6 binary, 6 ternary, 7, 8, 9) + H-1 + H-2")
+print("  ступень 1: 10 шаблонов (1-3, 3b, 4-5, 6 binary, 6 ternary, 7, 8, 9) + H-1 + H-2 + H-3")
 print("  ступень 2: 1 мета-правило")

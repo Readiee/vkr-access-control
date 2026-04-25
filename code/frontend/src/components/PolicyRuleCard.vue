@@ -10,6 +10,7 @@ import {
   formatPolicyBadgeText,
   AggregateFunctionLabels,
   buildCompetencyTree,
+  buildGroupTree,
 } from '@/utils/formatters';
 import { useTreeHelpers } from '@/composables/useTreeHelpers';
 import { usePolicyForm } from '@/composables/usePolicyForm';
@@ -242,6 +243,28 @@ const competencyNameById = (id: string): string | null => {
   return c ? c.name : null;
 };
 
+const groupTree = computed(() => buildGroupTree(store.groups || []));
+
+const groupModel = computed<Record<string, boolean> | null>(() =>
+  form.value.restricted_to_group_id ? { [form.value.restricted_to_group_id]: true } : null,
+);
+
+const pickGroup = (val: any) => {
+  if (!val || typeof val !== 'object') {
+    form.value.restricted_to_group_id = null;
+    return;
+  }
+  const picked = Object.entries(val).find(
+    ([, v]) => v === true || (v as any)?.checked === true,
+  );
+  form.value.restricted_to_group_id = picked ? picked[0] : null;
+};
+
+const groupNameById = (id: string): string | null => {
+  const g = store.groups?.find((x) => x.id === id);
+  return g ? g.name : null;
+};
+
 const requiresTargetElement = computed(() => {
   return [RuleType.COMPLETION_REQUIRED, RuleType.GRADE_REQUIRED, RuleType.VIEWED_REQUIRED].includes(form.value.rule_type as RuleType);
 });
@@ -355,15 +378,25 @@ const isDateRule = computed(() => form.value.rule_type === RuleType.DATE_RESTRIC
 
               <div v-if="isGroupRule" class="flex flex-col gap-1 col-span-2">
                 <label class="text-[11px] font-bold text-surface-500 uppercase">Группа студентов</label>
-                <Select
-                  v-model="form.restricted_to_group_id"
-                  :options="store.groups"
-                  optionLabel="name"
-                  optionValue="id"
+                <TreeSelect
+                  :modelValue="groupModel"
+                  @update:modelValue="pickGroup"
+                  :options="groupTree"
                   placeholder="Выберите группу"
                   emptyMessage="Нет групп в онтологии"
                   class="w-full"
-                />
+                  selection-mode="single"
+                >
+                  <template #value>
+                    <span v-if="form.restricted_to_group_id">
+                      {{ groupNameById(form.restricted_to_group_id) ?? form.restricted_to_group_id }}
+                    </span>
+                    <span v-else class="text-surface-400">Выбор...</span>
+                  </template>
+                </TreeSelect>
+                <p class="text-[11px] text-surface-400 mt-1">
+                  Выбор подгруппы автоматически охватывает родительскую: студент в подгруппе считается членом всех групп выше по иерархии.
+                </p>
               </div>
 
               <div v-if="isGradeRule" class="flex flex-col gap-1">

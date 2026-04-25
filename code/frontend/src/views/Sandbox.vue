@@ -6,7 +6,7 @@ import { useCourseTree } from '@/composables/useCourseTree';
 import SandboxInspector from '@/components/SandboxInspector.vue';
 import { useConfirm } from 'primevue/useconfirm';
 import ConfirmDialog from 'primevue/confirmdialog';
-import { buildCompetencyTree } from '@/utils/formatters';
+import { buildCompetencyTree, buildGroupTree } from '@/utils/formatters';
 
 // Сторы для работы с данными
 const ontologyStore = useOntologyStore();
@@ -43,9 +43,51 @@ watch(() => ontologyStore.currentCourseId, async (newId) => {
 
 // Реактивное дерево
 const competencyTree = computed(() => buildCompetencyTree(ontologyStore.competencies || []));
+const groupTree = computed(() => buildGroupTree(ontologyStore.groups || []));
 
 // Состояние для TreeSelect (формат: { 'id1': { checked: true, partialChecked: false } })
 const selectedCompetenciesMap = ref<Record<string, any>>({});
+const selectedGroupsMap = ref<Record<string, any>>({});
+
+// Синхронизация стора -> в TreeSelect (групп)
+watch(() => sandboxStore.currentGroupIds, (newVal) => {
+  const newMap: Record<string, any> = {};
+  (newVal || []).forEach((id) => {
+    newMap[id] = { checked: true, partialChecked: false };
+  });
+  selectedGroupsMap.value = newMap;
+}, { immediate: true, deep: true });
+
+const collectGroupAncestorIds = (groupId: string): string[] => {
+  const ancestors: string[] = [];
+  let current = ontologyStore.groups?.find((g) => g.id === groupId);
+  while (current?.parent_id) {
+    ancestors.push(current.parent_id);
+    current = ontologyStore.groups?.find((g) => g.id === current!.parent_id);
+  }
+  return ancestors;
+};
+
+const onGroupNodeSelect = (node: any) => {
+  const id = node?.data?.id ?? node?.key;
+  if (!id) return;
+  for (const ancestorId of collectGroupAncestorIds(id)) {
+    selectedGroupsMap.value[ancestorId] = { checked: true, partialChecked: false };
+  }
+};
+
+const onGroupsHide = () => {
+  const selectedIds = Object.keys(selectedGroupsMap.value).filter(
+    (key) => selectedGroupsMap.value[key].checked,
+  );
+  const current = new Set(sandboxStore.currentGroupIds);
+  const changed =
+    current.size !== selectedIds.length
+    || selectedIds.some((id) => !current.has(id));
+  if (changed) {
+    sandboxStore.setGroups(selectedIds);
+  }
+};
 
 // Синхронизация стора -> в TreeSelect
 watch(() => sandboxStore.activeCompetencies, (newVal) => {
@@ -144,17 +186,18 @@ const confirmReset = (event: Event) => {
         </div>
 
         <div class="flex flex-col gap-1">
-          <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Группа</label>
-          <Select
-            :modelValue="sandboxStore.currentGroupId"
-            :options="ontologyStore.groups"
-            optionLabel="name"
-            optionValue="id"
-            placeholder="Без группы"
+          <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Группы</label>
+          <TreeSelect
+            v-model="selectedGroupsMap"
+            :options="groupTree"
+            selectionMode="checkbox"
+            placeholder="Без групп"
             emptyMessage="В онтологии нет групп"
-            showClear
-            class="w-56"
-            @update:modelValue="(id: string | null) => sandboxStore.setGroup(id ?? null)"
+            filter
+            class="w-72"
+            display="chip"
+            @node-select="onGroupNodeSelect"
+            @hide="onGroupsHide"
           />
         </div>
       </div>

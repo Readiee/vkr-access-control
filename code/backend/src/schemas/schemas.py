@@ -26,6 +26,10 @@ class Group(BaseModel):
     """Студенческая группа для group_restricted"""
     id: str = Field(..., description="ID группы (напр. 'grp_advanced')")
     name: str = Field(..., description="Название группы")
+    parent_id: Optional[str] = Field(
+        None,
+        description="ID прямого родителя по is_subgroup_of (для иерархии групп)",
+    )
 
 
 class OntologyMeta(BaseModel):

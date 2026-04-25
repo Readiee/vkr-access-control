@@ -18,10 +18,12 @@ title Класс-диаграмма TBox онтологии управления
 package "Пользователи" as PkgUsers {
     abstract class User
     class Student
+    class SandboxStudent <<sandbox>>
     class Teacher
     class Methodologist
 
     User <|-- Student
+    Student <|-- SandboxStudent
     User <|-- Teacher
     User <|-- Methodologist
 }
@@ -116,13 +118,14 @@ ProgressRecord --> Status : has_status <<f>>
 ' === RELATIONS: COMPETENCY ===
 ' ============================================================
 Student --> Competency : has_competency
-LearningActivity --> Competency : assesses
+CourseStructure --> Competency : assesses
 Competency --> Competency : is_subcompetency_of\n<<transitive>>
 
 ' ============================================================
 ' === RELATIONS: GROUP ===
 ' ============================================================
-Student --> Group : belongs_to_group
+Student "1" --> "0..*" Group : belongs_to_group
+Group --> Group : is_subgroup_of\n<<transitive>>
 
 ' ============================================================
 ' === RELATIONS: ACCESS POLICY ===
@@ -190,6 +193,7 @@ note as TraceMatrix
   **Трассируемость классов TBox (глава 1 → глава 2)**
   | **Класс** | **Источник (глава 1)** | **Артефакт (глава 2)** |
   | Student | Стейкхолдер §2.7.1; Moodle `user`, Canvas `user`, Open edX `auth_user` (L1 слой 3) | UC-4, UC-5, UC-7; ФТ-2, ФТ-4, ФТ-7 |
+  | SandboxStudent | UC-7 симулятор: тестовый студент методиста для прогона сценариев без побочных эффектов на реальный прогресс | UC-7a, UC-7b, UC-7c; ФТ-7 |
   | Teacher | Стейкхолдер §2.7.1 «преподаватель» | Справочно; вне scope AC (см. §2.4) |
   | Methodologist | Стейкхолдер §2.7.1 «методист»; as-is §2.7.2 сценарий 1 | UC-1, UC-2, UC-3, UC-6, UC-7; has_author |
   | Course | L1 таблица СДО: контейнер верхнего уровня во всех 5 платформах | UC-10 импорт; ФТ-1.5 уровни иерархии |
@@ -199,7 +203,7 @@ note as TraceMatrix
   | ProgressRecord | L1: Moodle `course_modules_completion` + `grade_grades`; xAPI statement (P7) | UC-5 события прогресса; ФТ-4.2 |
   | Status | L1: состояния completion в Moodle/Canvas/Blackboard | UC-8 rollup; алгоритм А3 |
   | Competency | L1: Moodle competency framework, Canvas Outcomes | Тип правила 4; F4; тезис OWL-преимущества (2.2) |
-  | Group | L1: Moodle groups, Canvas differentiation, Blackboard adaptive | Тип правила 8 group_restricted; FIX8 |
+  | Group | L1: Moodle groups (+ groupings), Canvas differentiation tags, Blackboard adaptive | Тип правила 8 group_restricted; FIX8; иерархия через is_subgroup_of |
   | AccessPolicy | §2.7.2 P1 (семантика правил задаётся кодом) + пул §2.5 | Ядро 9 типов; FT-1; все UC |
   | CurrentTime | LIM1 (нет now() в SWRL); §2.3 матрица F5 | Enricher R2; FIX11; тип правила 5 |
   | AggregateFact | LIM2 (нет агрегаций в SWRL); §2.3 матрица F10 | Enricher R4; FIX12; тип правила 9 |
@@ -207,7 +211,7 @@ note as TraceMatrix
   **Трассируемость свойств:**
   satisfies, has_subpolicy — двухуровневая SWRL (решение 20.04); СВ-4/5 (решение 21.04).
   is_available_for — итоговый predicate CWA-enforcement (LIM5, Carminati 2011).
-  belongs_to_group, restricted_to_group — ФТ-1.1 тип 8; L1 Moodle/Canvas.
+  belongs_to_group (0..*), restricted_to_group, is_subgroup_of — ФТ-1.1 тип 8; L1 Moodle/Canvas.
   targets_competency, is_subcompetency_of — ФТ-1.1 тип 4; TransitiveProperty (F4, Moodle competencies).
 end note
 

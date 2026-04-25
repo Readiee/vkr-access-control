@@ -1,5 +1,5 @@
 import { RuleType, ElementType, ProgressStatus } from '@/types';
-import type { PolicyResponse, Competency } from '@/types';
+import type { PolicyResponse, Competency, Group } from '@/types';
 
 // Словари
 
@@ -105,6 +105,28 @@ export const buildCompetencyTree = (flat: Competency[]): CompetencyTreeNode[] =>
   flat.forEach((c) => {
     const node = map.get(c.id)!;
     const parent = c.parent_id ? map.get(c.parent_id) : null;
+    if (parent) parent.children.push(node);
+    else roots.push(node);
+  });
+  return roots;
+};
+
+interface GroupTreeNode {
+  key: string;
+  label: string;
+  data: Group;
+  children: GroupTreeNode[];
+}
+
+export const buildGroupTree = (flat: Group[]): GroupTreeNode[] => {
+  const map = new Map<string, GroupTreeNode>();
+  flat.forEach((g) => {
+    map.set(g.id, { key: g.id, label: g.name, data: g, children: [] });
+  });
+  const roots: GroupTreeNode[] = [];
+  flat.forEach((g) => {
+    const node = map.get(g.id)!;
+    const parent = g.parent_id ? map.get(g.parent_id) : null;
     if (parent) parent.children.push(node);
     else roots.push(node);
   });

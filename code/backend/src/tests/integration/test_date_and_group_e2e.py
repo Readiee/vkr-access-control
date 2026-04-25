@@ -132,6 +132,38 @@ class DateAndGroupReasoningTests(unittest.TestCase):
         self.assertIn("lec_dg_group", avail_member)
         self.assertNotIn("lec_dg_group", avail_outsider)
 
+    def test_subgroup_inherits_parent_group_membership(self):
+        """H-3: студент в подгруппе получает доступ к политике на родительской группе.
+
+        grp_dg_in объявляется подгруппой grp_dg_parent; политика требует grp_dg_parent.
+        Студент состоит только в grp_dg_in — H-3 должно дописать belongs_to_group(?s, grp_dg_parent)
+        и group_restricted открыть лекцию
+        """
+        with self.core.onto:
+            grp_parent = self.core.onto.Group("grp_dg_parent")
+            self.grp_in.is_subgroup_of = [grp_parent]
+
+            p_parent = self.core.onto.AccessPolicy("policy_dg_parent_group")
+            p_parent.rule_type = "group_restricted"
+            p_parent.is_active = True
+            p_parent.restricted_to_group = grp_parent
+            self.lec_group.has_access_policy = [p_parent]
+        self.core.save()
+
+        result = self.reasoner.reason()
+        self.assertEqual(result.status, "ok")
+
+        avail_member = self.access_service.rebuild_student_access("dg_member")[
+            "inferred_available_elements"
+        ]
+        avail_outsider = self.access_service.rebuild_student_access("dg_outsider")[
+            "inferred_available_elements"
+        ]
+        self.assertIn("lec_dg_group", avail_member,
+                      "подгруппа должна наследовать членство в родительской через H-3")
+        self.assertNotIn("lec_dg_group", avail_outsider,
+                         "сторонний студент по-прежнему заблокирован")
+
 
 if __name__ == "__main__":
     unittest.main()

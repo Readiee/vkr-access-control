@@ -12,6 +12,7 @@ export interface Competency {
 export interface Group {
   id: string;
   name: string;
+  parent_id?: string | null;
 }
 
 export interface OntologyMeta {
@@ -103,8 +104,8 @@ export interface SandboxState {
   available_elements: string[];
   progress: Record<string, SandboxProgressEntry>;
   active_competencies: string[];
-  group_id?: string | null;
-  group_name?: string | null;
+  group_ids: string[];
+  group_names: string[];
 }
 
 export interface SandboxActionResult {

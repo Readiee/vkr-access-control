@@ -24,6 +24,12 @@ def build(onto: Any) -> None:
         grp_standard = onto.Group("grp_standard"); grp_standard.label = ["Стандартный поток"]
         grp_advanced = onto.Group("grp_advanced"); grp_advanced.label = ["Продвинутый поток"]
         grp_remote = onto.Group("grp_remote"); grp_remote.label = ["Дистанционный поток"]
+        # Проектная команда внутри продвинутого потока. is_subgroup_of в связке с
+        # SWRL H-3 даёт наследование членства вверх: студент в alpha-команде через
+        # резонер становится членом grp_advanced и проходит политику p8
+        grp_advanced_alpha = onto.Group("grp_advanced_alpha")
+        grp_advanced_alpha.label = ["Команда Alpha (продвинутый поток)"]
+        grp_advanced_alpha.is_subgroup_of = [grp_advanced]
 
         # -- Компетенции и иерархия --
         comp_python = onto.Competency("comp_python"); comp_python.label = ["Python (общая)"]
@@ -45,7 +51,9 @@ def build(onto: Any) -> None:
 
         student_ivanov.belongs_to_group = [grp_standard]
         student_petrov.belongs_to_group = [grp_standard]
-        student_sidorov.belongs_to_group = [grp_advanced]
+        # Sidorov — в проектной подгруппе. Доступ к p8 (на grp_advanced) приходит
+        # через H-3 наследование членства, а не напрямую
+        student_sidorov.belongs_to_group = [grp_advanced_alpha]
         student_korolev.belongs_to_group = [grp_remote]
 
         student_ivanov.has_competency = [comp_basic_syntax]

@@ -105,6 +105,12 @@
   <rdfs:range rdf:resource="#Group"/>
 </owl:ObjectProperty>
 
+<owl:ObjectProperty rdf:about="#is_subgroup_of">
+  <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#TransitiveProperty"/>
+  <rdfs:domain rdf:resource="#Group"/>
+  <rdfs:range rdf:resource="#Group"/>
+</owl:ObjectProperty>
+
 <owl:ObjectProperty rdf:about="#restricted_to_group">
   <rdf:type rdf:resource="http://www.w3.org/2002/07/owl#FunctionalProperty"/>
   <rdfs:domain rdf:resource="#AccessPolicy"/>

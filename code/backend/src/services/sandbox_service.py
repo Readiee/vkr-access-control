@@ -77,7 +77,9 @@ class SandboxService:
 
         active_comps = [comp.name for comp in getattr(student, "has_competency", [])]
 
-        group = next(iter(getattr(student, "belongs_to_group", []) or []), None)
+        groups = list(getattr(student, "belongs_to_group", []) or [])
+        group_ids = [g.name for g in groups]
+        group_names = [g.label[0] if getattr(g, "label", None) else g.name for g in groups]
 
         return {
             "student_id": sandbox_user_id,
@@ -85,8 +87,8 @@ class SandboxService:
             "available_elements": available_elements,
             "progress": progress_dict,
             "active_competencies": active_comps,
-            "group_id": group.name if group else None,
-            "group_name": (group.label[0] if getattr(group, "label", None) else group.name) if group else None,
+            "group_ids": group_ids,
+            "group_names": group_names,
         }
 
     def _cascade_delete_parent_records(self, student, element):
@@ -199,26 +201,37 @@ class SandboxService:
         self.access.rebuild_student_access(student.name)
         return {"status": "success", "message": "Компетенции обновлены"}
 
-    def set_group(self, group_id: str | None) -> dict:
-        """Перезаписать единственную группу у sandbox-студента; None — снять
+    def set_groups(self, group_ids: list[str]) -> dict:
+        """Перезаписать набор групп sandbox-студента; пустой список — снять все
 
-        Для симулятора группа одна, но ObjectProperty non-functional, поэтому
-        присваиваем список из 0 или 1 элемента
+        Студент может состоять в нескольких группах (поток + проектная команда).
+        Дубликаты игнорируются, неизвестные id поднимают ValueError
         """
         student = self._sandbox_student()
-        if group_id:
-            group_cls = getattr(self.core.onto, "Group", None)
-            group = None
-            if group_cls is not None:
-                group = self.core.onto.search_one(type=group_cls, iri=f"*{group_id}")
-            if group is None:
-                raise ValueError(f"Группа {group_id} не найдена.")
-            student.belongs_to_group = [group]
-        else:
-            student.belongs_to_group = []
+        group_cls = getattr(self.core.onto, "Group", None)
+
+        unique_ids: list[str] = []
+        seen: set[str] = set()
+        for gid in group_ids or []:
+            if gid and gid not in seen:
+                seen.add(gid)
+                unique_ids.append(gid)
+
+        groups = []
+        if unique_ids and group_cls is not None:
+            for gid in unique_ids:
+                group = self.core.onto.search_one(type=group_cls, iri=f"*{gid}")
+                if group is None:
+                    raise ValueError(f"Группа {gid} не найдена.")
+                groups.append(group)
+
+        student.belongs_to_group = groups
 
         self._clear_inferred_access(student)
         self.core.save()
         self.reasoner.reason()
         self.access.rebuild_student_access(student.name)
-        return {"status": "success", "message": "Группа обновлена" if group_id else "Группа снята"}
+        return {
+            "status": "success",
+            "message": "Группы обновлены" if groups else "Группы сняты",
+        }

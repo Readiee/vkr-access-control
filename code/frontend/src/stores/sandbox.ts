@@ -5,7 +5,7 @@ import {
   resetSandbox as apiResetSandbox,
   rollbackSandboxProgress,
   setSandboxCompetencies,
-  setSandboxGroup,
+  setSandboxGroups,
   simulateSandboxProgress,
 } from '@/api/sandbox';
 import type { SandboxProgressEntry, SandboxProgressPayload } from '@/types';
@@ -20,7 +20,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
   const currentStudentId = ref<string | null>(null);
   const currentStudentName = ref<string>('');
   const activeCompetencies = ref<string[]>([]);
-  const currentGroupId = ref<string | null>(null);
+  const currentGroupIds = ref<string[]>([]);
 
   // Runtime-оверлей над ontology.currentCourseTree: что доступно студенту
   // сейчас и какой прогресс по какому элементу. Храним отдельно, не мутируя
@@ -57,7 +57,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
       availableElementIds.value = new Set(state.available_elements);
       progressById.value = state.progress ?? {};
       activeCompetencies.value = state.active_competencies ?? [];
-      currentGroupId.value = state.group_id ?? null;
+      currentGroupIds.value = state.group_ids ?? [];
       currentStudentId.value = state.student_id;
       currentStudentName.value = state.student_name;
     } catch (e) {
@@ -118,12 +118,12 @@ export const useSandboxStore = defineStore('sandbox', () => {
     }
   };
 
-  const setGroup = async (groupId: string | null) => {
+  const setGroups = async (groupIds: string[]) => {
     isLoading.value = true;
     try {
-      await setSandboxGroup(groupId);
+      await setSandboxGroups(groupIds);
       await refreshCourseData();
-      toastService.showSuccess(groupId ? 'Группа обновлена' : 'Группа снята');
+      toastService.showSuccess(groupIds.length ? 'Группы обновлены' : 'Группы сняты');
     } finally {
       isLoading.value = false;
     }
@@ -134,7 +134,7 @@ export const useSandboxStore = defineStore('sandbox', () => {
     currentStudentId,
     currentStudentName,
     activeCompetencies,
-    currentGroupId,
+    currentGroupIds,
     progressById,
     lockedIds,
     isElementLocked,
@@ -144,6 +144,6 @@ export const useSandboxStore = defineStore('sandbox', () => {
     rollbackProgress,
     resetSandbox,
     setCompetencies,
-    setGroup,
+    setGroups,
   };
 });

@@ -38,9 +38,9 @@ export const setSandboxCompetencies = async (
   return data;
 };
 
-export const setSandboxGroup = async (
-  groupId: string | null,
+export const setSandboxGroups = async (
+  groupIds: string[],
 ): Promise<SandboxActionResult> => {
-  const { data } = await apiClient.put<SandboxActionResult>('/sandbox/group', { group_id: groupId });
+  const { data } = await apiClient.put<SandboxActionResult>('/sandbox/groups', { group_ids: groupIds });
   return data;
 };

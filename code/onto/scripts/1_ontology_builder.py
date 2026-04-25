@@ -114,7 +114,16 @@ with onto:
         domain = [AccessPolicy]; range = [AccessPolicy]
 
     class belongs_to_group(ObjectProperty):
+        # Non-functional: студент может состоять в нескольких группах одновременно
+        # (поток + проектная команда + удалёнка). SWRL group_restricted матчит,
+        # если хотя бы одна из групп студента совпадает с restricted_to_group политики
         domain = [Student]; range = [Group]
+
+    class is_subgroup_of(ObjectProperty, TransitiveProperty):
+        # Иерархия групп (поток → подгруппа → проектная команда). Транзитивность
+        # сама по себе не разворачивает членство: чтобы grp_advanced ⊑ grp_all
+        # давала доступ, нужно отдельное SWRL-правило наследования членства
+        domain = [Group]; range = [Group]
 
     class restricted_to_group(ObjectProperty, FunctionalProperty):
         domain = [AccessPolicy]; range = [Group]

@@ -66,7 +66,12 @@ class IntegrationService:
         if group_cls is not None:
             for grp in group_cls.instances():
                 name = grp.label[0] if getattr(grp, "label", None) else grp.name
-                groups.append({"id": grp.name, "name": name})
+                # Прямой родитель по is_subgroup_of: берём первый assertED элемент.
+                # TransitiveProperty в ABox разворачивается reasoner-ом, но в онтологии
+                # хранятся именно те связи, что задал методист — и нам нужны они для дерева
+                parents = list(getattr(grp, "is_subgroup_of", []) or [])
+                parent_id = parents[0].name if parents else None
+                groups.append({"id": grp.name, "name": name, "parent_id": parent_id})
 
         return {
             "rule_types": rule_types,
