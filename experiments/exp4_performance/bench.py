@@ -1,10 +1,11 @@
-"""EXP4 Performance — scalability и cache-hit/miss latency.
+"""Замеры производительности: scalability и cache-hit/miss latency
 
 Два независимых замера:
 - scalability_run: verify на курсах с 10/50/100/500 политик, N прогонов на размер.
-  Цель — тренд reasoning+verify time по n_policies, сравнение с НФТ-2 ≤2000 ms.
+  Цель — тренд времени reasoning+verify по n_policies, сравнение с целевым
+  значением задержки cache-miss
 - latency_run: AccessService с fakeredis. Полный путь miss (reasoning + AccessService)
-  и повторный hit (чтение из Redis). Сравнение с НФТ-1 ≤50 ms для hit.
+  и повторный hit (чтение из Redis). Сравнение с целевой задержкой cache-hit
 """
 from __future__ import annotations
 
@@ -14,12 +15,11 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 import fakeredis
 from owlready2 import World
 
-# Пути импорта подтягивает ноутбук; модуль не рассчитан на standalone-запуск.
+# Пути импорта подтягивает ноутбук; модуль не рассчитан на standalone-запуск
 from services.ontology_core import OntologyCore
 from services.cache_manager import CacheManager
 from services.reasoning import ReasoningOrchestrator
@@ -117,7 +117,7 @@ def latency_run(output_dir: Path, *, warmup: int = 3, repeats: int = 30) -> list
     points: list[LatencyPoint] = []
     student_id = "gen_student_0"
 
-    # Warmup: несколько прогонов, чтобы JVM/Redis разогрелись.
+    # Warmup: несколько прогонов, чтобы JVM и Redis разогрелись
     for _ in range(warmup):
         cache = CacheManager(fakeredis.FakeRedis())
         access = AccessService(core, cache=cache, reasoner=reasoner)
@@ -125,7 +125,7 @@ def latency_run(output_dir: Path, *, warmup: int = 3, repeats: int = 30) -> list
         access.get_course_access(student_id, cfg.course_id)
 
     for run_i in range(repeats):
-        # miss: свежий кэш, первый get_course_access пересчитывает и записывает.
+        # miss: свежий кэш, первый get_course_access пересчитывает и записывает
         cache = CacheManager(fakeredis.FakeRedis())
         access = AccessService(core, cache=cache, reasoner=reasoner)
         t0 = time.perf_counter()
@@ -133,7 +133,7 @@ def latency_run(output_dir: Path, *, warmup: int = 3, repeats: int = 30) -> list
         miss_ms = (time.perf_counter() - t0) * 1000.0
         points.append(LatencyPoint(mode="miss", run_index=run_i, latency_ms=miss_ms))
 
-        # hit: повторный get_course_access — читает из Redis.
+        # hit: повторный get_course_access читает из Redis
         t0 = time.perf_counter()
         access.get_course_access(student_id, cfg.course_id)
         hit_ms = (time.perf_counter() - t0) * 1000.0
@@ -143,10 +143,10 @@ def latency_run(output_dir: Path, *, warmup: int = 3, repeats: int = 30) -> list
 
 
 def cold_miss_run(output_dir: Path, *, repeats: int = 5) -> list[LatencyPoint]:
-    """НФТ-2 realistic: холодный старт (свежий world + reasoning + AccessService).
+    """Холодный старт: свежий world + reasoning + AccessService
 
-    Цель — замерить полный путь от нуля до первого доступа. В production этот
-    путь проходит при первом запуске backend или после инвалидации версии TBox.
+    Замеряет полный путь от нуля до первого доступа. В production этот путь
+    проходит при первом запуске backend или после инвалидации версии TBox
     """
     cfg = GenerationConfig(
         n_modules=5,

@@ -1,7 +1,7 @@
-"""Параметризованный генератор OWL-сценариев для EXP1–EXP5.
+"""Параметризованный генератор OWL-сценариев для экспериментов
 
 Базовое построение создаёт happy-path ABox заданных размеров;
-инжекторы sv* вносят одно нарушение на минимальный фрагмент ABox.
+инжекторы sv* вносят одно нарушение на минимальный фрагмент ABox
 """
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from owlready2 import AllDifferent, World
 RANDOM_SEED = 42
 
 # Жёсткое ограничение SWRL-шаблона AND: от двух до трёх подполитик.
-# Большая арность ломает двухуровневую semantics satisfies + мета-правило.
+# Большая арность ломает двухуровневую семантику satisfies + мета-правило
 MAX_AND_SUBPOLICIES = 3
 
 FaultType = Literal[
@@ -79,8 +79,8 @@ def build_base_course(world: World, config: GenerationConfig) -> Any:
         for s in range(config.n_students):
             onto.Student(f"gen_student_{s}")
 
-        # Политики — линейная цепочка completion_required между соседними активностями
-        # одного модуля. Без циклов — базовый случай happy-path.
+        # Политики: линейная цепочка completion_required между соседними
+        # активностями одного модуля; без циклов — базовый случай happy-path
         created = 0
         for mi, acts in enumerate(activities_by_module):
             if created >= config.n_policies:

@@ -1,13 +1,13 @@
-"""Вариации ABox для увеличения per-type sample size в Эксперименте 2.
+"""Вариации ABox для увеличения per-type sample size в эксперименте
 
-Цель — для каждого из 9 типов правил собрать 5-10 ячеек access matrix с разной
+Цель: для каждого из 9 типов правил собрать 5-10 ячеек access matrix с разной
 комбинацией параметров и состояний студентов (positive + negative). Базовый
 happy_path даёт по одной ячейке на тип; эти варианты добавляют покрытие
-пограничных случаев (threshold на границе, частичный прогресс, etc.).
+пограничных случаев (threshold на границе, частичный прогресс и т.д.).
 
 Каждая функция build_* собирает ABox вокруг одного типа правил и возвращает
-онтологию + ожидания. Expected задаётся независимо — это вторая точка ground
-truth (первая — интерпретатор на самом ABox).
+онтологию плюс ожидания. Expected задаётся независимо — вторая точка ground
+truth, первая — интерпретатор на самом ABox
 """
 from __future__ import annotations
 
@@ -72,11 +72,11 @@ def _add_progress(onto, student, element, *, grade=None, status=None, pr_id=None
         student.has_progress_record = existing + [pr]
 
 
-# --- builder-ы по типам ---
+# Builder'ы по типам правил
 
 
 def _build_completion_variants(onto):
-    """3 студента × 2 политики completion_required на разных targets."""
+    """3 студента × 2 политики completion_required на разных targets"""
     with onto:
         m = _methodologist(onto)
         target_a = _add_prereq_test(onto, "var_compl_target_a")
@@ -106,7 +106,7 @@ def _build_completion_variants(onto):
 
 
 def _build_grade_variants(onto):
-    """Разные пороги grade_required, три студента с разными оценками."""
+    """Разные пороги grade_required, три студента с разными оценками"""
     with onto:
         m = _methodologist(onto)
         target = _add_prereq_test(onto, "var_grade_target")
@@ -178,7 +178,7 @@ def _build_competency_variants(onto):
 
         s1 = _elem_student(onto, "gen_student_0")
         s2 = _elem_student(onto, "gen_student_1")
-        s1.has_competency = [comp_child]  # через H-1 получит и root
+        s1.has_competency = [comp_child]  # через иерархию получит и root
         s2.has_competency = []  # ни одной — deny обе
 
 
@@ -357,7 +357,7 @@ def _elem_student(onto: Any, sid: str) -> Any:
 
 
 def materialize_variant(case: VariantCase, output_path: Any) -> Any:
-    """Построить happy-path + variant-инъекцию и сохранить в OWL."""
+    """Построить happy-path + variant-инъекцию и сохранить в OWL"""
     world = World()
     cfg = GenerationConfig(
         n_modules=2,

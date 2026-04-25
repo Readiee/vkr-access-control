@@ -1,14 +1,15 @@
-"""Независимый Python-интерпретатор политик доступа.
+"""Независимый Python-интерпретатор политик доступа
 
-Для каждого из 9 типов правил делает прямую проверку условий на ABox без Pellet
-и SWRL, возвращает ту же access matrix, что должен выдать reasoning + AccessService.
+Для каждого из 9 типов правил делает прямую проверку условий на ABox
+без Pellet и SWRL, возвращает ту же access matrix, что должен выдать
+резонер плюс AccessService.
 
-Используется как ground truth для Эксперимента 2: накладываем matrix системы
-на matrix интерпретатора, accuracy = доля совпадений per rule_type. Расхождение
-указывает либо на баг SWRL-шаблона, либо на баг интерпретатора (в таком случае
-дигруля и фикс ошибки — тоже полезное методологическое событие).
+Используется как ground truth: накладываем матрицу системы на матрицу
+интерпретатора, accuracy = доля совпадений per rule_type. Расхождение
+указывает либо на баг SWRL-шаблона, либо на баг интерпретатора —
+оба случая методологически ценны
 
-Намеренно НЕ использует owlready2 SWRL-reasoning; только чтение свойств индивидов.
+Намеренно НЕ использует SWRL-резонер из owlready2, только чтение свойств
 """
 from __future__ import annotations
 
@@ -19,7 +20,7 @@ from core.enums import RuleType
 
 
 def interpret_satisfies(onto: Any, student: Any, policy: Any, *, now: dt.datetime | None = None) -> bool:
-    """True, если студент удовлетворяет политике по прямой проверке условий."""
+    """True, если студент удовлетворяет политике по прямой проверке условий"""
     rule_type = _get(policy, "rule_type")
     handler = _HANDLERS.get(rule_type)
     if handler is None:
@@ -35,7 +36,7 @@ def interpret_is_available(
     now: dt.datetime | None = None,
     parent_map: dict[str, Any] | None = None,
 ) -> bool:
-    """True, если элемент доступен студенту через мета-правило + CWA + каскад."""
+    """True, если элемент доступен студенту через мета-правило, default-deny и каскад"""
     if parent_map is None:
         parent_map = _build_parent_map(onto)
 
@@ -56,7 +57,7 @@ def build_ground_truth_matrix(
     *,
     now: dt.datetime | None = None,
 ) -> dict[tuple[str, str], bool]:
-    """Для всех (student × element in course) возвращает ожидаемое is_available."""
+    """Для всех (student × element in course) возвращает ожидаемое is_available"""
     course = onto.search_one(iri=f"*{course_id}", type=onto.Course)
     if course is None:
         raise KeyError(f"Курс {course_id} не найден")
@@ -65,7 +66,8 @@ def build_ground_truth_matrix(
     parent_map = _build_parent_map(onto)
     matrix: dict[tuple[str, str], bool] = {}
     for st in students:
-        # H-2 + H-1: расширяем has_competency через завершённые assessors + иерархию
+        # Расширяем has_competency: завершённые assessors дают прямые
+        # компетенции, иерархия is_subcompetency_of раскрывается транзитивно
         _expand_competencies(onto, st)
         for el in elements:
             matrix[(st.name, el.name)] = interpret_is_available(
@@ -75,10 +77,10 @@ def build_ground_truth_matrix(
 
 
 def dominant_rule_type(element: Any) -> str | None:
-    """Тип правила, отвечающего за доступ к элементу. None — default-allow.
+    """Тип правила, отвечающего за доступ к элементу; None — default-allow
 
     Для композитов возвращает 'and_combination' / 'or_combination' (корневой тип).
-    Если политик несколько — первая активная.
+    Если политик несколько — первая активная
     """
     for policy in getattr(element, "has_access_policy", []) or []:
         if _get(policy, "is_active", True):
@@ -86,7 +88,7 @@ def dominant_rule_type(element: Any) -> str | None:
     return None
 
 
-# --- handlers per rule type ---
+# Обработчики по типам правил
 
 
 def _check_completion(onto: Any, student: Any, policy: Any, *, now: dt.datetime | None) -> bool:
@@ -117,7 +119,7 @@ def _check_viewed(onto: Any, student: Any, policy: Any, *, now: dt.datetime | No
     target = _get(policy, "targets_element")
     if target is None:
         return False
-    # Шаблон 3 + шаблон 3b: viewed ИЛИ completed засчитывается.
+    # Шаблон 3 + шаблон 3b: viewed или completed засчитывается
     for pr in getattr(student, "has_progress_record", []) or []:
         if not _same(_get(pr, "refers_to_element"), target):
             continue
@@ -209,7 +211,7 @@ _HANDLERS = {
 }
 
 
-# --- helpers ---
+# Вспомогательные функции
 
 
 def _get(obj: Any, prop: str, default: Any = None) -> Any:
@@ -270,15 +272,15 @@ def _collect_course_elements(course: Any) -> list[Any]:
 
 
 def _expand_competencies(onto: Any, student: Any) -> None:
-    """H-2 (grants-on-completion) + H-1 (иерархия).
+    """Расширить has_competency: grants-on-completion + транзитивная иерархия
 
     Мутирует student.has_competency: добавляет компетенции за завершённые
-    assesses-элементы и раскрывает вверх по is_subcompetency_of.
+    assesses-элементы и раскрывает вверх по is_subcompetency_of
     """
     owned: set[str] = {c.name for c in getattr(student, "has_competency", []) or []}
     owned_objs = {c.name: c for c in getattr(student, "has_competency", []) or []}
 
-    # H-2: завершение элементов с assesses → получение компетенции
+    # Завершение элементов с assesses → получение компетенции
     for pr in getattr(student, "has_progress_record", []) or []:
         if _status_name(pr) != "status_completed":
             continue
@@ -290,7 +292,7 @@ def _expand_competencies(onto: Any, student: Any) -> None:
                 owned.add(c.name)
                 owned_objs[c.name] = c
 
-    # H-1: транзитивное замыкание через is_subcompetency_of
+    # Транзитивное замыкание через is_subcompetency_of
     changed = True
     while changed:
         changed = False

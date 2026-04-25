@@ -1,13 +1,13 @@
-"""Конфигурация full-выборки EXP1: ~80 сценариев по 8 классам.
+"""Конфигурация полной выборки EXP1: около 80 сценариев по 8 классам
 
-Каждый SweepCase ↔ детерминированно генерируется через generator.generate_scenario,
+Каждый SweepCase детерминированно генерируется через generator.generate_scenario,
 прогоняется через VerificationService, результат сопоставляется с expected
-(формат тот же, что и в scenarios_ground_truth.json).
+(формат тот же, что и в scenarios_ground_truth.json)
 """
 from __future__ import annotations
 
 import datetime as dt
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from _common.generator import GenerationConfig

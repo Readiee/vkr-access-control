@@ -1,8 +1,8 @@
-"""Метрики экспериментов фазы 3.
+"""Метрики экспериментов
 
 Confusion matrix per-property, Precision/Recall/F1 с macro-average,
 форматтеры в markdown и CSV. Positive class — обнаруженное нарушение
-(status=failed). TP: предсказано failed и в ground-truth failed.
+(status=failed). TP: предсказано failed и в ground-truth failed
 """
 from __future__ import annotations
 
@@ -68,12 +68,12 @@ def extract_points(
     scenarios: Sequence[tuple[Mapping, Mapping]],
     property_name: PropertyName,
 ) -> list[tuple[bool, bool]]:
-    """Точки (predicted_violated, actual_violated) по одному свойству.
+    """Точки (predicted_violated, actual_violated) по одному свойству
 
     Каждый элемент scenarios — пара (report_properties, expected).
     report_properties: dict property → объект со .status или dict со status.
     expected: spec["expected"] из ground_truth.json.
-    Сценарии без заявленного property в expected пропускаются.
+    Сценарии без заявленного property в expected пропускаются
     """
     points: list[tuple[bool, bool]] = []
     for report_properties, expected in scenarios:

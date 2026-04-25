@@ -1,12 +1,13 @@
-"""Adversarial boundary-кейсы для EXP1 — «почти-нарушения», которые детектор
-обязан НЕ помечать как дефект. False positive на любом из них — реальный
-баг валидатора, не regression.
+"""Adversarial boundary-кейсы для EXP1: «почти-нарушения», которые детектор
+обязан НЕ помечать как дефект
+
+False positive на любом из них — реальный баг валидатора, не регрессия.
 
 Четыре группы:
-  A. Атомарные boundary (threshold=0/100, dates с минимальным валидным окном).
-  B. Структурные near-cycle (линейные цепочки, ромб, смесь viewed+completion).
-  C. Non-redundancy (одинаковые пороги на разных target'ах, разные типы).
-  D. Non-subsumption (непересекающиеся условия, несовместимые группы).
+  A. Атомарные boundary (threshold=0/100, dates с минимальным валидным окном)
+  B. Структурные near-cycle (линейные цепочки, ромб, смесь viewed+completion)
+  C. Non-redundancy (одинаковые пороги на разных target'ах, разные типы)
+  D. Non-subsumption (непересекающиеся условия, несовместимые группы)
 """
 from __future__ import annotations
 
@@ -153,7 +154,7 @@ def _build_diamond(onto):
         b = _elem(onto, "gen_activity_0_1")
         c = _elem(onto, "gen_activity_0_2")
         d = _elem(onto, "gen_activity_0_3")
-        # B и C зависят от A; D зависит от B и C. Ацикличный DAG-ромб.
+        # B и C зависят от A; D зависит от B и C — ацикличный DAG-ромб
         for guarded, prereq, pid in [
             (b, a, "adv_p_diamond_ba"),
             (c, a, "adv_p_diamond_ca"),
@@ -358,8 +359,8 @@ def _build_sub_distinct_competencies(onto):
         guarded = _elem(onto, "gen_activity_0_0")
         c1 = onto.Competency("adv_comp_math")
         c2 = onto.Competency("adv_comp_history")
-        # Оценивающие элементы для каждой компетенции — иначе никто не может
-        # получить компетенцию и reachability корректно падает в failed.
+        # Оценивающие элементы для каждой компетенции: без них никто не может
+        # получить компетенцию и reachability корректно падает в failed
         assessor_math = _elem(onto, "gen_activity_0_2")
         assessor_history = _elem(onto, "gen_activity_0_3")
         assessor_math.assesses = [c1]
