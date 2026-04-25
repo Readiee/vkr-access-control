@@ -1,11 +1,10 @@
-"""Диагностический прогон reasoning на demo-онтологии.
+"""Диагностический прогон резонера на демо-онтологии
 
 Загружает demo_knowledge_base.owl, прогоняет ReasoningOrchestrator и
 печатает доступность module_2_functions для student_ivanov до и после
-вывода. Используется при локальной отладке SWRL-шаблонов и enricher-а.
+вывода. Используется при локальной отладке SWRL-шаблонов и enricher-а
 
-Использование:
-    python smoke_reasoner.py
+Запуск: python smoke_reasoner.py
 """
 from __future__ import annotations
 
@@ -38,7 +37,7 @@ def main() -> int:
         print(f"  {pr.name}: {[s.name for s in pr.has_status]}")
 
     result = ReasoningOrchestrator(onto).reason()
-    print(f"\nReasoning {result.status} за {result.duration_sec:.2f}s "
+    print(f"\nРезонер: {result.status} за {result.duration_sec:.2f}s "
           f"(satisfies={result.satisfies_count}, available={result.available_count})")
 
     print("\nПосле вывода:")

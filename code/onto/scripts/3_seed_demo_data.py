@@ -1,9 +1,9 @@
-"""Заполнение ABox демо-курса.
+"""Заполнение ABox демо-курса
 
 Тонкая обёртка над scenarios/happy_path.py: сценарий happy-path одновременно
-используется как основной демонстрационный ABox и как fixture для
-интеграционных тестов. Результат сохраняется в
-ontologies/demo_knowledge_base.owl (как раньше) и ontologies/scenarios/happy_path.owl.
+используется как основной демонстрационный ABox и как фикстура для
+интеграционных тестов. Результат сохраняется в demo_knowledge_base.owl
+и в ontologies/scenarios/happy_path.owl
 """
 from __future__ import annotations
 
