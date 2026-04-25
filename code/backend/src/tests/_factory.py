@@ -1,9 +1,8 @@
-"""Фабрика зависимостей для тестов: собирает весь граф сервисов вокруг одного World.
+"""Фабрика зависимостей для тестов: собирает весь граф сервисов вокруг одного World
 
-После DI-рефакторинга 23.04 сервисы принимают явные зависимости (CacheManager,
-ReasoningOrchestrator, соседние сервисы). Чтобы не повторять конструирование
-в каждом setUp, тесты вызывают `build_bundle(owl_path, world)` и получают
-готовый набор инстансов.
+Сервисы принимают явные зависимости (CacheManager, ReasoningOrchestrator,
+соседние сервисы). Чтобы не повторять конструирование в каждом setUp, тесты
+вызывают build_bundle(owl_path, world) и получают готовый набор
 """
 from __future__ import annotations
 
@@ -29,9 +28,10 @@ from services.verification import VerificationService
 
 
 def make_temp_onto_copy(prefix: str = "vkr_test_") -> str:
-    """Копия базовой онтологии в системный tmp-dir. Путь возвращается вызывающему,
-    чистка — на его tearDown. CWD не засоряется, крашнутый прогон оставит файл
-    в %TMP%, а не в дереве репозитория.
+    """Копия базовой онтологии во временный каталог системы
+
+    Путь возвращается вызывающему, чистка — на его tearDown. CWD не
+    засоряется, крашнутый прогон оставит файл в %TMP%, а не в дереве репозитория
     """
     fd, path = tempfile.mkstemp(suffix=".owl", prefix=prefix)
     os.close(fd)
@@ -54,7 +54,7 @@ class ServiceBundle:
 
 
 def build_bundle(owl_path: str, world: Optional[World] = None) -> ServiceBundle:
-    """Собрать полный граф сервисов для тестового World (Redis=None)."""
+    """Собрать полный граф сервисов для тестового World; Redis=None"""
     core = OntologyCore(owl_path, world=world)
     cache = CacheManager(None, onto_path=owl_path)  # без Redis — CacheManager становится no-op
     reasoner = ReasoningOrchestrator(core.onto)

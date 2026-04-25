@@ -1,10 +1,7 @@
-"""FIX15 smoke-тест симулятора (UC-7a/b/c) после переделки SWRL на двухуровневую
-семантику, сноса DateAccessFilter и выноса чтения доступа в AccessService.
+"""Smoke-тест симулятора end-to-end на реальном Pellet
 
-Проверяет, что симулятор работает end-to-end на реальном Pellet:
-- UC-7a: сброс песочницы
-- UC-7b: симуляция прогресса и компетенций
-- UC-7c: состояние песочницы (доступы + прогресс)
+Покрывает три точки симулятора: сброс песочницы, симуляцию прогресса с
+компетенциями, чтение состояния (доступы + прогресс)
 """
 from __future__ import annotations
 
@@ -86,7 +83,7 @@ class SandboxSmokeTests(unittest.TestCase):
             os.remove(self.test_owl)
 
     def test_uc7c_initial_state_blocks_guarded_element(self):
-        """UC-7c: тестовый студент без прогресса → final_sb закрыт."""
+        """Тестовый студент без прогресса → final_sb закрыт"""
         state = self.sandbox.get_sandbox_state("course_sb")
         avail = state.get("available_elements", [])
         self.assertIn("mod_sb", avail)
@@ -94,7 +91,7 @@ class SandboxSmokeTests(unittest.TestCase):
         self.assertNotIn("final_sb", avail)
 
     def test_uc7b_simulate_progress_opens_element(self):
-        """UC-7b: симуляция прогресса с оценкой → SWRL выводит satisfies → final открывается."""
+        """Симуляция прогресса с оценкой → SWRL выводит satisfies → final открывается"""
         self.sandbox.simulate_progress(SimpleNamespace(
             element_id="test_sb",
             status=ProgressStatus.COMPLETED.value,
@@ -104,7 +101,7 @@ class SandboxSmokeTests(unittest.TestCase):
         self.assertIn("final_sb", state.get("available_elements", []))
 
     def test_uc7a_reset_clears_progress(self):
-        """UC-7a: reset удаляет прогресс — final_sb снова закрыт."""
+        """reset удаляет прогресс — final_sb снова закрыт"""
         self.sandbox.simulate_progress(SimpleNamespace(
             element_id="test_sb",
             status=ProgressStatus.COMPLETED.value,

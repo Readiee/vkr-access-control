@@ -5,7 +5,7 @@
       "name": "happy_path",
       "course_id": "course_python_basics",
       "full": true,
-      "description": "Полный курс Python, все 9 политик срабатывают корректно на 4 студентах (SAT_DATA_MODELS §6.3–6.7).",
+      "description": "Полный курс Python, все 9 политик срабатывают корректно на 4 студентах.",
       "expected": {
         "consistency": "passed",
         "acyclicity": "passed",
@@ -13,7 +13,7 @@
         "redundancy": "passed",
         "subsumption": "passed"
       },
-      "access_matrix_reference": "SAT_DATA_MODELS §6.7"
+      "access_matrix_reference": "happy_path scenario"
     },
     {
       "name": "bad_sv1_disjointness",

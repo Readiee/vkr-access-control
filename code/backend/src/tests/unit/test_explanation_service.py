@@ -1,10 +1,8 @@
-"""Unit-тесты AccessExplainer (FIX9): rule-based justifications для SWRL.
+"""Unit-тесты AccessExplainer: обоснования вывода для SWRL
 
-is_available_for и satisfies ставятся в ABox вручную — AccessExplainer
-по определению работает поверх результата reasoning, его задача —
-собрать SLD-trace тела правила, а не выводить отношения заново.
-AccessExplainer — приватный модуль AccessService; прежнее имя ExplanationService
-не используется (код адаптирован под workspace.dsl).
+is_available_for и satisfies ставятся в ABox вручную — AccessExplainer работает
+поверх результата резонера, его задача собрать SLD-trace тела правила, а не
+выводить отношения заново. AccessExplainer — приватный модуль AccessService
 """
 from __future__ import annotations
 

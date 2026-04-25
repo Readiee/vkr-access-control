@@ -1,4 +1,4 @@
-"""Unit-тесты VerificationService: проверка атомарной выполнимости (без Pellet)."""
+"""Unit-тесты VerificationService: проверка атомарной выполнимости без Pellet"""
 from __future__ import annotations
 
 import os
@@ -16,7 +16,7 @@ from services.verification import VerificationService  # noqa: E402
 
 
 class _StubReasoner:
-    """Заглушка ReasoningOrchestrator — возвращает ok, чтобы verify прошёл СВ-1."""
+    """Заглушка ReasoningOrchestrator: возвращает ok, чтобы verify прошёл СВ-1"""
 
     def reason(self):
         class R:
@@ -26,7 +26,7 @@ class _StubReasoner:
 
 
 class AtomicUnsatisfiabilityTests(unittest.TestCase):
-    """Проверки прохода 1 (А4.3) без запуска Pellet — только по синтаксису политики."""
+    """Проверки атомарной невыполнимости без запуска Pellet — по синтаксису политики"""
 
     def setUp(self):
         self.world = World()
@@ -135,7 +135,7 @@ class AtomicUnsatisfiabilityTests(unittest.TestCase):
 
 
 class StructuralReachabilityTests(unittest.TestCase):
-    """Проход 2 (А4.4): структурная достижимость через can_grant_element."""
+    """Структурная достижимость через can_grant_element"""
 
     def setUp(self):
         self.world = World()

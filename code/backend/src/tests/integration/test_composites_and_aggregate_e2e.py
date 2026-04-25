@@ -89,8 +89,6 @@ class CompositeAndAggregateEndToEndTests(unittest.TestCase):
         payload = PolicyCreate(author_id="methodologist_smirnov", **kwargs)
         return self.policy_service.create_policy(payload)
 
-    # --- AND composite ---------------------------------------------------
-
     def test_and_combination_satisfies_when_both_subs_met(self):
         """AND композит: оба sub-условия выполнены → satisfies → is_available_for."""
         sub_a = self._create_policy(
@@ -161,8 +159,6 @@ class CompositeAndAggregateEndToEndTests(unittest.TestCase):
         target = self.core.onto.search_one(iri="*target_cmp")
         self.assertNotIn(student, getattr(target, "is_available_for", []) or [])
 
-    # --- OR composite ----------------------------------------------------
-
     def test_or_combination_satisfies_when_one_branch_met(self):
         """OR: достаточно одной sub-политики."""
         sub_a = self._create_policy(
@@ -217,8 +213,6 @@ class CompositeAndAggregateEndToEndTests(unittest.TestCase):
         self.reasoner.reason()
         target = self.core.onto.search_one(iri="*target_cmp")
         self.assertNotIn(student, getattr(target, "is_available_for", []) or [])
-
-    # --- aggregate_required ----------------------------------------------
 
     def test_aggregate_avg_meets_threshold(self):
         """aggregate_required: AVG оценок ≥ threshold → satisfies."""
@@ -286,8 +280,6 @@ class CompositeAndAggregateEndToEndTests(unittest.TestCase):
         self.reasoner.reason()
         target = self.core.onto.search_one(iri="*target_cmp")
         self.assertNotIn(student, getattr(target, "is_available_for", []) or [])
-
-    # --- валидация композита/агрегата через PolicyCreate -----------------
 
     def test_and_combination_requires_two_unique_subs(self):
         with self.assertRaises(ValueError):
@@ -383,8 +375,6 @@ class CompositeAndAggregateEndToEndTests(unittest.TestCase):
                 author_id="methodologist_smirnov",
             )
 
-
-    # --- Update composite через nested_subpolicies --------------------------
 
     def test_update_and_with_nested_replaces_old_subs(self):
         """При update AND с nested_subpolicies старые nested-подусловия удаляются,

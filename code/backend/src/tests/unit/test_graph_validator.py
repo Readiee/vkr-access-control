@@ -34,8 +34,6 @@ class GraphValidatorTests(unittest.TestCase):
         self._created.append(name)
         return name
 
-    # --- базовые пробы ---------------------------------------------------
-
     def test_completion_probe_on_self_raises_cycle(self):
         probe = ProbePolicy(
             rule_type=RuleType.COMPLETION.value,
@@ -55,10 +53,8 @@ class GraphValidatorTests(unittest.TestCase):
         path = GraphValidator.check_for_cycles(self.onto, "mod_gv_a", probe=probe)
         self.assertEqual(path, [])
 
-    # --- viewed_required (G2 — ключевое отличие от completion) -----------
-
     def test_viewed_required_produces_access_to_access_edge(self):
-        """viewed_required даёт tgt.access → src.access, а не tgt.complete → src.access."""
+        """viewed_required даёт tgt.access → src.access, а не tgt.complete → src.access"""
         graph = GraphValidator.build_dependency_graph(self.onto)
         with self.onto:
             policy = self.onto.AccessPolicy(self._track("policy_gv_viewed"))
@@ -79,8 +75,6 @@ class GraphValidatorTests(unittest.TestCase):
             policy.targets_element = self._mod_a
             self._mod_b.has_access_policy.append(policy)
         self.assertEqual(GraphValidator.find_all_cycles(self.onto), [])
-
-    # --- competency_required ---------------------------------------------
 
     def test_competency_required_expands_through_assesses(self):
         """Политика на competency превращается в дуги от всех оценивающих её элементов."""
@@ -136,8 +130,6 @@ class GraphValidatorTests(unittest.TestCase):
             "Probe должен детектировать цикл mod_a → quiz_in_a → mod_a через subcompetency",
         )
 
-    # --- and/or + рекурсия по has_subpolicy ------------------------------
-
     def test_and_combination_recurses_into_subpolicies(self):
         with self.onto:
             sub1 = self.onto.AccessPolicy(self._track("policy_gv_and_sub1"))
@@ -181,8 +173,6 @@ class GraphValidatorTests(unittest.TestCase):
         self.assertTrue(graph.has_edge("mod_gv_a_access", "mod_gv_b_access"))       # viewed
         self.assertTrue(graph.has_edge("mod_gv_c_complete", "mod_gv_b_access"))     # grade
 
-    # --- aggregate_required ----------------------------------------------
-
     def test_aggregate_required_adds_edges_from_elements(self):
         with self.onto:
             policy = self.onto.AccessPolicy(self._track("policy_gv_agg"))
@@ -197,8 +187,6 @@ class GraphValidatorTests(unittest.TestCase):
         self.assertTrue(graph.has_edge("mod_gv_a_complete", "mod_gv_b_access"))
         self.assertTrue(graph.has_edge("mod_gv_c_complete", "mod_gv_b_access"))
 
-    # --- inactive policy --------------------------------------------------
-
     def test_inactive_policy_does_not_add_edges(self):
         with self.onto:
             policy = self.onto.AccessPolicy(self._track("policy_gv_inactive"))
@@ -209,8 +197,6 @@ class GraphValidatorTests(unittest.TestCase):
 
         graph = GraphValidator.build_dependency_graph(self.onto)
         self.assertFalse(graph.has_edge("mod_gv_a_complete", "mod_gv_b_access"))
-
-    # --- защита глубины рекурсии -----------------------------------------
 
     def test_recursion_guard_on_circular_subpolicies(self):
         """Циклическая композиция has_subpolicy должна отлавливаться по глубине."""
@@ -227,8 +213,6 @@ class GraphValidatorTests(unittest.TestCase):
 
         with self.assertRaises(RuntimeError):
             GraphValidator.build_dependency_graph(self.onto)
-
-    # --- find_all_cycles --------------------------------------------------
 
     def test_find_all_cycles_detects_real_cycle(self):
         with self.onto:

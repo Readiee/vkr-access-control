@@ -1,8 +1,7 @@
-"""Integration: date_restricted и group_restricted через SWRL + Pellet.
+"""Integration: date_restricted и group_restricted через SWRL + Pellet
 
-FIX11 e2e: после сноса DateAccessFilter проверяем, что элемент за пределами
-окна не получает is_available_for. FIX8 e2e: group_restricted пропускает только
-членов нужной группы.
+date e2e: проверяем, что элемент за пределами окна не получает is_available_for.
+group e2e: group_restricted пропускает только членов нужной группы
 """
 from __future__ import annotations
 
@@ -95,7 +94,7 @@ class DateAndGroupReasoningTests(unittest.TestCase):
             os.remove(self.test_owl)
 
     def test_date_outside_window_closes_element_through_swrl(self):
-        """FIX11: окно в будущем → SWRL не выводит satisfies → элемент закрыт."""
+        """Окно в будущем → SWRL не выводит satisfies → элемент закрыт"""
         result = self.reasoner.reason()
         self.assertEqual(result.status, "ok")
 

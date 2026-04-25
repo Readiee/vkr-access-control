@@ -1,12 +1,11 @@
-"""Прогон VerificationService по всем сценариям из code/onto/scenarios/.
+"""Прогон VerificationService по всем сценариям из code/onto/scenarios/
 
-Каждый сценарий = готовый .owl-файл + запись в scenarios_ground_truth.json
+Каждый сценарий — готовый .owl-файл и запись в scenarios_ground_truth.json
 с ожидаемым verdict по СВ-1..СВ-5. Тесты сверяют статусы каждого свойства;
 отдельно проверяют наличие violation с ожидаемыми полями (policy_id,
-policies, elements, dominant/dominated).
+policies, elements, dominant/dominated)
 
-Ground-truth и сценарии описаны в SAT_DATA_MODELS §6. Этот же набор тестов
-используется как fixture для EXP1/EXP2/EXP3 в фазе 3 (Precision/Recall).
+Этот же набор используется как fixture для экспериментов фазы 3
 """
 from __future__ import annotations
 

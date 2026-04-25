@@ -1,4 +1,4 @@
-"""Unit-тесты SubsumptionChecker: СВ-4 Redundancy + СВ-5 Subsumption."""
+"""Unit-тесты SubsumptionChecker: СВ-4 Redundancy и СВ-5 Subsumption"""
 from __future__ import annotations
 
 import os
@@ -15,8 +15,9 @@ from services.verification._subsumption import SubsumptionChecker  # noqa: E402
 
 
 class SubsumptionCheckerTests(unittest.TestCase):
-    """Изолированный World на каждый тест — иначе индивиды из других test-файлов
-    накапливаются в default_world и SubsumptionChecker видит чужие политики."""
+    """Изолированный World на каждый тест: иначе индивиды из других test-файлов
+    накапливаются в default_world и SubsumptionChecker видит чужие политики
+    """
 
     def setUp(self):
         self.world = World()

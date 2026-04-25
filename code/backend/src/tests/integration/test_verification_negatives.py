@@ -1,6 +1,6 @@
-"""Integration: негативные сценарии СВ-1 (inconsistency) и СВ-3 (reachability failed).
+"""Integration: негативные сценарии СВ-1 (inconsistency) и СВ-3 (reachability failed)
 
-Строим минимальные bad-case ABox из §6.8 SAT_DATA_MODELS прямо поверх онтологии.
+Строим минимальные bad-case ABox прямо поверх онтологии
 """
 from __future__ import annotations
 
@@ -125,7 +125,7 @@ class VerificationNegativeTests(unittest.TestCase):
         self.assertTrue(any(r.get("code") == "SV3_ATOMIC_UNSAT" for r in reasons))
 
     def test_sv2_cycle_reported_in_full_report(self):
-        """СВ-2 должен ловить настоящий цикл после insert напрямую в ABox (обход check_for_cycles)."""
+        """СВ-2 должен ловить настоящий цикл после insert напрямую в ABox (обход check_for_cycles)"""
         self.integration_service.sync_course_structure(
             "course_neg2",
             CourseSyncPayload(

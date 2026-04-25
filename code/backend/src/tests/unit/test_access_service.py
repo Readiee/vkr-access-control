@@ -1,7 +1,7 @@
-"""Unit-тесты AccessService: CWA-enforcement + каскадная блокировка + UC-9 explain
+"""Unit-тесты AccessService: default-deny, каскадная блокировка, объяснение
 
-is_available_for ставится в ABox вручную (имитация результата reasoning) —
-Pellet не запускается, это чисто логика слоя доступа
+is_available_for ставится в ABox вручную (имитация результата резонера);
+Pellet не запускается — здесь чистая логика слоя доступа
 """
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from services.access import AccessService  # noqa: E402
 
 
 class _InMemoryCache:
-    """Минимальный CacheManager-compatible stub для unit-тестов AccessService."""
+    """Минимальный заменитель CacheManager для unit-тестов AccessService"""
 
     def __init__(self):
         self.storage: dict = {}
@@ -32,7 +32,7 @@ class _InMemoryCache:
 
 
 class _StubReasoner:
-    """Заглушка ReasoningOrchestrator — unit-тесты AccessService не запускают Pellet."""
+    """Заглушка ReasoningOrchestrator: unit-тесты AccessService не запускают Pellet"""
 
     def reason(self):
         class R:
