@@ -18,7 +18,6 @@ interface StoredVerification {
 }
 
 export const useOntologyStore = defineStore('ontology', () => {
-  // --- State ---
   const ruleTypes = ref<string[]>([]);
   const statuses = ref<string[]>([]);
   const competencies = ref<Competency[]>([]);
@@ -57,10 +56,8 @@ export const useOntologyStore = defineStore('ontology', () => {
     };
   };
 
-  // --- Actions ---
-
   /**
-   * Загрузка метаданных (типы, статусы, компетенции, список курсов).
+   * Загрузка метаданных: типы правил, статусы, компетенции, список курсов
    */
   const fetchMeta = async (force = false) => {
     if (isLoaded.value && !force) return;
@@ -75,7 +72,7 @@ export const useOntologyStore = defineStore('ontology', () => {
       competencies.value = data.competencies;
       groups.value = data.groups || [];
       // Для селекта курса в Dashboard оставляем только курсы; остальные
-      // элементы (модули/лекции/тесты) и так приезжают через getCourseTree.
+      // элементы (модули/лекции/тесты) приезжают через getCourseTree
       courses.value = (data.course_elements || []).filter(
         (el) => (el.type || '').toLowerCase() === 'course',
       );
@@ -89,7 +86,7 @@ export const useOntologyStore = defineStore('ontology', () => {
   };
 
   /**
-   * Загрузка иерархии конкретного курса.
+   * Загрузка иерархии конкретного курса
    */
   const fetchCourseTree = async (courseId: string) => {
     isLoading.value = true;
@@ -118,9 +115,10 @@ export const useOntologyStore = defineStore('ontology', () => {
   };
 
   /**
-   * Применяет созданную или обновлённую политику к дереву: находит source-элемент
-   * и patchit его data.policies, вместо перезагрузки всего дерева.
-   * Политика без source_element_id (вложенная в композит) не видна на дереве — игнорируем.
+   * Применить созданную или обновлённую политику к дереву: найти source-элемент
+   * и пропатчить его data.policies, не перезагружая всё дерево.
+   * Политика без source_element_id (вложенная в композит) не видна на дереве,
+   * её игнорируем
    */
   const upsertPolicyInTree = (policy: PolicyResponse) => {
     const sourceId = policy.source_element_id;

@@ -6,7 +6,7 @@ const apiClient = axios.create({
   headers: { 'Content-Type': 'application/json' }
 })
 
-// Глобальный перехватчик ответов
+// Глобальный перехватчик ответов: единое место показа ошибок через toast
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {

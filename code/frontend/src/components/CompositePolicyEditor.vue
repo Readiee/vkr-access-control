@@ -27,15 +27,15 @@ const emit = defineEmits<{
 
 const isEditMode = computed(() => !!props.initialData?.id);
 
-/** Шаг границ date_restricted — 1 час. Синхронизовано с Pydantic. */
+/** Шаг границ date_restricted: 1 час. Синхронизовано с серверной валидацией */
 const isOnWholeHour = (d: Date | null | undefined): boolean => {
   if (!d) return false;
   return d.getMinutes() === 0 && d.getSeconds() === 0 && d.getMilliseconds() === 0;
 };
 
-// При create всегда AND — для ИЛИ методист создаёт два простых правила,
+// При create всегда AND: для ИЛИ методист создаёт два простых правила,
 // между которыми уже работает неявный OR через мета-правило SWRL.
-// При edit сохраняем rule_type из initialData (может быть OR у legacy-правил).
+// При edit сохраняем rule_type из initialData (может быть OR у legacy-правил)
 const compositeRuleType = computed<RuleType>(() =>
   (props.initialData?.rule_type as RuleType) ?? RuleType.AND_COMBINATION,
 );

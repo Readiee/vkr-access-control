@@ -37,7 +37,7 @@ const { getBlockedIds, getExpandedKeys, buildSelectableTree } = useTreeHelpers()
 
 const isEditing = ref(!props.editMode);
 
-/** Политика по минимальному шагу дат — 1 час. Синхронизовано с Pydantic-валидацией. */
+/** Минимальный шаг дат: 1 час. Синхронизовано с серверной валидацией PolicyCreate */
 const isOnWholeHour = (d: Date | null | undefined): boolean => {
   if (!d) return false;
   return d.getMinutes() === 0 && d.getSeconds() === 0 && d.getMilliseconds() === 0;

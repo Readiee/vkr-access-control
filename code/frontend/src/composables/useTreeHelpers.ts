@@ -3,7 +3,7 @@ import type { CourseTreeNode } from '@/types';
 
 export function useTreeHelpers() {
   /**
-   * Поиск пути до узла в иерархии (для Breadcrumbs).
+   * Путь до узла в иерархии (для Breadcrumbs)
    */
   const findPath = (nodes: CourseTreeNode[], targetId: string): Array<{ label: string }> => {
     for (const node of nodes) {
@@ -17,7 +17,7 @@ export function useTreeHelpers() {
   };
 
   /**
-   * Сбор ID предков и потомков целевого узла для блокировки циклов.
+   * Собрать id предков и потомков целевого узла — чтобы не допустить циклов
    */
   const getBlockedIds = (nodes: CourseTreeNode[], targetId: string): Set<string> => {
     const blocked = new Set<string>();
@@ -66,7 +66,7 @@ export function useTreeHelpers() {
   };
 
   /**
-   * Умное раскрытие ключей дерева до целевого узла.
+   * Раскрыть ключи дерева до целевого узла
    */
   const getExpandedKeys = (treeData: CourseTreeNode[], targetId?: string): Record<string, boolean> => {
     const keys: Record<string, boolean> = {};
@@ -89,8 +89,9 @@ export function useTreeHelpers() {
   };
 
   /**
-   * Построение дерева узлов с флагами selectable на основе типа правила и блокировок.
-   * Теперь недопустимые узлы не удаляются, а помечаются как неактивные с пояснением.
+   * Построить дерево узлов с флагами selectable на основе типа правила
+   * и набора блокированных id. Недопустимые узлы не удаляются, а помечаются
+   * как неактивные с пояснением
    */
   const buildSelectableTree = (
     nodes: CourseTreeNode[],

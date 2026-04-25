@@ -2,7 +2,7 @@ import apiClient from './client';
 import type { CourseTreeNode, CourseStructureResponse } from '@/types';
 
 /**
- * Синхронизация структуры курса из внешнего источника.
+ * Синхронизация структуры курса из внешнего источника
  */
 export const syncCourse = async (payload: CourseStructureResponse): Promise<any> => {
   const { data } = await apiClient.post('/courses/sync', payload);
@@ -10,7 +10,7 @@ export const syncCourse = async (payload: CourseStructureResponse): Promise<any>
 };
 
 /**
- * Получение иерархии курса в виде дерева.
+ * Иерархия курса в виде дерева
  */
 export const getCourseTree = async (courseId: string): Promise<CourseTreeNode[]> => {
   const { data } = await apiClient.get<CourseTreeNode[]>(`/courses/${courseId}/tree`);
@@ -18,8 +18,8 @@ export const getCourseTree = async (courseId: string): Promise<CourseTreeNode[]>
 };
 
 /**
- * Перезаписать список компетенций, которые элемент выдаёт при прохождении
- * (SWRL H-2). Возвращает обновлённый assesses.
+ * Перезаписать список компетенций, которые элемент выдаёт при прохождении.
+ * Возвращает обновлённый assesses
  */
 export const setElementCompetencies = async (
   elementId: string,
@@ -32,8 +32,8 @@ export const setElementCompetencies = async (
 };
 
 /**
- * Переключить флаг обязательности элемента (влияет на Roll-up:
- * модуль завершён только если все mandatory потомки завершены).
+ * Переключить флаг обязательности элемента. Влияет на агрегацию завершённости:
+ * модуль закрыт, только если все обязательные потомки закрыты
  */
 export const setElementMandatory = async (
   elementId: string,

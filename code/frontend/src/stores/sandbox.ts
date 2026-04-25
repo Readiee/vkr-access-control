@@ -22,8 +22,9 @@ export const useSandboxStore = defineStore('sandbox', () => {
   const activeCompetencies = ref<string[]>([]);
   const currentGroupId = ref<string | null>(null);
 
-  // Runtime-оверлей над ontology.currentCourseTree: что доступно студенту сейчас
-  // и какой прогресс по какому элементу. Храним отдельно, не мутируя дерево онтологии.
+  // Runtime-оверлей над ontology.currentCourseTree: что доступно студенту
+  // сейчас и какой прогресс по какому элементу. Храним отдельно, не мутируя
+  // дерево онтологии
   const availableElementIds = ref<Set<string>>(new Set());
   const progressById = ref<Record<string, SandboxProgressEntry>>({});
 

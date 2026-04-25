@@ -1,9 +1,7 @@
 import { RuleType, ElementType, ProgressStatus } from '@/types';
 import type { PolicyResponse, Competency } from '@/types';
 
-// ---------------------------------------------------------------------------
 // Словари
-// ---------------------------------------------------------------------------
 
 export const ElementTypeMap: Record<ElementType, string> = {
   [ElementType.COURSE]: 'Курс',
@@ -47,23 +45,23 @@ export const RuleTypeMap: Record<string, RuleTypeInfo> = {
   [RuleType.AGGREGATE_REQUIRED]:   { label: 'Агрегат',      severity: 'warn' },
 };
 
-/** Сгенерированные опции для Select из RuleTypeMap */
+/** Опции для Select из RuleTypeMap */
 export const ruleTypeOptions = Object.entries(RuleTypeMap).map(([value, info]) => ({
   value,
   label: info.label,
 }));
 
-/** Варианты агрегирующих функций в человекочитаемом виде. */
+/** Названия агрегирующих функций в человекочитаемом виде */
 export const AggregateFunctionLabels: Record<string, string> = {
   AVG: 'Средний балл',
   SUM: 'Сумма баллов',
   COUNT: 'Количество сданных',
 };
 
-/** Типы элементов, у которых может появиться has_grade — только они годны для агрегата. */
+/** Типы элементов, у которых может быть has_grade — только они годны для агрегата */
 export const GRADABLE_ELEMENT_TYPES = new Set<string>(['test', 'practice', 'assignment']);
 
-/** Дата из ISO/Date → ru-RU «дд.мм.гггг чч:мм». Пустой вход → пустая строка. */
+/** Дата из ISO/Date → ru-RU «дд.мм.гггг чч:мм»; пустой вход → пустая строка */
 export const formatDate = (value: string | Date | null | undefined): string => {
   if (!value) return '';
   const d = typeof value === 'string' ? new Date(value) : value;
@@ -77,7 +75,7 @@ export const formatDate = (value: string | Date | null | undefined): string => {
   });
 };
 
-/** Компактная дата без времени: «дд.мм.гггг». Для бейджей правил. */
+/** Компактная дата без времени: «дд.мм.гггг» — для бейджей правил */
 export const formatDateShort = (value: string | Date | null | undefined): string => {
   if (!value) return '';
   const d = typeof value === 'string' ? new Date(value) : value;
@@ -89,9 +87,7 @@ export const formatDateShort = (value: string | Date | null | undefined): string
   });
 };
 
-// ---------------------------------------------------------------------------
 // Иерархическое дерево компетенций из плоского списка (для TreeSelect)
-// ---------------------------------------------------------------------------
 
 interface CompetencyTreeNode {
   key: string;
@@ -115,9 +111,7 @@ export const buildCompetencyTree = (flat: Competency[]): CompetencyTreeNode[] =>
   return roots;
 };
 
-// ---------------------------------------------------------------------------
 // Рекурсивный поиск названия узла по ID в дереве
-// ---------------------------------------------------------------------------
 
 export const findNodeNameById = (nodes: any[], id: string): string | null => {
   for (const node of nodes) {
@@ -130,9 +124,7 @@ export const findNodeNameById = (nodes: any[], id: string): string | null => {
   return null;
 };
 
-// ---------------------------------------------------------------------------
-// Функция форматирования текста бейджа
-// ---------------------------------------------------------------------------
+// Форматирование текста бейджа политики
 
 export const formatPolicyBadgeText = (
   policy: PolicyResponse,

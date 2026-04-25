@@ -2,20 +2,20 @@ import apiClient from './client';
 import type { PolicyCreate, PolicyResponse } from '@/types';
 
 /**
- * Получение списка всех политик доступа с возможностью фильтрации.
+ * Список всех политик доступа с опциональной фильтрацией
  */
 export const getPolicies = async (courseId?: string, elementId?: string): Promise<PolicyResponse[]> => {
   const { data } = await apiClient.get<PolicyResponse[]>('/policies', {
-    params: { 
-      course_id: courseId, 
-      element_id: elementId 
+    params: {
+      course_id: courseId,
+      element_id: elementId
     }
   });
   return data;
 };
 
 /**
- * Создание новой политики доступа (правила).
+ * Создать новую политику доступа
  */
 export const createPolicy = async (policy: PolicyCreate): Promise<PolicyResponse> => {
   const { data } = await apiClient.post<PolicyResponse>('/policies', policy);
@@ -23,7 +23,7 @@ export const createPolicy = async (policy: PolicyCreate): Promise<PolicyResponse
 };
 
 /**
- * Редактирование существующей политики доступа.
+ * Обновить существующую политику доступа
  */
 export const updatePolicy = async (policyId: string, data: Partial<PolicyCreate>): Promise<PolicyResponse> => {
   const response = await apiClient.put<PolicyResponse>(`/policies/${policyId}`, data);
@@ -31,7 +31,7 @@ export const updatePolicy = async (policyId: string, data: Partial<PolicyCreate>
 };
 
 /**
- * Удаление политики доступа из онтологии.
+ * Удалить политику доступа из онтологии
  */
 export const deletePolicy = async (policyId: string): Promise<void> => {
   await apiClient.delete(`/policies/${policyId}`);

@@ -37,8 +37,8 @@ export function usePolicyForm(props: any, emit: any) {
         return;
       }
       // В single-mode PrimeVue отдаёт { id: true } или { id: { checked: true } }.
-      // partialChecked у родителей в single-mode не используется, но фильтр
-      // по явному checked-true защитит нас, если тип когда-нибудь расширят.
+      // partialChecked у родителей в single-mode не используется, но фильтр по
+      // явному checked-true защитит, если тип когда-нибудь расширят
       const picked = Object.entries(val).find(
         ([, v]) => v === true || (v as any)?.checked === true,
       );
@@ -54,7 +54,8 @@ export function usePolicyForm(props: any, emit: any) {
         rule_type: d.rule_type,
         author_id: d.author_id || SANDBOX_AUTHOR_ID,
         target_element_id: d.target_element_id ?? null,
-        // course_service сериализует поле как competency_id, policy_service — как target_competency_id
+        // course-сервис сериализует поле как competency_id,
+        // policy-сервис — как target_competency_id
         target_competency_id: d.target_competency_id ?? d.competency_id ?? null,
         passing_threshold: d.passing_threshold ?? null,
         valid_from: d.valid_from ? new Date(d.valid_from) : null,

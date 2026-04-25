@@ -10,7 +10,7 @@ import App from './App.vue'
 import ToastService from 'primevue/toastservice'
 import ConfirmationService from 'primevue/confirmationservice'
 
-/** Палитра primary привязана к бренд-цвету OntoRule (#2E5BFF). */
+/** Палитра primary привязана к бренд-цвету OntoRule (#2E5BFF) */
 const OntoRuleAura = definePreset(Aura, {
   semantic: {
     primary: {

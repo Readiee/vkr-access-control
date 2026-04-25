@@ -45,8 +45,9 @@ const failedCount = computed(() =>
   orderedEntries.value.filter(([, p]) => p.status === VerificationPropertyStatus.FAILED).length,
 );
 
-/** По умолчанию раскрываем только свойства с нарушениями или неопределённые —
- *  passed остаются свёрнутыми, методист сразу видит что требует внимания. */
+/** По умолчанию раскрываем только свойства с нарушениями или неопределённые,
+ *  passed остаются свёрнутыми: методист сразу видит, что требует внимания
+ */
 const expandedKeys = computed<string[]>(() =>
   orderedEntries.value
     .filter(([, p]) => p.status !== VerificationPropertyStatus.PASSED)
@@ -81,8 +82,8 @@ const runVerification = async () => {
   if (!store.currentCourseId) return;
   isLoading.value = true;
   try {
-    // Сервер кэширует результат, если ABox не менялся с прошлой проверки —
-    // full=true запрашивает все 5 свойств сразу.
+    // Сервер кэширует результат, если ABox не менялся с прошлой проверки;
+    // full=true запрашивает все 5 свойств сразу
     const result = await getVerificationReport(store.currentCourseId, true);
     store.saveVerification(store.currentCourseId, result);
   } finally {

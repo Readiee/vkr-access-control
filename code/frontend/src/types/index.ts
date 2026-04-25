@@ -119,7 +119,7 @@ export interface CourseTreeNode {
   children?: CourseTreeNode[];
 }
 
-// ---- Verification (UC-6) ----
+// Верификация курса по СВ-1…СВ-5
 
 export interface PropertyViolation {
   code: string;
@@ -160,7 +160,7 @@ export interface VerificationReport {
   summary?: string;
 }
 
-// ---- UC-9 BlockingExplanation ----
+// Объяснение блокировки доступа
 
 export interface SubpolicyDiagnosis {
   id: string;

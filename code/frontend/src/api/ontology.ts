@@ -2,7 +2,7 @@ import apiClient from './client';
 import type { OntologyMeta, ProgressEvent, AvailableElementsResponse } from '@/types';
 
 /**
- * Получение метаданных (типы правил, статусы, элементы, компетенции) для UI.
+ * Метаданные онтологии: типы правил, статусы, элементы, компетенции
  */
 export const getMeta = async (): Promise<OntologyMeta> => {
   const { data } = await apiClient.get<OntologyMeta>('/ontology/meta');
@@ -10,7 +10,7 @@ export const getMeta = async (): Promise<OntologyMeta> => {
 };
 
 /**
- * Эмуляция события прогресса.
+ * Отправка события прогресса
  */
 export const registerProgress = async (event: ProgressEvent): Promise<any> => {
   const { data } = await apiClient.post('/events/progress', event);
@@ -18,7 +18,7 @@ export const registerProgress = async (event: ProgressEvent): Promise<any> => {
 };
 
 /**
- * Получение текущих доступов студента.
+ * Текущие доступы студента в рамках курса
  */
 export const getStudentAccess = async (studentId: string, courseId: string): Promise<AvailableElementsResponse> => {
   const { data } = await apiClient.get<AvailableElementsResponse>(`/access/student/${studentId}/course/${courseId}`);
