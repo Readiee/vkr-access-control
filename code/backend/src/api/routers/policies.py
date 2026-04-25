@@ -20,7 +20,7 @@ async def get_policies(
     element_id: Optional[str] = Query(None, description="Фильтр по ID элемента"),
     service: PolicyService = Depends(get_policy_service)
 ) -> List[Policy]:
-    """Возвращает все политики доступа с опциональной фильтрацией."""
+    """Все политики доступа с опциональной фильтрацией"""
     return service.get_policies(course_id=course_id, element_id=element_id)
 
 
@@ -34,7 +34,7 @@ async def create_policy(
     policy: PolicyCreate,
     service: PolicyService = Depends(get_policy_service)
 ) -> Policy:
-    """Создаёт новый индивид AccessPolicy в графе онтологии."""
+    """Создать новый индивид AccessPolicy в графе онтологии"""
     try:
         return service.create_policy(policy)
     except PolicyConflictError as exc:
@@ -58,7 +58,7 @@ async def delete_policy(
     policy_id: str = Path(..., description="ID удаляемой политики"),
     service: PolicyService = Depends(get_policy_service)
 ) -> dict:
-    """Безопасно удаляет индивид AccessPolicy из графа, отсоединяя от всех источников."""
+    """Удалить индивид AccessPolicy из графа, отсоединив от всех источников"""
     try:
         deleted = service.delete_policy(policy_id)
     except PolicyConflictError as exc:
@@ -78,7 +78,7 @@ async def update_policy(
     policy_id: str = Path(..., description="ID обновляемой политики"),
     service: PolicyService = Depends(get_policy_service)
 ) -> dict:
-    """Обновляет существующую политику доступа."""
+    """Обновить существующую политику доступа"""
     try:
         return service.update_policy(policy_id, data)
     except PolicyConflictError as exc:
@@ -99,7 +99,7 @@ async def toggle_policy(
     policy_id: str = Path(..., description="ID политики"),
     service: PolicyService = Depends(get_policy_service)
 ) -> dict:
-    """Включает или отключает политику без её удаления."""
+    """Включить или отключить политику без её удаления"""
     try:
         service.toggle_policy(policy_id, toggle_data.is_active)
         return {"message": "Статус успешно изменён", "policy_id": policy_id, "is_active": toggle_data.is_active}

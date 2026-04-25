@@ -1,9 +1,9 @@
-"""ProgressController: приём событий прогресса от внешней СДО.
+"""Приём событий прогресса от внешней СДО
 
-Webhook UC-5: СДО отправляет событие (`viewed`, `completed`, `graded`,
-`competency_acquired`), ProgressService записывает факт в ABox, запускает reasoning
-в фоне, каскадно обновляет завершённость родителя и пересобирает
-Redis-кэш доступа студента через AccessService.
+Webhook: СДО отправляет событие (`viewed`, `completed`, `graded`,
+`competency_acquired`); ProgressService записывает факт в ABox, запускает
+резонер в фоне, каскадно обновляет завершённость родителя и пересобирает
+Redis-кэш доступов студента через AccessService
 """
 import logging
 
@@ -28,7 +28,7 @@ async def register_progress(
     background_tasks: BackgroundTasks,
     service: ProgressService = Depends(get_progress_service),
 ) -> dict:
-    """Webhook СДО: записать прогресс и запустить reasoning в фоне."""
+    """Webhook СДО: записать прогресс и запустить резонер в фоне"""
     try:
         service.update_progress(
             student_id=data.student_id,

@@ -1,9 +1,9 @@
-"""DI-граф сервисов (FastAPI Depends).
+"""DI-граф сервисов через FastAPI Depends
 
-По DSL §44–§123: OntologyCore — тонкий, CacheManager/ReasoningOrchestrator —
-отдельные Core-компоненты. Сервисы Service Layer получают явные зависимости
-через Depends (не лезут в core.*). Это убирает service-locator antipattern,
-делает зависимости видимыми в сигнатурах конструкторов и упрощает мокирование.
+OntologyCore тонкий, CacheManager и ReasoningOrchestrator — отдельные
+компоненты Core-слоя. Сервисы Service-слоя получают зависимости через Depends
+и не лезут в core.* напрямую: это убирает service-locator antipattern и
+делает зависимости видимыми в сигнатурах конструкторов
 """
 from functools import lru_cache
 from typing import Optional

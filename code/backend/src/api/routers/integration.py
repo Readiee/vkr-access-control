@@ -1,8 +1,8 @@
-"""IntegrationController: импорт структуры и правил из внешней СДО.
+"""Импорт структуры и правил из внешней СДО
 
-UC-10 (sync структуры) + meta/tree эндпоинты для Web UI. Приём событий прогресса
-(UC-5) вынесен в отдельный ProgressController (api/routers/progress.py).
-После импорта IntegrationService автоматически запускает VerificationService.
+Sync структуры плюс meta/tree-эндпоинты для Web UI. Приём событий прогресса
+вынесен в отдельный progress.py. После импорта IntegrationService
+автоматически запускает VerificationService
 """
 import logging
 from typing import List
@@ -28,7 +28,7 @@ async def sync_course(
     course_id: str = Path(..., description="ID синхронизируемого курса"),
     service: IntegrationService = Depends(get_integration_service),
 ) -> dict:
-    """Загрузить иерархию курса из СДО в онтологический граф + прогнать UC-6."""
+    """Загрузить иерархию курса из СДО в онтологический граф и прогнать верификацию"""
     try:
         return service.sync_course_structure(course_id, payload)
     except ValueError as exc:
@@ -49,7 +49,7 @@ async def sync_course(
 async def get_ontology_meta(
     service: IntegrationService = Depends(get_integration_service),
 ) -> OntologyMeta:
-    """Словари типов правил, статусов, компетенций, групп, элементов курса."""
+    """Словари типов правил, статусов, компетенций, групп, элементов курса"""
     return service.get_meta()
 
 
@@ -62,7 +62,7 @@ async def get_course_tree(
     course_id: str = Path(..., description="ID курса в онтологии"),
     service: IntegrationService = Depends(get_integration_service),
 ) -> List[dict]:
-    """Иерархия курса с прикрепленными политиками."""
+    """Иерархия курса с прикреплёнными политиками"""
     try:
         return service.get_course_tree(course_id)
     except ValueError as exc:
@@ -71,14 +71,14 @@ async def get_course_tree(
 
 @router.put(
     "/elements/{element_id}/competencies",
-    summary="Перезаписать список выдаваемых элементом компетенций (SWRL H-2)",
+    summary="Перезаписать список выдаваемых элементом компетенций",
 )
 async def set_element_competencies(
     payload: dict,
     element_id: str = Path(..., description="ID элемента курса"),
     service: IntegrationService = Depends(get_integration_service),
 ) -> dict:
-    """Элемент курса через assesses выдаёт указанные компетенции при прохождении."""
+    """Элемент курса через assesses выдаёт указанные компетенции при прохождении"""
     try:
         return service.set_element_competencies(element_id, payload.get("competency_ids", []))
     except ValueError as exc:
@@ -87,7 +87,7 @@ async def set_element_competencies(
 
 @router.put(
     "/elements/{element_id}/mandatory",
-    summary="Перезаписать флаг обязательности элемента (влияет на Roll-up)",
+    summary="Перезаписать флаг обязательности элемента (влияет на агрегацию завершённости)",
 )
 async def set_element_mandatory(
     payload: dict,
