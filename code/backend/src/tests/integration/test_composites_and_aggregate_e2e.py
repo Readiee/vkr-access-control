@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import os
-import shutil
 import sys
 import unittest
 from datetime import datetime
@@ -11,7 +10,6 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from owlready2 import World  # noqa: E402
 
-from core.config import DEFAULT_ONTOLOGY_PATH  # noqa: E402
 from core.enums import ElementType, RuleType  # noqa: E402
 from schemas.schemas import (  # noqa: E402
     AggregateFunction,

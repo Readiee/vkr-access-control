@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import os
-import shutil
 import sys
 import unittest
 
@@ -13,9 +12,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from owlready2 import World  # noqa: E402
 
-from core.config import DEFAULT_ONTOLOGY_PATH  # noqa: E402
-from core.enums import ElementType, RuleType  # noqa: E402
-from schemas.schemas import CourseElement, CourseSyncPayload, PolicyCreate  # noqa: E402
+from core.enums import ElementType  # noqa: E402
+from schemas.schemas import CourseElement, CourseSyncPayload  # noqa: E402
 from services.integration_service import IntegrationService  # noqa: E402
 from services.ontology_core import OntologyCore  # noqa: E402
 from services.policy_service import PolicyService  # noqa: E402

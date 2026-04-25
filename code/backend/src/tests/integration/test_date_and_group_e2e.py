@@ -7,14 +7,12 @@ FIX11 e2e: после сноса DateAccessFilter проверяем, что э�
 from __future__ import annotations
 
 import os
-import shutil
 import sys
 import unittest
 from datetime import datetime
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from core.config import DEFAULT_ONTOLOGY_PATH  # noqa: E402
 from core.enums import ElementType  # noqa: E402
 from schemas.schemas import CourseElement, CourseSyncPayload  # noqa: E402
 from services.access import AccessService  # noqa: E402

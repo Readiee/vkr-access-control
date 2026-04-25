@@ -1,8 +1,8 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, List
 
 from core.enums import ElementType, ProgressStatus, RuleType
-from schemas.schemas import CourseElement, CourseSyncPayload
+from schemas.schemas import CourseSyncPayload
 from services.cache_manager import CacheManager
 from services.ontology_core import OntologyCore
 from services.verification import VerificationService

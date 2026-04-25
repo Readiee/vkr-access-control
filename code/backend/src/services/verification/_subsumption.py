@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Iterable, List, Optional
+from typing import Any, List, Optional
 
 from core.enums import RuleType
 from utils.owl_utils import get_owl_prop

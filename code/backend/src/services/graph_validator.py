@@ -8,7 +8,7 @@ and/or → рекурсия по has_subpolicy.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, List, Optional, Set
 
 import networkx as nx
 

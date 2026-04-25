@@ -18,17 +18,15 @@ _SCAN_BATCH = 500
 
 
 class CacheManager:
-    """Кэш решений о доступе и отчётов верификации. GET/SET/DEL + инвалидация затронутых ключей (А5).
+    """Кэш доступов и отчётов верификации поверх Redis
 
-    TTL фиксирован на 1 час для всех ключей. Методист задаёт date_restricted-окна
-    с шагом ровно 1 час (схема валидирует это), поэтому кэш гарантированно
-    пересчитается до следующей границы — без отдельного cron-воркера и адаптивного TTL.
+    TTL фиксирован 1 час. Датные границы политик валидатор округляет до часа,
+    значит кэш успевает пересчитаться до следующего перехода окна. Это заменяет
+    адаптивный TTL и отдельный cron-воркер
 
-    Payload `access:{s}` и `verify:{c}:latest` хранят `ontology_version` — sha256
-    файла онтологии на момент записи. При GET значения с чужой версией
-    считаются stale и выбрасываются с cache-miss. Wildcard-инвалидация идёт
-    через `SCAN` батчами, не `KEYS` (последний блокирует Redis при большом
-    количестве ключей).
+    В payload лежит sha256 файла онтологии. Если хэш не совпадает с текущим,
+    запись считается устаревшей и выкидывается. Wildcard-чистка идёт через SCAN
+    батчами — KEYS на больших кэшах блокирует Redis
     """
 
     def __init__(self, redis_client, onto_path: Optional[str] = None) -> None:
@@ -37,13 +35,10 @@ class CacheManager:
         self._cached_version: Optional[str] = None
         self._cached_mtime: Optional[float] = None
 
-    # ------------------------------------------------------------------
-    # Ontology version
-    # ------------------------------------------------------------------
     def current_ontology_version(self) -> Optional[str]:
-        """sha256 содержимого файла онтологии. None, если путь не задан или файл отсутствует.
+        """sha256 содержимого файла онтологии или None, если путь не задан
 
-        Пересчёт на изменение mtime, иначе возвращается закэшированный хэш.
+        Пересчитывается только при изменении mtime
         """
         if not self._onto_path:
             return None
@@ -67,7 +62,7 @@ class CacheManager:
         return self._cached_version
 
     def publish_ontology_version(self) -> Optional[str]:
-        """Положить текущий хэш онтологии в `onto:version`. Возвращает записанное значение."""
+        """Записать текущий хэш в `onto:version`, вернуть записанное значение"""
         version = self.current_ontology_version()
         if self.redis and version:
             try:
@@ -77,7 +72,7 @@ class CacheManager:
         return version
 
     def stored_ontology_version(self) -> Optional[str]:
-        """Прочитать `onto:version` из Redis. None, если нет значения или Redis недоступен."""
+        """Прочитать `onto:version` из Redis, None если ключа нет или Redis недоступен"""
         if not self.redis:
             return None
         try:
@@ -87,10 +82,10 @@ class CacheManager:
             return None
 
     def ensure_version_consistency(self) -> bool:
-        """Startup-hook: при рассинхроне стертого хэша онтологии вычищает access:* и verify:*.
+        """Выровнять Redis с текущим файлом онтологии
 
-        Возвращает True, если версия совпала (или Redis недоступен, или файл не задан),
-        False — если потребовалась инвалидация.
+        На рассинхроне очистить access:* и verify:*, переписать `onto:version`.
+        Вызывается на старте приложения. True, если инвалидация не понадобилась
         """
         current = self.current_ontology_version()
         if not current or not self.redis:
@@ -107,14 +102,11 @@ class CacheManager:
         self.publish_ontology_version()
         return False
 
-    # ------------------------------------------------------------------
-    # Access cache
-    # ------------------------------------------------------------------
     def get_student_access(self, student_id: str) -> Optional[Dict[str, Any]]:
-        """Вернуть access-map студента или None при miss.
+        """Прочитать карту доступов студента, None на cache miss
 
-        Служебные поля (`ontology_version`) обёрнуты внутри payload и наружу не видны —
-        сервисы продолжают видеть тот же dict element_id → meta, что и до обогащения.
+        Служебные поля обёртки наружу не видны — сервис получает тот же dict
+        element_id → meta, что и до введения ontology_version
         """
         if not self.redis:
             return None
@@ -130,7 +122,7 @@ class CacheManager:
             return None
         if isinstance(payload, dict) and "access" in payload:
             return payload.get("access") or {}
-        # legacy-payload без обёртки — считаем валидным
+        # старый формат без обёртки — считаем валидным
         return payload
 
     def set_student_access(self, student_id: str, data: Dict[str, Any]) -> None:
@@ -155,9 +147,6 @@ class CacheManager:
     def invalidate_all_access(self) -> None:
         self._scan_and_delete(f"{ACCESS_KEY_PREFIX}*", label="доступов")
 
-    # ------------------------------------------------------------------
-    # Verification cache (UC-6)
-    # ------------------------------------------------------------------
     def get_verification(self, course_id: str) -> Optional[Dict[str, Any]]:
         if not self.redis:
             return None
@@ -193,15 +182,12 @@ class CacheManager:
         pattern = f"{VERIFY_KEY_PREFIX}{course_id}:*" if course_id else f"{VERIFY_KEY_PREFIX}*"
         self._scan_and_delete(pattern, label="верификации")
 
-    # ------------------------------------------------------------------
-    # Internals
-    # ------------------------------------------------------------------
     def _scan_and_delete(self, pattern: str, *, label: str) -> None:
         if not self.redis:
             return
         try:
             # SCAN под параллельным удалением пропускает часть ключей (курсор сдвигается
-            # на удалённых слотах), поэтому материализуем список до первого DEL.
+            # на удалённых слотах), поэтому сначала собираем список, потом удаляем
             keys = list(self._scan_iter(pattern))
             if not keys:
                 return
@@ -212,7 +198,7 @@ class CacheManager:
             logger.error("Ошибка при SCAN-инвалидации %s: %s", pattern, exc)
 
     def _scan_iter(self, pattern: str) -> Iterable[str]:
-        # Отдельная обёртка над scan_iter — совместима с redis-py и fakeredis.
+        # обёртка совместима с redis-py и fakeredis
         yield from self.redis.scan_iter(match=pattern, count=_SCAN_BATCH)
 
     def _safe_delete(self, key: str) -> None:
@@ -224,10 +210,10 @@ class CacheManager:
             logger.warning("Ошибка удаления %s: %s", key, exc)
 
     def _version_matches(self, payload: Any) -> bool:
-        """Совпадает ли `ontology_version` в payload с текущим хэшом файла.
+        """Совпадает ли `ontology_version` в payload с текущим хэшом файла
 
-        True при: хэш файла недоступен; payload не содержит поля; значения совпадают.
-        False только при явном расхождении.
+        True при недоступном хэше файла, отсутствии поля в payload или совпадении.
+        False только при явном расхождении версий
         """
         current = self.current_ontology_version()
         if not current or not isinstance(payload, dict):
