@@ -15,11 +15,11 @@ SANDBOX_STUDENT_ID = "student_sandbox"
 
 
 class SandboxService:
-    """Песочница методиста (UC-7a/b/c).
+    """Песочница методиста: симуляция прогресса на тестовом студенте
 
-    Работает с единственным SandboxStudent-ом: методист дёргает один и тот же
-    профиль для проверки правил. Пул тестовых студентов убран — смысл
-    симулятора в быстрой проверке правила, а не в репрезентативной выборке.
+    Работает с единственным SandboxStudent: методист дёргает один и тот же
+    профиль для проверки правил. Пул тестовых студентов убран — смысл симулятора
+    в быстрой проверке правила, а не в репрезентативной выборке
     """
 
     def __init__(
@@ -34,15 +34,15 @@ class SandboxService:
         self.reasoner = reasoner
         self.access = access
         self.progress = progress
-        # Manual-override компетенций (перезачёт). SWRL H-2 выводит competencies
-        # из ProgressRecord — но OWL монотонен, убрать их без очистки не получится.
-        # Перед каждым прогоном reasoner-а перезаписываем has_competency на manual:
-        # reasoner уже сверху допишет inferred из актуального progress.
-        # In-memory: рестарт uvicorn теряет manual-override, пользователь задаёт его заново.
+        # Перезачёт компетенций методистом. Вспомогательное SWRL-правило
+        # выводит компетенции из ProgressRecord, но OWL монотонен — убрать
+        # их без очистки нельзя. Перед каждым прогоном перезаписываем
+        # has_competency на manual; резонер допишет inferred из актуального
+        # прогресса. In-memory: рестарт uvicorn теряет manual-override
         self._manual_competencies: dict[str, list[str]] = {}
 
     def _sandbox_student(self):
-        """Единственный sandbox-студент. Создаёт индивида, если его ещё нет."""
+        """Единственный sandbox-студент; создаёт индивида, если его ещё нет"""
         cls = getattr(self.core.onto, "SandboxStudent", None)
         if cls is None:
             return self.core.students.get_or_create(SANDBOX_STUDENT_ID)
@@ -102,7 +102,7 @@ class SandboxService:
         student = self._sandbox_student()
         sandbox_user_id = student.name
 
-        # Даунгрейд (viewed/failed) — сносим родительские рекорды, чтобы Roll-up пересчитал их
+        # Даунгрейд (viewed/failed): сносим родительские рекорды, чтобы агрегация пересчитала их
         if payload.status != ProgressStatus.COMPLETED.value and payload.status != "completed":
             element = self.core.courses.find_by_id(payload.element_id)
             if element:
@@ -140,19 +140,19 @@ class SandboxService:
         return {"status": "success", "message": f"Откат {element_id} завершен"}
 
     def _clear_inferred_access(self, student):
-        """Чистит выведенные доступы, чтобы ризонер собрал их заново (OWL монотонен)."""
+        """Чистит выведенные доступы, чтобы резонер собрал их заново (OWL монотонен)"""
         for elem in self.core.courses.get_all_elements():
             if student in getattr(elem, "is_available_for", []):
                 elem.is_available_for.remove(student)
 
     def _reset_competencies_to_manual(self, student) -> None:
-        """Откат has_competency к manual-override методиста.
+        """Откат has_competency к перезачёту методиста
 
-        SWRL H-2 выводит компетенции из ProgressRecord, но OWL монотонен и
-        отзыв prerequisite сам по себе не удаляет ранее выведенный has_competency.
-        Перед каждым прогоном reasoner-а перезаписываем has_competency на то,
-        что задал методист вручную через set_competencies — дальше reasoner
-        допишет H-2-выводы из актуального состояния прогресса.
+        Вспомогательное SWRL-правило выводит компетенции из ProgressRecord,
+        но OWL монотонен и отзыв prerequisite сам по себе не удаляет ранее
+        выведенный has_competency. Перед каждым прогоном перезаписываем
+        has_competency на то, что задал методист вручную через set_competencies;
+        дальше резонер допишет выводы из актуального прогресса
         """
         comp_cls = getattr(self.core.onto, "Competency", None)
         manual_ids = self._manual_competencies.get(student.name, [])
@@ -182,9 +182,8 @@ class SandboxService:
     def set_competencies(self, competency_ids: list[str]) -> dict:
         student = self._sandbox_student()
         comp_cls = getattr(self.core.onto, "Competency", None)
-        # Сначала валидируем, что все id — действительно Competency.
-        # Пишем в manual-tracker валидный список; некорректные id игнорируем молча —
-        # фронт не должен их слать, но контрактная защита.
+        # Валидируем, что все id — действительно Competency. Некорректные
+        # id игнорируем молча: фронт не должен их слать, это просто защита
         valid_ids: list[str] = []
         if comp_cls is not None:
             for cid in competency_ids:
@@ -201,10 +200,10 @@ class SandboxService:
         return {"status": "success", "message": "Компетенции обновлены"}
 
     def set_group(self, group_id: str | None) -> dict:
-        """Перезаписывает единственную группу у sandbox-студента. None → снять.
+        """Перезаписать единственную группу у sandbox-студента; None — снять
 
-        Для симулятора группа одна, но ObjectProperty non-functional, потому
-        присваиваем список из 0/1 элемента.
+        Для симулятора группа одна, но ObjectProperty non-functional, поэтому
+        присваиваем список из 0 или 1 элемента
         """
         student = self._sandbox_student()
         if group_id:

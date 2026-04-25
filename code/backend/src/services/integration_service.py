@@ -13,12 +13,10 @@ logger = logging.getLogger(__name__)
 
 
 class IntegrationService:
-    """Импорт структуры курса и правил из СДО + чтение метаданных онтологии.
+    """Импорт структуры курса и правил из СДО, чтение метаданных онтологии
 
-    По DSL §94, §116–§118: IntegrationController делегирует сюда; после импорта
-    структуры запускается автоверификация через VerificationService (решение
-    18.04, UC-10 → UC-6). Чтение дерева и meta-endpoints — утилитная часть,
-    нужна фронту.
+    После импорта запускается автоверификация через VerificationService.
+    Чтение дерева и meta-endpoints — утилитная часть, нужна фронту
     """
 
     def __init__(
@@ -34,7 +32,7 @@ class IntegrationService:
 
 
     def get_meta(self) -> dict:
-        """Возвращает метаданные онтологии (типы правил, статусы, компетенции)."""
+        """Метаданные онтологии: типы правил, статусы, компетенции, элементы, группы"""
         rule_types = [rt.value for rt in RuleType]
         statuses = [ps.value for ps in ProgressStatus]
 
@@ -87,22 +85,20 @@ class IntegrationService:
         course = self.core.courses.get_or_create_element(course_id, "Course")
         course.label = [payload.course_name]
         course.is_mandatory = True
-        
-        # Soft Reset курса (удаление только связей)
+
+        # Soft reset курса: чистим только связи, индивидов оставляем
         for old_module in list(course.has_module):
             old_module.contains_activity = []
         course.has_module = []
 
-        # Сборка иерархии по новому payload
-
         for idx, elem_data in enumerate(payload.elements):
             class_name = elem_data.element_type.capitalize()
             element = self.core.courses.get_or_create_element(elem_data.element_id, class_name)
-            
+
             element.label = [elem_data.name]
             element.type = [elem_data.element_type.lower()]
             element.is_mandatory = getattr(elem_data, "is_mandatory", True)
-            
+
             # Неявная или явная сортировка
             final_order = elem_data.order_index if getattr(elem_data, "order_index", None) is not None else idx
             element.order_index = final_order
@@ -118,7 +114,6 @@ class IntegrationService:
                 else:
                     if element not in getattr(parent, "contains_activity", []):
                         parent.contains_activity.append(element)
-                
 
         self.core.save()
         self.cache.invalidate_verification(course.name)
@@ -129,11 +124,10 @@ class IntegrationService:
             "synced_elements_count": len(payload.elements),
         }
 
-        # Автоверификация (DSL §118, решение 18.04): после импорта сразу прогоняем
-        # UC-6. На успехе — сводка; на ошибке — импорт оставляем, а верификация
-        # помечается как failed. Флаг run_verification позволяет отключить
-        # автоверификацию в smoke-тестах симулятора, где создание курса —
-        # чисто setup-шаг без проверок.
+        # После импорта сразу прогоняем верификацию: на успехе — сводка, на
+        # ошибке — импорт оставляем, верификация помечается как failed.
+        # run_verification=False нужен в smoke-тестах симулятора, где создание
+        # курса — чисто setup-шаг без проверок
         if run_verification:
             try:
                 report = self.verification.verify(course.name, use_cache=False)
@@ -145,7 +139,7 @@ class IntegrationService:
         return result
 
     def get_course_tree(self, course_id: str) -> List[dict]:
-        """Возвращает иерархию курса с прикрепленными политиками."""
+        """Иерархия курса с прикреплёнными политиками"""
         course = self.core.courses.find_by_id(course_id)
         if not course:
             return []
@@ -194,10 +188,10 @@ class IntegrationService:
         return [build_node(course, ElementType.COURSE.value)]
 
     def set_element_competencies(self, element_id: str, competency_ids: List[str]) -> dict:
-        """Перезаписать assesses у элемента: список компетенций, которые он выдаёт
-        студенту при прохождении (SWRL H-2). Инвалидирует кэш доступа и верификации
-        и гоняет reasoner — без этого has_competency у уже существующих ProgressRecord
-        не обновится (OWL монотонен).
+        """Перезаписать assesses у элемента — список компетенций, которые он выдаёт
+        студенту при прохождении. Инвалидирует кэш доступа и верификации; без
+        этого has_competency у уже существующих ProgressRecord не обновится
+        (OWL монотонен)
         """
         element = self.core.courses.find_by_id(element_id)
         if element is None:
@@ -216,10 +210,10 @@ class IntegrationService:
 
         element.assesses = competencies
         self.core.save()
-        # После изменения assesses SWRL H-2 может изменить has_competency у всех
-        # студентов с ProgressRecord этого элемента → is_available_for тоже.
-        # Инвалидируем access-кэш и запускаем reasoner через verification-путь
-        # не будем (он дорогой); AccessService пересчитает лениво на первом чтении.
+        # После изменения assesses SWRL может перевывести has_competency у всех
+        # студентов с ProgressRecord этого элемента, а с ним и is_available_for.
+        # Резонер сразу не гоняем (дорого) — AccessService пересчитает лениво
+        # на первом чтении после инвалидации кэша
         self.cache.invalidate_all_access()
         self.cache.invalidate_verification()
         return {
@@ -228,17 +222,17 @@ class IntegrationService:
         }
 
     def set_element_mandatory(self, element_id: str, is_mandatory: bool) -> dict:
-        """Перезаписать флаг обязательности элемента.
+        """Перезаписать флаг обязательности элемента
 
-        Влияет на Roll-up: модуль/курс считается завершённым только если все
-        обязательные потомки завершены. Смена флага инвалидирует access-кэш;
-        Roll-up пересчитается при следующем simulate_progress.
+        Влияет на агрегацию завершённости: модуль/курс считается завершённым,
+        только если все обязательные потомки завершены. Смена флага
+        инвалидирует access-кэш; пересчёт идёт при следующем simulate_progress
         """
         element = self.core.courses.find_by_id(element_id)
         if element is None:
             raise ValueError(f"Элемент {element_id} не найден.")
 
-        # is_mandatory — FunctionalProperty, scalar API
+        # is_mandatory — FunctionalProperty, скалярный API
         element.is_mandatory = bool(is_mandatory)
         self.core.save()
         self.cache.invalidate_all_access()

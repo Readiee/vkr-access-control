@@ -1,9 +1,8 @@
-"""Приём событий прогресса + запуск reasoning + каскадный rollup (UC-5).
+"""Приём событий прогресса, запуск резонера и каскадная агрегация завершённости
 
-По DSL §37 + стрелкам §97–§100: ProgressService — оркестратор UC-5. Фактическую
-запись в ABox делает через OntologyCore, reasoning — через ReasoningOrchestrator,
-каскадное roll-up — через RollupService, инвалидацию кэша — через AccessService.
-Зависимости инжектятся явно, Service Locator из OntologyCore убран (решение 23.04).
+Запись в ABox идёт через OntologyCore, прогон резонера — через ReasoningOrchestrator,
+каскад roll-up — через RollupService, инвалидация кэша — через AccessService.
+Зависимости инжектятся явно
 """
 from __future__ import annotations
 
@@ -21,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class ProgressService:
-    """Оркестратор UC-5: событие прогресса → ABox → reasoning → rollup → cache."""
+    """Оркестратор события прогресса: ABox → резонер → rollup → кэш"""
 
     def __init__(
         self,
@@ -37,7 +36,7 @@ class ProgressService:
         self.access = access
 
     def register_progress(self, event_data: ProgressEvent) -> dict:
-        """Записать событие, запустить Pellet, обновить кэш."""
+        """Записать событие, запустить Pellet, обновить кэш"""
         student_node_id = f"student_{event_data.student_id}"
         student = self.core.students.get_or_create(student_node_id)
 
@@ -63,22 +62,22 @@ class ProgressService:
 
         self.core.save()
 
-        logger.info("Запуск Pellet Reasoner для студента %s...", student_node_id)
+        logger.info("Запуск Pellet для студента %s...", student_node_id)
         self.reasoner.reason()
-        logger.info("Ризонинг завершён.")
+        logger.info("Резонер завершил работу.")
 
         return self.invalidate_student_cache(event_data.student_id)
 
     def invalidate_student_cache(self, student_id: str) -> dict:
-        """Пересобрать кэш доступа для студента через AccessService."""
+        """Пересобрать кэш доступов студента через AccessService"""
         return self.access.rebuild_student_access(student_id)
 
     def get_student_access(self, student_id: str, course_id: str) -> dict:
-        """Матрица доступных элементов в рамках курса (через AccessService)."""
+        """Матрица доступных элементов курса через AccessService"""
         return self.access.get_course_access(student_id, course_id)
 
     def update_progress(self, student_id: str, element_id: str, status: Any) -> None:
-        """Обновить прогресс студента с поддержкой roll-up."""
+        """Обновить прогресс студента с каскадной агрегацией"""
         element = self.core.courses.find_by_id(element_id)
         if not element:
             raise ValueError(f"Элемент с ID {element_id} не найден.")
@@ -91,8 +90,8 @@ class ProgressService:
 
         val = status if isinstance(status, str) else status.value
         owl_status = self.core.progress.get_owl_status(val)
-        # has_status functional: completed покрывает viewed через SWRL rule 3b,
-        # явно хранить оба статуса не нужно.
+        # has_status — functional; completed покрывает viewed через
+        # вспомогательное SWRL-правило, оба статуса хранить не нужно
         record.has_status = owl_status
         self.core.save()
         logger.info("Статус %s для %s обновлён до %s", element_id, student.name, val)
@@ -101,6 +100,6 @@ class ProgressService:
             self.rollup.execute(student, element, self.update_progress)
 
     def rerun_reasoning_and_rebuild_cache(self, student_id: str) -> None:
-        """Фоновая задача после webhook: reason() + rebuild cache."""
+        """Фоновая задача после webhook: reason() + rebuild cache"""
         self.reasoner.reason()
         self.invalidate_student_cache(student_id)

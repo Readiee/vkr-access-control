@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class PolicyConflictError(Exception):
-    """Политика создаёт логическое противоречие с остальной онтологией."""
+    """Политика создаёт логическое противоречие с остальной онтологией"""
 
     def __init__(self, explanation: str):
         super().__init__(explanation)
@@ -24,11 +24,10 @@ class PolicyConflictError(Exception):
 
 
 class PolicyService:
-    """Сервис управления политиками доступа в онтологии.
+    """CRUD политик доступа с проверками ацикличности и консистентности
 
-    По DSL §35, §97–§100: зависит от OntologyCore (мутация TBox/ABox),
-    GraphValidator (проверка ацикличности), ReasoningOrchestrator (проверка
-    консистентности) и CacheManager (инвалидация затронутых ключей).
+    Зависит от OntologyCore (мутация TBox/ABox), GraphValidator (ацикличность),
+    ReasoningOrchestrator (консистентность) и CacheManager (инвалидация ключей)
     """
 
     def __init__(
@@ -60,7 +59,7 @@ class PolicyService:
             aggregate_element_ids=list(policy_data.aggregate_element_ids or []),
         )
 
-    # Functional properties — хранятся как скаляры, снимаются/ставятся напрямую.
+    # Functional properties — скаляры, снимаются и ставятся напрямую
     _SNAPSHOT_SCALAR_PROPS = (
         "rule_type",
         "is_active",
@@ -71,7 +70,7 @@ class PolicyService:
         "restricted_to_group",
         "aggregate_function",
     )
-    # Non-functional properties — multi-valued, snapshot как список.
+    # Non-functional properties — multi-valued, snapshot как список
     _SNAPSHOT_LIST_PROPS = (
         "targets_competency",
         "has_subpolicy",
@@ -97,8 +96,8 @@ class PolicyService:
                 self.core.policies.delete(pol)
 
     def _check_cycle(self, policy_data: PolicyCreate) -> None:
-        # Политика без source — только подполитика композита, в граф зависимостей
-        # не попадает (не висит через has_access_policy).
+        # Политика без source — это только подполитика композита, в граф
+        # зависимостей не попадает (не висит через has_access_policy)
         if not policy_data.source_element_id:
             return
         rule_type = self._rule_type_str(policy_data.rule_type)
@@ -120,10 +119,10 @@ class PolicyService:
             raise ValueError(f"Циклическая зависимость: {' -> '.join(readable)}")
 
     def _materialize_nested(self, data: PolicyCreate) -> tuple[PolicyCreate, List[str]]:
-        """Создать вложенные подусловия композита и вернуть (обновлённые данные, id созданных).
+        """Создать вложенные подусловия композита, вернуть обновлённые данные и id созданных
 
-        При сбое на i-м ребёнке уже созданные (0..i-1) удаляются — наружу
-        уходит свежее исключение, ABox остаётся как был до вызова.
+        При сбое на i-м ребёнке уже созданные 0..i-1 удаляются: наружу уходит
+        свежее исключение, ABox остаётся как был до вызова
         """
         nested = list(getattr(data, "nested_subpolicies", None) or [])
         if not nested:
@@ -149,7 +148,7 @@ class PolicyService:
         return updated, created
 
     def _attach_to_source(self, policy: Any, source_element_id: Optional[str]) -> Any:
-        """Повесить политику на элемент-источник, создать элемент при отсутствии."""
+        """Повесить политику на элемент-источник; создать элемент при отсутствии"""
         if not source_element_id:
             return None
         source = self.core.courses.find_by_id(source_element_id)
@@ -159,11 +158,11 @@ class PolicyService:
         return source
 
     def create_policy(self, policy_data: PolicyCreate) -> dict:
-        """Создать AccessPolicy в графе и сохранить онтологию.
+        """Создать AccessPolicy в графе и сохранить онтологию
 
         Поддержка nested_subpolicies: если в payload приложены свежесозданные
-        подусловия — они создаются рекурсивно в том же порядке, их id добавляются
-        к subpolicy_ids родителя.
+        подусловия, они создаются рекурсивно в том же порядке, их id добавляются
+        к subpolicy_ids родителя
         """
         policy_data, created_children = self._materialize_nested(policy_data)
 
@@ -178,8 +177,8 @@ class PolicyService:
 
         rule_type_value = self._rule_type_str(policy_data.rule_type)
         new_policy.rule_type = rule_type_value
-        # Composite-правило всегда активно: его "активность" определяется
-        # активностью подусловий, отдельно выключать смысла нет.
+        # Композит всегда активен: его «активность» определяется активностью
+        # подусловий, отдельно выключать смысла нет
         if rule_type_value in {RuleType.AND.value, RuleType.OR.value}:
             new_policy.is_active = True
         else:
@@ -212,7 +211,7 @@ class PolicyService:
         data: PolicyCreate,
         rule_type: str,
     ) -> None:
-        """Перенести поля PolicyCreate в ABox в зависимости от rule_type."""
+        """Перенести поля PolicyCreate в ABox в зависимости от rule_type"""
         self._apply_common_fields(policy, data)
         if rule_type == RuleType.GROUP.value:
             self._apply_group_field(policy, data)
@@ -236,7 +235,7 @@ class PolicyService:
         if data.target_competency_id:
             # Competency — отдельный класс (не CourseStructure), courses.find_by_id
             # его не находит; без явного поиска по type=Competency targets_competency
-            # оставался пустым, и competency_required-правила не срабатывали SWRL-ом.
+            # оставался бы пустым, и competency_required-правила не срабатывали в SWRL
             comp_cls = getattr(self.core.onto, "Competency", None)
             comp = (
                 self.core.onto.search_one(type=comp_cls, iri=f"*{data.target_competency_id}")
@@ -267,8 +266,8 @@ class PolicyService:
                 raise ValueError(f"Подполитика {sub_id} не найдена.")
             subs.append(sub)
         policy.has_subpolicy = subs
-        # Unique Name Assumption выключен в OWL (OWA); SWRL DifferentFrom
-        # срабатывает только при явной декларации AllDifferent.
+        # OWL по умолчанию допускает sub_i = sub_j (нет Unique Name Assumption);
+        # SWRL DifferentFrom срабатывает только при явной декларации AllDifferent
         if rule_type == RuleType.AND.value and len(subs) >= 2:
             AllDifferent(subs)
 
@@ -284,7 +283,7 @@ class PolicyService:
         policy.aggregate_elements = agg_elements
 
     def _rollback_policy(self, policy_node: Any, source_node: Any) -> None:
-        """Снять политику с элемента и удалить её из ABox."""
+        """Снять политику с элемента и удалить её из ABox"""
         try:
             if policy_node in source_node.has_access_policy:
                 source_node.has_access_policy.remove(policy_node)
@@ -297,7 +296,7 @@ class PolicyService:
         course_id: Optional[str] = None,
         element_id: Optional[str] = None,
     ) -> List[dict]:
-        """Список политик с опциональной фильтрацией по элементу."""
+        """Список политик с опциональной фильтрацией по элементу"""
         policies: List[dict] = []
         for policy in self.core.onto.AccessPolicy.instances():
             source_elements = self.core.policies.find_by_source_element(policy)
@@ -308,7 +307,7 @@ class PolicyService:
         return policies
 
     def delete_policy(self, policy_id: str) -> bool:
-        """Удалить AccessPolicy, отсоединив от всех источников."""
+        """Удалить AccessPolicy, отсоединив её от всех источников"""
         policy = self.core.policies.find_by_id(policy_id)
         if not policy:
             return False
@@ -321,7 +320,7 @@ class PolicyService:
         if result.status != "ok":
             # на диск пишем только согласованное состояние; в памяти политика
             # уже удалена, но без save следующий запуск увидит её снова
-            logger.warning("Reasoning после delete_policy %s вернул %s: %s",
+            logger.warning("Резонер после delete_policy %s вернул %s: %s",
                            policy_id, result.status, result.error)
             self._invalidate_all_access_caches()
             raise PolicyConflictError(
@@ -332,11 +331,11 @@ class PolicyService:
         return True
 
     def update_policy(self, policy_id: str, data: PolicyCreate) -> dict:
-        """Обновить существующую AccessPolicy новыми данными.
+        """Обновить существующую AccessPolicy новыми данными
 
         Для AND/OR поддерживается nested_subpolicies: старые подусловия, которые
-        использовались только этим композитом, удаляются из ABox; новые
-        создаются атомарно и подвязываются как has_subpolicy.
+        использовались только этим композитом, удаляются из ABox; новые создаются
+        атомарно и подвязываются как has_subpolicy
         """
         policy = self.core.policies.find_by_id(policy_id)
         if not policy:
@@ -355,7 +354,7 @@ class PolicyService:
 
         new_type = self._rule_type_str(data.rule_type)
         policy.rule_type = new_type
-        # Composite-правило всегда активно: см. create_policy.
+        # Композит всегда активен — см. create_policy
         if new_type in {RuleType.AND.value, RuleType.OR.value}:
             policy.is_active = True
         else:
@@ -393,38 +392,12 @@ class PolicyService:
         return serialize_policy(policy, source_id=source_id)
 
     def _cleanup_orphan_nested(self, parent_policy: Any, old_subs: List[Any]) -> None:
-        """Удаляет подусловия, которые были вложены только в parent_policy и не
-        висят ни на одном элементе как самостоятельная политика.
+        """Удалить подусловия, которые висели только в parent_policy и больше нигде
 
-        Безопасно оставляет subpolicy, если:
-        - она продолжает использоваться этим же composite (не «старая» после update),
-        - её же ссылается другой composite,
-        - у неё есть source-элемент (значит, это отдельная политика).
-        """
-        current_subs = set(getattr(parent_policy, "has_subpolicy", []) or [])
-        all_elements = self.core.courses.get_all_elements()
-        all_policies = list(self.core.onto.AccessPolicy.instances())
-        for old in old_subs:
-            if old in current_subs:
-                continue
-            has_source = any(old in getattr(el, "has_access_policy", []) for el in all_elements)
-            if has_source:
-                continue
-            used_elsewhere = any(
-                old in getattr(p, "has_subpolicy", []) for p in all_policies if p is not parent_policy
-            )
-            if used_elsewhere:
-                continue
-            self.core.policies.delete(old)
-
-    def _cleanup_orphan_nested(self, parent_policy: Any, old_subs: List[Any]) -> None:
-        """Удаляет подусловия, которые были вложены только в parent_policy и не
-        висят ни на одном элементе как самостоятельная политика.
-
-        Безопасно оставляет subpolicy, если:
-        - она продолжает использоваться этим же composite (не «старая» после update),
-        - её же ссылается другой composite,
-        - у неё есть source-элемент (значит, это отдельная политика).
+        Сохраняем subpolicy, если она:
+        - всё ещё используется этим же композитом,
+        - вложена в другой композит,
+        - имеет source-элемент (значит, это самостоятельная политика)
         """
         current_subs = set(getattr(parent_policy, "has_subpolicy", []) or [])
         all_elements = self.core.courses.get_all_elements()
@@ -443,7 +416,7 @@ class PolicyService:
             self.core.policies.delete(old)
 
     def toggle_policy(self, policy_id: str, is_active: bool) -> None:
-        """Переключить флаг is_active."""
+        """Переключить флаг is_active"""
         policy = self.core.policies.find_by_id(policy_id)
         if not policy:
             raise ValueError(f"Политика с ID {policy_id} не найдена")
