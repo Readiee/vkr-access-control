@@ -1,7 +1,7 @@
-"""СВ-3 Reachability, Проход 1: threshold вне диапазона оценок.
+"""СВ-3 Reachability: threshold вне диапазона оценок
 
-has_grade ∈ [0, 100]. Политика с threshold=150.0 атомарно невыполнима —
-не нужен Pellet, поимкой занимается А4 Проход 1.
+has_grade ∈ [0, 100]. Политика с threshold=150.0 атомарно невыполнима;
+поимкой занимается атомарный проход без Pellet
 """
 from __future__ import annotations
 

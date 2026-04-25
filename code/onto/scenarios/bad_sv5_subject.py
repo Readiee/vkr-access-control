@@ -1,9 +1,9 @@
-"""СВ-5 Subject Subsumption: одни и те же условия, но узкая аудитория.
+"""СВ-5 Subject Subsumption: одни и те же условия, но узкая аудитория
 
 p_subj_all — grade_required с порогом 70, доступен любому студенту с оценкой.
 p_subj_group — AND(grade_required(70), group_restricted(grp_advanced)): те же
-условия + узкая группа. Множество студентов, проходящих p_subj_group, —
-строгое подмножество проходящих p_subj_all. Subject-subsumption.
+условия плюс узкая группа. Множество студентов, проходящих p_subj_group, —
+строгое подмножество проходящих p_subj_all
 """
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ def build(onto):
 
         grp_advanced = onto.Group("grp_advanced")
 
-        # Широкая политика.
+        # Широкая политика
         all_p = onto.AccessPolicy("p_subj_all")
         all_p.rule_type = "grade_required"
         all_p.is_active = True
@@ -35,7 +35,7 @@ def build(onto):
         all_p.targets_element = prereq
         all_p.passing_threshold = 70.0
 
-        # Узкая политика = AND(тот же grade_required) + (group_restricted(advanced)).
+        # Узкая политика — AND(grade_required) + group_restricted(advanced)
         sub_grade = onto.AccessPolicy("p_subj_group_sub_grade")
         sub_grade.rule_type = "grade_required"
         sub_grade.is_active = True

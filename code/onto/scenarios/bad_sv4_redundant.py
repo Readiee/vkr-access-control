@@ -1,8 +1,8 @@
-"""СВ-4 Redundancy: две grade_required на одном элементе, одна поглощает другую.
+"""СВ-4 Redundancy: две grade_required на одном элементе, одна поглощает другую
 
 threshold=80 строго сильнее threshold=60 по одному и тому же prerequisite:
-grade≥80 ⟹ grade≥60. В OR-семантике шага 2 достаточно любой политики →
-p_red_strong redundant относительно p_red_weak.
+grade≥80 ⟹ grade≥60. В OR-семантике метаправила достаточно любой политики,
+поэтому p_red_strong избыточна относительно p_red_weak
 """
 from __future__ import annotations
 

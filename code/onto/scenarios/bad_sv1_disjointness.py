@@ -1,8 +1,8 @@
-"""СВ-1 Consistency: один индивид одновременно Student и Methodologist.
+"""СВ-1 Consistency: один индивид одновременно Student и Methodologist
 
-Классы User-субтипы объявлены disjoint в TBox (§1.5). Pellet при reasoning
-должен выбросить InconsistentOntologyError. VerificationService ловит это
-и возвращает СВ-1 failed.
+Классы User-субтипы объявлены disjoint в TBox. Pellet при reasoning должен
+выбросить InconsistentOntologyError; VerificationService ловит это
+и возвращает СВ-1 failed
 """
 from __future__ import annotations
 

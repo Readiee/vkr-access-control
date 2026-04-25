@@ -1,7 +1,8 @@
-"""СВ-2 Acyclicity: два модуля взаимно требуют завершения друг друга.
+"""СВ-2 Acyclicity: два модуля взаимно требуют завершения друг друга
 
-Split-node DiGraph (А1): completion_required → дуга tgt.complete → src.access.
-Цикл в пути module_A.access → module_A.complete → module_B.access → module_B.complete → module_A.access.
+Split-node DiGraph: completion_required → дуга tgt.complete → src.access.
+Цикл в пути module_A.access → module_A.complete → module_B.access →
+module_B.complete → module_A.access
 """
 from __future__ import annotations
 

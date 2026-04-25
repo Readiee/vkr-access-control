@@ -1,4 +1,4 @@
-"""СВ-3 Reachability, Проход 1: valid_from > valid_until (пустое окно)."""
+"""СВ-3 Reachability: пустое окно valid_from > valid_until"""
 from __future__ import annotations
 
 import datetime

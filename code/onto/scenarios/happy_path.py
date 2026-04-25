@@ -18,14 +18,14 @@ from _common import load_tbox_in_isolated_world, save_scenario
 
 
 def build(onto: Any) -> None:
-    """Наполнить онтологию индивидами happy-path."""
+    """Наполнить онтологию индивидами happy-path"""
     with onto:
-        # --- Группы ---
+        # -- Группы --
         grp_standard = onto.Group("grp_standard"); grp_standard.label = ["Стандартный поток"]
         grp_advanced = onto.Group("grp_advanced"); grp_advanced.label = ["Продвинутый поток"]
         grp_remote = onto.Group("grp_remote"); grp_remote.label = ["Дистанционный поток"]
 
-        # --- Компетенции + иерархия ---
+        # -- Компетенции и иерархия --
         comp_python = onto.Competency("comp_python"); comp_python.label = ["Python (общая)"]
         comp_basic_syntax = onto.Competency("comp_basic_syntax"); comp_basic_syntax.label = ["Базовый синтаксис"]
         comp_functions = onto.Competency("comp_functions"); comp_functions.label = ["Функции"]
@@ -34,7 +34,7 @@ def build(onto: Any) -> None:
         comp_functions.is_subcompetency_of = [comp_python]
         comp_oop.is_subcompetency_of = [comp_functions]
 
-        # --- Методист + студенты ---
+        # -- Методист и студенты --
         methodologist_smirnov = onto.Methodologist("methodologist_smirnov")
         methodologist_smirnov.label = ["Смирнов О. В. (методист)"]
 
@@ -52,7 +52,7 @@ def build(onto: Any) -> None:
         student_sidorov.has_competency = [comp_basic_syntax, comp_functions, comp_oop]
         student_korolev.has_competency = [comp_basic_syntax]
 
-        # --- Структура курса ---
+        # -- Структура курса --
         course = onto.Course("course_python_basics"); course.label = ["Основы Python"]
         course.order_index = 0
 
@@ -118,7 +118,7 @@ def build(onto: Any) -> None:
         final_exam.is_mandatory = True; final_exam.order_index = 2
         m_extras.contains_activity = [workshop, extra, final_exam]
 
-        # --- Политики (9 типов) ---
+        # -- Политики (9 типов) --
         p1 = onto.AccessPolicy("p1_lecture2_requires_lecture1")
         p1.rule_type = "completion_required"
         p1.is_active = True
@@ -215,7 +215,7 @@ def build(onto: Any) -> None:
         p9.passing_threshold = 70.0
         final_exam.has_access_policy = [p9]
 
-        # --- Прогресс студентов ---
+        # -- Прогресс студентов --
         _progress(onto, "pr_ivanov_l0_viewed", student_ivanov, lec0, status=onto.status_viewed)
         _progress(onto, "pr_petrov_l0_viewed", student_petrov, lec0, status=onto.status_viewed)
         _progress(onto, "pr_sidorov_l0_viewed", student_sidorov, lec0, status=onto.status_viewed)
@@ -247,7 +247,7 @@ def build(onto: Any) -> None:
         _progress(onto, "pr_sidorov_q3", student_sidorov, quiz3, grade=75.0, status=onto.status_completed)
         _progress(onto, "pr_sidorov_pr3", student_sidorov, prac3, grade=70.0, status=onto.status_completed)
 
-        # --- Песочница методиста: единственный тестовый студент ---
+        # -- Песочница методиста: единственный тестовый студент --
         sb = onto.SandboxStudent("student_sandbox")
         sb.label = ["Песочница"]
         sb.belongs_to_group = [grp_standard]

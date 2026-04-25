@@ -1,7 +1,7 @@
-"""Сборка TBox онтологии управления доступом к образовательному контенту.
+"""Сборка TBox онтологии управления доступом к образовательному контенту
 
 Определяет классы, объектные и атрибутивные свойства, аксиомы дизъюнктности
-и функциональности. Результат — edu_ontology.owl.
+и функциональности. Результат — edu_ontology.owl
 """
 from owlready2 import (
     get_ontology, Thing, ObjectProperty, DataProperty,
@@ -16,9 +16,7 @@ if os.path.exists(onto_file):
 
 onto = get_ontology("http://example.org/edu_ontology.owl")
 with onto:
-    # ==================================================================
-    # 1. КЛАССЫ
-    # ==================================================================
+    # -- 1. Классы --
 
     # Пользователи
     class User(Thing): pass
@@ -27,7 +25,7 @@ with onto:
     class Methodologist(User): pass
     # SandboxStudent — тестовый студент методиста-песочницы. Наследует от Student,
     # все SWRL-правила работают прозрачно; разделение нужно только в API, чтобы
-    # методист не трогал прогресс реальных студентов при симуляции сценариев.
+    # методист не трогал прогресс реальных студентов при симуляции сценариев
     class SandboxStudent(Student): pass
 
     # Группы студентов для правил group_restricted
@@ -57,11 +55,9 @@ with onto:
     class CurrentTime(Thing): pass      # одиночный индивид current_time_ind, SWRL не имеет now()
     class AggregateFact(Thing): pass    # результат агрегата per (student, policy), SWRL не умеет aggregates
 
-    # ==================================================================
-    # 2. ОБЪЕКТНЫЕ СВОЙСТВА
-    # ==================================================================
+    # -- 2. Объектные свойства --
 
-    # --- Иерархия курса ---
+    # Иерархия курса
     class is_contained_in_course(ObjectProperty):
         domain = [Module]; range = [Course]
 
@@ -76,7 +72,7 @@ with onto:
         domain = [Module]; range = [LearningActivity]
         inverse_property = is_contained_in_module
 
-    # --- Прогресс ---
+    # Прогресс
     class has_progress_record(ObjectProperty):
         domain = [Student]; range = [ProgressRecord]
 
@@ -90,7 +86,7 @@ with onto:
     class has_status(ObjectProperty, FunctionalProperty):
         domain = [ProgressRecord]; range = [Status]
 
-    # --- Компетенции ---
+    # Компетенции
     class assesses(ObjectProperty):
         domain = [CourseStructure]; range = [Competency]
 
@@ -103,7 +99,7 @@ with onto:
     class is_subcompetency_of(ObjectProperty, TransitiveProperty):
         domain = [Competency]; range = [Competency]
 
-    # --- Политики ---
+    # Политики
     class has_access_policy(ObjectProperty):
         domain = [CourseStructure]; range = [AccessPolicy]
 
@@ -124,7 +120,7 @@ with onto:
         domain = [AccessPolicy]; range = [Group]
 
     class aggregate_elements(ObjectProperty):
-        """Элементы, по оценкам которых считается агрегат (multi-valued)."""
+        """Элементы, по оценкам которых считается агрегат (multi-valued)"""
         domain = [AccessPolicy]; range = [CourseStructure]
 
     class for_student(ObjectProperty, FunctionalProperty):
@@ -134,19 +130,16 @@ with onto:
         domain = [AggregateFact]; range = [AccessPolicy]
 
     class satisfies(ObjectProperty):
-        """Выводится SWRL: студент удовлетворяет условию политики."""
+        """Выводится SWRL: студент удовлетворяет условию политики"""
         domain = [Student]; range = [AccessPolicy]
 
     class is_available_for(ObjectProperty):
-        """Выводится SWRL: элемент доступен студенту."""
+        """Выводится SWRL: элемент доступен студенту"""
         domain = [CourseStructure]; range = [Student]
 
-    # ==================================================================
-    # 3. АТРИБУТИВНЫЕ СВОЙСТВА
-    # ==================================================================
-    # Все DataProperty, у которых семантика «один индивид = одно значение»,
-    # объявлены FunctionalProperty: scalar API + формальное ограничение
-    # кардинальности на уровне TBox.
+    # -- 3. Атрибутивные свойства --
+    # Все DataProperty с семантикой «один индивид = одно значение» объявлены
+    # FunctionalProperty: скалярный API и ограничение кардинальности в TBox
 
     class is_active(DataProperty, FunctionalProperty):
         domain = [AccessPolicy]; range = [bool]
@@ -159,7 +152,7 @@ with onto:
 
     class rule_type(DataProperty, FunctionalProperty):
         """Один из: completion_required, grade_required, viewed_required, competency_required,
-        date_restricted, and_combination, or_combination, group_restricted, aggregate_required."""
+        date_restricted, and_combination, or_combination, group_restricted, aggregate_required"""
         domain = [AccessPolicy]; range = [str]
 
     class passing_threshold(DataProperty, FunctionalProperty):
@@ -187,15 +180,13 @@ with onto:
         domain = [CurrentTime]; range = [datetime.datetime]
 
     class aggregate_function(DataProperty, FunctionalProperty):
-        """Один из: AVG, SUM, COUNT."""
+        """Один из: AVG, SUM, COUNT"""
         domain = [AccessPolicy]; range = [str]
 
     class computed_value(DataProperty, FunctionalProperty):
         domain = [AggregateFact]; range = [float]
 
-    # ==================================================================
-    # 4. АКСИОМЫ ДИЗЪЮНКТНОСТИ
-    # ==================================================================
+    # -- 4. Аксиомы дизъюнктности --
 
     AllDisjoint([Student, Teacher, Methodologist])
     AllDisjoint([Course, Module, LearningActivity])

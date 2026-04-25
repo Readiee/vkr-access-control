@@ -1,33 +1,29 @@
-"""Каталог SWRL-правил.
+"""Каталог SWRL-правил
 
 Двухуровневая семантика:
-  - Ступень 1: атомарные и композитные шаблоны выводят satisfies(?s, ?p)
-    — условие политики выполнено для студента.
-  - Ступень 2: единое мета-правило превращает satisfies в is_available_for.
+  - Ступень 1: атомарные и композитные шаблоны выводят satisfies(?s, ?p) —
+    условие политики выполнено для студента
+  - Ступень 2: единое мета-правило превращает satisfies в is_available_for
 
 Загружает TBox из edu_ontology.owl, встраивает правила, сохраняет
-edu_ontology_with_rules.owl.
+edu_ontology_with_rules.owl
 """
 from owlready2 import get_ontology, Imp
 
 onto = get_ontology("file://../ontologies/edu_ontology.owl").load()
 
 with onto:
-    # ==================================================================
-    # H-1. НАСЛЕДОВАНИЕ КОМПЕТЕНЦИЙ (вспомогательное правило)
-    # Распространяет has_competency вверх по иерархии is_subcompetency_of.
-    # ==================================================================
+    # -- H-1. Наследование компетенций (вспомогательное правило) --
+    # Распространяет has_competency вверх по иерархии is_subcompetency_of
     rule_competency_inheritance = Imp()
     rule_competency_inheritance.set_as_rule("""
         Student(?s), has_competency(?s, ?sub), is_subcompetency_of(?sub, ?parent)
         -> has_competency(?s, ?parent)
     """)
 
-    # ==================================================================
-    # H-2. ВЫДАЧА КОМПЕТЕНЦИЙ ЧЕРЕЗ ПРОХОЖДЕНИЕ (grants-on-completion)
+    # -- H-2. Выдача компетенций через прохождение --
     # Если студент завершил элемент, оценивающий компетенцию, он её получает.
-    # Дальше H-1 транзитивно добавит родительские компетенции.
-    # ==================================================================
+    # Дальше H-1 транзитивно добавит родительские компетенции
     rule_competency_from_progress = Imp()
     rule_competency_from_progress.set_as_rule("""
         Student(?s), has_progress_record(?s, ?pr),
@@ -36,12 +32,10 @@ with onto:
         -> has_competency(?s, ?c)
     """)
 
-    # ==================================================================
-    # Шаблон 3b — viewed_required через completion
+    # -- Шаблон 3b — viewed_required через completion --
     # Если элемент завершён, он автоматически считается просмотренным.
-    # Второе правило с той же головой satisfies — даёт дизъюнкцию
-    # (rule 3 «через status_viewed» ∨ rule 3b «через status_completed»).
-    # ==================================================================
+    # Второе правило с той же головой satisfies даёт дизъюнкцию (rule 3
+    # «через status_viewed» ∨ rule 3b «через status_completed»)
     rule_viewed_via_completed = Imp()
     rule_viewed_via_completed.set_as_rule("""
         AccessPolicy(?p), is_active(?p, true), rule_type(?p, "viewed_required"),
@@ -51,9 +45,7 @@ with onto:
         -> satisfies(?s, ?p)
     """)
 
-    # ==================================================================
-    # СТУПЕНЬ 1 — АТОМАРНЫЕ ШАБЛОНЫ (выводят satisfies)
-    # ==================================================================
+    # -- Ступень 1. Атомарные шаблоны (выводят satisfies) --
 
     # Шаблон 1 — completion_required
     rule_completion = Imp()
@@ -126,9 +118,7 @@ with onto:
         -> satisfies(?s, ?p)
     """)
 
-    # ==================================================================
-    # СТУПЕНЬ 1 — КОМПОЗИТНЫЕ ШАБЛОНЫ
-    # ==================================================================
+    # -- Ступень 1. Композитные шаблоны --
 
     # Шаблон 7 — or_combination (хотя бы одна подполитика выполнена)
     rule_or = Imp()
@@ -139,7 +129,8 @@ with onto:
         -> satisfies(?s, ?p)
     """)
 
-    # Шаблон 6 — and_combination (бинарный). DifferentFrom обязателен — иначе SWRL унифицирует ?sub1=?sub2 и AND превращается в OR.
+    # Шаблон 6 — and_combination (бинарный); DifferentFrom обязателен —
+    # иначе SWRL унифицирует ?sub1=?sub2 и AND превращается в OR
     rule_and_2 = Imp()
     rule_and_2.set_as_rule("""
         AccessPolicy(?p), is_active(?p, true), rule_type(?p, "and_combination"),
@@ -158,9 +149,7 @@ with onto:
         -> satisfies(?s, ?p)
     """)
 
-    # ==================================================================
-    # СТУПЕНЬ 2 — МЕТА-ПРАВИЛО (satisfies → is_available_for)
-    # ==================================================================
+    # -- Ступень 2. Мета-правило (satisfies → is_available_for) --
     rule_meta_available = Imp()
     rule_meta_available.set_as_rule("""
         CourseStructure(?el), has_access_policy(?el, ?p), is_active(?p, true),
