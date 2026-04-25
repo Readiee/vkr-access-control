@@ -1,10 +1,10 @@
-# Frontend: Vue/Vite build -> раздаётся статикой nginx.
+# Frontend: Vue/Vite build → статика, раздаётся nginx
 FROM node:20-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm install
 COPY . .
-# baseURL axios-клиента. /api/v1 проксируется nginx-ом в backend:8000.
+# baseURL axios-клиента; /api/v1 проксируется nginx в backend:8000
 ARG VITE_API_BASE_URL=/api/v1
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 RUN npm run build

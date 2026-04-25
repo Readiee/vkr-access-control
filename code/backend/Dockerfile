@@ -1,5 +1,5 @@
-# Backend: FastAPI + Owlready2 + embedded Pellet (JVM через subprocess).
-# bookworm (Debian 12) — у trixie/13 в slim-варианте периодически недоступны зеркала.
+# Backend: FastAPI + Owlready2 + Pellet (JVM через подпроцесс).
+# bookworm (Debian 12): у trixie/13 в slim-варианте периодически недоступны зеркала
 FROM python:3.12-slim-bookworm
 
 RUN apt-get update \

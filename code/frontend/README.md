@@ -1,5 +1,38 @@
-# Vue 3 + TypeScript + Vite
+# frontend
 
-This template should help get you started developing with Vue 3 and TypeScript in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+Vue 3 + TypeScript + Vite + PrimeVue. SPA для управления политиками доступа,
+просмотра отчётов верификации и симуляции прогресса студента.
 
-Learn more about the recommended Project Setup and IDE Support in the [Vue Docs TypeScript Guide](https://vuejs.org/guide/typescript/overview.html#project-setup).
+## Команды
+
+```bash
+npm install              # установка зависимостей
+npm run dev              # dev-сервер на http://localhost:5173
+npm run build            # vue-tsc + vite build → dist/
+npm run preview          # локальный просмотр production-сборки
+```
+
+## Переменные окружения
+
+`VITE_API_BASE_URL` — базовый URL backend API. По умолчанию ожидается, что
+nginx-прокси внутри Docker подменяет `/api/` → `backend:8000`. При локальной
+разработке без Docker укажите явно в `.env.development`:
+
+```
+VITE_API_BASE_URL=http://localhost:8000/api/v1
+```
+
+## Структура
+
+```
+src/
+├── api/             axios-обёртки над REST-эндпоинтами
+├── components/      Vue-компоненты (редактор политик, симулятор, отчёт)
+├── composables/     общие хуки
+├── layout/          AppLayout
+├── router/          vue-router
+├── stores/          Pinia-сторы (онтология, песочница)
+├── types/           TS-типы и enum
+├── utils/           форматтеры, toast-сервис
+└── views/           страницы (Dashboard, Sandbox, VerificationReport)
+```
