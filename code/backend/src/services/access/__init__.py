@@ -1,7 +1,6 @@
-"""AccessService (DSL §36) + приватный AccessExplainer (UC-9 SLD-trace).
+"""AccessService и приватный AccessExplainer для трассировки блокировок
 
-Наружу экспортируется только AccessService. _explanations — приватный helper,
-вызывается только из service.py.
+Наружу — только AccessService. _explanations вызывается только из service.py
 """
 from services.access.service import AccessService
 

@@ -1,7 +1,6 @@
-"""VerificationService (DSL §37) + приватный SubsumptionChecker (СВ-4/5).
+"""VerificationService и приватный SubsumptionChecker для поиска избыточных и поглощённых политик
 
-Наружу экспортируется только VerificationService. _subsumption — приватный
-helper, вызывается только из service.py.
+Наружу — только VerificationService. _subsumption вызывается только из service.py
 """
 from services.verification.service import VerificationService
 

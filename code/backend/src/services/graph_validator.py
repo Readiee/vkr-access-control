@@ -1,9 +1,9 @@
-"""Split-node DiGraph над структурой курса и политиками доступа.
+"""Split-node DiGraph над структурой курса и политиками доступа
 
-Интра-элементные, иерархические и политические дуги. Политические дуги строятся
+Дуги: интра-элементные, иерархические и политические. Политические строятся
 по rule_type: completion/grade/aggregate/competency → tgt.complete → src.access,
-viewed_required → tgt.access → src.access, date/group → не добавляют дуг,
-and/or → рекурсия по has_subpolicy.
+viewed_required → tgt.access → src.access, date/group дуг не добавляют,
+and/or раскрываются рекурсией по has_subpolicy
 """
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from utils.owl_utils import get_owl_prop
 
 @dataclass
 class ProbePolicy:
-    """Описание «пробной» политики для детектора циклов в UC-3."""
+    """Описание пробной политики для детектора циклов при создании правила"""
     rule_type: str
     source_id: str
     target_element_id: Optional[str] = None
@@ -28,7 +28,7 @@ class ProbePolicy:
 
 
 class GraphValidator:
-    """Детектор циклов по split-node графу зависимостей."""
+    """Детектор циклов по split-node графу зависимостей"""
 
     _MAX_RECURSION_DEPTH = 32  # защита от циклической композиции has_subpolicy
 
@@ -41,7 +41,7 @@ class GraphValidator:
         rule_type: str = RuleType.COMPLETION.value,
         probe: Optional[ProbePolicy] = None,
     ) -> List[str]:
-        """Проверить, порождает ли пробная политика цикл (UC-3). Вернуть путь или []."""
+        """Проверить, порождает ли пробная политика цикл; вернуть путь или []"""
         if probe is None:
             probe = ProbePolicy(
                 rule_type=rule_type,
@@ -54,7 +54,7 @@ class GraphValidator:
 
     @classmethod
     def find_all_cycles(cls, onto: Any) -> List[List[str]]:
-        """Вернуть все циклы в графе зависимостей онтологии (UC-6)."""
+        """Вернуть все циклы в графе зависимостей онтологии"""
         graph = cls.build_dependency_graph(onto)
         cycles: List[List[str]] = []
         for component in nx.strongly_connected_components(graph):
@@ -73,7 +73,7 @@ class GraphValidator:
 
     @classmethod
     def build_dependency_graph(cls, onto: Any) -> nx.DiGraph:
-        """Собрать split-node DiGraph по всей онтологии."""
+        """Собрать split-node DiGraph по всей онтологии"""
         graph = nx.DiGraph()
 
         for elem in onto.CourseStructure.instances():
@@ -163,9 +163,9 @@ class GraphValidator:
             competency = onto.search_one(type=onto.Competency, iri=f"*{probe.target_competency_id}")
             if competency is None:
                 return
-            # Те же дуги, что и в _add_policy_edges: прямые + assessors всех
-            # subcompetencies, иначе probe-детектор не видит цикл через
-            # транзитивную иерархию компетенций, а верификация видит.
+            # Те же дуги, что и в _add_policy_edges — прямые и assessors всех
+            # subcompetencies; иначе probe-детектор не видит цикл через
+            # транзитивную иерархию компетенций, а верификация видит
             for assessor in onto.search(assesses=competency) or []:
                 graph.add_edge(f"{assessor.name}_complete", f"{src}_access")
             for sub in cls._subcompetencies(onto, competency):

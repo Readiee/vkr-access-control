@@ -1,12 +1,12 @@
-"""Подготовка ABox перед запуском резонера — приватный модуль ReasoningOrchestrator.
+"""Подготовка ABox перед запуском резонера
 
-SWRL не умеет брать текущее время и считать агрегаты — это делаем здесь, реифицируя
-значения в индивидов, на которые правила могут ссылаться. OWL монотонен и не поддерживает
-truth maintenance, поэтому старые выводы (satisfies, is_available_for) чистим целиком
-перед каждым прогоном, а не пытаемся обновить точечно.
+SWRL не умеет брать текущее время и считать агрегаты — это делаем здесь,
+реифицируя значения в индивидов, на которые правила могут ссылаться. OWL
+монотонен и не поддерживает truth maintenance, поэтому старые выводы
+(satisfies, is_available_for) чистим целиком перед каждым прогоном, а не
+обновляем точечно
 
-В DSL этот модуль не выделен как отдельный компонент — это деталь pipeline A2
-внутри ReasoningOrchestrator. Импортируется только из reasoning_orchestrator.py.
+Приватный модуль; импортируется только из orchestrator.py
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ CURRENT_TIME_INDIVIDUAL = "current_time_ind"
 
 
 def clear_inferred_triples(onto: Any) -> None:
-    """Удалить ранее выведенные satisfies и is_available_for со всех индивидов."""
+    """Удалить ранее выведенные satisfies и is_available_for со всех индивидов"""
     for student in onto.Student.instances():
         if hasattr(student, "satisfies"):
             student.satisfies = []
@@ -32,24 +32,24 @@ def clear_inferred_triples(onto: Any) -> None:
 
 
 def enrich_current_time(onto: Any, now: datetime | None = None) -> Any:
-    """Положить в ABox одиночный индивид CurrentTime с текущим временем.
+    """Положить в ABox одиночный индивид CurrentTime с текущим временем
 
-    Старые экземпляры уничтожаются — класс должен содержать ровно один индивид.
+    Старые экземпляры уничтожаются: класс должен содержать ровно один индивид
     """
     for ind in list(onto.CurrentTime.instances()):
         destroy_entity(ind)
     now = now or datetime.utcnow()
     ct = onto.CurrentTime(CURRENT_TIME_INDIVIDUAL)
-    ct.has_value = now  # functional property, scalar API
+    ct.has_value = now  # functional property, скалярный API
     return ct
 
 
 def enrich_aggregates(onto: Any) -> int:
-    """Пересчитать AggregateFact для всех активных aggregate_required-политик.
+    """Пересчитать AggregateFact для всех активных aggregate_required-политик
 
-    Удаляет все старые факты и создаёт новые — по одному на пару (студент, политика)
-    — где значение = AVG/SUM/COUNT по оценкам за aggregate_elements. Возвращает число
-    созданных фактов.
+    Удаляет все старые факты и создаёт новые — по одному на пару (студент, политика),
+    где значение = AVG/SUM/COUNT по оценкам за aggregate_elements. Возвращает число
+    созданных фактов
     """
     for fact in list(onto.AggregateFact.instances()):
         destroy_entity(fact)
@@ -109,7 +109,7 @@ def _apply_aggregate(fn: str, grades: List[float]) -> float:
 
 
 def _one(value: Any) -> Any:
-    """Развернуть значение owlready-свойства в скаляр — берём первое из списка."""
+    """Развернуть значение owlready-свойства в скаляр — берём первое из списка"""
     if value is None:
         return None
     if isinstance(value, list):

@@ -1,10 +1,9 @@
-"""Тонкая обёртка над Owlready2: загрузка/сохранение OWL + репозитории ABox.
+"""Тонкая обёртка над Owlready2: загрузка и сохранение OWL плюс репозитории ABox
 
-По DSL §44 OntologyCore отвечает за I/O онтологии и операции TBox/ABox. Кэш,
-reasoning и graph-анализ — отдельные Core-компоненты, инжектятся через
-`api/dependencies.py`. Репозитории (Student/Course/Progress/Policy) остаются
-внутри OntologyCore, потому что они по сути — типизированные вьюхи над ABox
-и не являются самостоятельными DSL-компонентами.
+OntologyCore отвечает за I/O онтологии и операции TBox/ABox. Кэш, резонер и
+graph-анализ — отдельные компоненты, инжектятся через api/dependencies.py.
+Репозитории (Student/Course/Progress/Policy) живут внутри OntologyCore — это
+типизированные вьюхи над ABox, не самостоятельные сервисы
 """
 from __future__ import annotations
 
@@ -25,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 class OntologyCore:
-    """Управляет загрузкой/сохранением онтологии и доступом к ABox через репозитории."""
+    """Управляет загрузкой и сохранением онтологии, доступом к ABox через репозитории"""
 
     def __init__(self, onto_path: Optional[str] = None, world: Optional[World] = None) -> None:
         from core.config import DEFAULT_ONTOLOGY_PATH
@@ -45,21 +44,21 @@ class OntologyCore:
         self.policies = PolicyRepository(self.onto)
 
     def save(self) -> None:
-        """Сохраняет текущее состояние онтологии в файл."""
+        """Сохранить текущее состояние онтологии в файл"""
         self.onto.save(file=self.onto_file)
 
     def _get_node_label(self, node_id: str) -> str:
-        """Возвращает человекочитаемое название OWL-индивида (по rdfs:label) или сам ID."""
+        """Человекочитаемое название OWL-индивида: rdfs:label или сам ID"""
         el = self.onto.search_one(iri=f"*{node_id}")
         if el and hasattr(el, "label") and el.label:
             return el.label[0]
         return node_id
 
     def _get_or_create_element(self, element_id: str, element_class: Any) -> Any:
-        """Находит OWL-индивид по ID или создаёт новый.
+        """Найти OWL-индивид по ID или создать новый
 
         Поиск ограничен переданным классом, иначе суффикс `*element_id` может
-        матчить индивид другого класса с тем же хвостом IRI.
+        матчить индивид другого класса с тем же хвостом IRI
         """
         element = self.onto.search_one(type=element_class, iri=f"*{element_id}")
         if not element:
@@ -68,7 +67,7 @@ class OntologyCore:
 
 
 def connect_redis(redis_url: str) -> Optional[redis.Redis]:
-    """Подключение к Redis по URL. None при недоступности — кэширование становится no-op."""
+    """Подключение к Redis по URL; None при недоступности — кэш становится no-op"""
     try:
         client = redis.Redis.from_url(redis_url, decode_responses=True)
         client.ping()

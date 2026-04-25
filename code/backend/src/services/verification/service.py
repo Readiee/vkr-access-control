@@ -1,8 +1,10 @@
-"""Полная верификация курса: СВ-1 Consistency + СВ-2 Acyclicity + СВ-3 Reachability,
-опционально — СВ-4 Redundancy и СВ-5 Subsumption через SubsumptionChecker.
+"""Полная верификация курса по пяти свойствам
 
-Запуск reasoning проходит через ReasoningOrchestrator (pre-enrich + Pellet).
-При таймауте reasoning отчёт помечается partial=True и СВ-1/2/3 выставляются в unknown.
+СВ-1 Consistency, СВ-2 Acyclicity, СВ-3 Reachability — обязательные.
+СВ-4 Redundancy и СВ-5 Subsumption — опционально через SubsumptionChecker.
+
+Запуск резонера идёт через ReasoningOrchestrator (pre-enrich + Pellet).
+При таймауте резонера отчёт помечается partial=True, а СВ-1/2/3 — unknown
 """
 from __future__ import annotations
 
@@ -90,11 +92,11 @@ def _report_from_dict(data: Dict[str, Any]) -> VerificationReport:
 
 
 class VerificationService:
-    """Единая точка запуска СВ-1…СВ-5.
+    """Единая точка запуска СВ-1…СВ-5
 
-    По DSL §37, §106–§108: зависит от OntologyCore, ReasoningOrchestrator
-    (СВ-1 consistency + СВ-4/5 subsumption), GraphValidator (СВ-2/3 через
-    статические методы), CacheManager (чтение и запись отчёта).
+    Зависит от OntologyCore, ReasoningOrchestrator (СВ-1 consistency + СВ-4/5
+    subsumption), GraphValidator (СВ-2/3 через статические методы) и CacheManager
+    (чтение и запись отчёта)
     """
 
     def __init__(
@@ -114,11 +116,11 @@ class VerificationService:
         include_subsumption: bool = False,
         use_cache: bool = True,
     ) -> VerificationReport:
-        """Прогнать СВ-1/2/3 (+ СВ-4/5 при include_subsumption) и собрать отчёт.
+        """Прогнать СВ-1/2/3 (+ СВ-4/5 при include_subsumption) и собрать отчёт
 
         При use_cache=True возвращает сохранённый в Redis результат, если он есть и
         покрывает запрошенный набор свойств. Инвалидация кэша — на стороне
-        PolicyService / IntegrationService при мутациях ABox.
+        PolicyService и IntegrationService при мутациях ABox
         """
         if use_cache:
             cached = self.cache.get_verification(course_id)
@@ -227,11 +229,8 @@ class VerificationService:
 
         return report
 
-    # ------------------------------------------------------------------
-    # СВ-3 Reachability
-    # ------------------------------------------------------------------
     def _find_unreachable(self, course: Any) -> List[Dict[str, Any]]:
-        """Проходы 1 и 2 из А4: атомарная невыполнимость + структурная достижимость."""
+        """Поиск недостижимых элементов: атомарная невыполнимость + структурная достижимость"""
         reports: List[Dict[str, Any]] = []
         atomic_unsat = self._atomic_unsatisfiable()
         reports.extend(atomic_unsat)
@@ -397,9 +396,6 @@ class VerificationService:
             )
         return True
 
-    # ------------------------------------------------------------------
-    # helpers
-    # ------------------------------------------------------------------
     def _collect_course_elements(self, course: Any) -> List[Any]:
         collected: List[Any] = [course]
         seen = {course.name}
@@ -428,7 +424,7 @@ class VerificationService:
         return ind.label[0] if getattr(ind, "label", None) else ind.name
 
     def _policies_on_cycle(self, cycle_path: List[str]) -> List[str]:
-        """Вернуть имена политик, чьи источники попадают в путь цикла."""
+        """Вернуть имена политик, чьи источники попадают в путь цикла"""
         policy_ids: List[str] = []
         cycle_set = set(cycle_path)
         for policy in self.core.onto.AccessPolicy.instances():

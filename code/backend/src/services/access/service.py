@@ -1,12 +1,11 @@
-"""Чтение доступа студента к элементам курса.
+"""Чтение доступа студента к элементам курса
 
-CWA-enforcement (default-deny для элементов с политиками, у которых не
-выведен is_available_for) + каскадная блокировка по иерархии. На вход берёт
-результат последнего reasoning-прогона из ABox (is_available_for), на выход —
-Redis-кэш + матрица HTTP-ответа.
+Default-deny для элементов с политиками, у которых не выведен is_available_for,
+плюс каскадная блокировка по иерархии. На вход — результат последнего прогона
+резонера из ABox (is_available_for), на выход — Redis-кэш и матрица HTTP-ответа
 
-date_restricted не фильтруется здесь: окно целиком обсчитывается SWRL-шаблоном 5
-через CurrentTime, и элемент за пределами окна не получит is_available_for.
+date_restricted не фильтруется здесь: окно целиком обсчитывается SWRL-шаблоном
+через CurrentTime — элемент за пределами окна не получит is_available_for
 """
 from __future__ import annotations
 
@@ -25,10 +24,10 @@ logger = logging.getLogger(__name__)
 
 
 class AccessService:
-    """Сборка матрицы доступа и объяснений блокировки для студента.
+    """Сборка матрицы доступа и объяснений блокировки для студента
 
-    По DSL §36 зависит от OntologyCore (ABox), CacheManager (cache-first чтение)
-    и ReasoningOrchestrator (cache miss → reasoning). Зависимости инжектятся явно.
+    Зависит от OntologyCore (ABox), CacheManager (чтение через кэш) и
+    ReasoningOrchestrator (на cache miss). Зависимости инжектятся явно
     """
 
     def __init__(
@@ -44,7 +43,7 @@ class AccessService:
         self.explainer = AccessExplainer(core)
 
     def rebuild_student_access(self, student_id: str) -> Dict[str, Any]:
-        """Пройти CWA-enforcement по всем элементам и записать в Redis."""
+        """Пройти default-deny по всем элементам и записать в Redis"""
         student = self._resolve_student(student_id)
         if student is None:
             return {"status": "error", "message": f"Студент {student_id} не найден."}
@@ -58,11 +57,11 @@ class AccessService:
         }
 
     def get_course_access(self, student_id: str, course_id: str) -> Dict[str, List[str]]:
-        """Вернуть доступные элементы в рамках курса, с учётом каскадной блокировки."""
+        """Вернуть доступные элементы курса с учётом каскадной блокировки"""
         cached = self.cache.get_student_access(student_id)
         if cached is None:
-            # Redis может быть недоступен — CacheManager тогда no-op.
-            # Берём результат rebuild напрямую, не полагаясь на возврат cache.get.
+            # Redis может быть недоступен — CacheManager тогда no-op,
+            # берём результат rebuild напрямую, не полагаясь на cache.get
             rebuild = self.rebuild_student_access(student_id)
             cached = rebuild.get("inferred_access", {})
 
@@ -75,7 +74,7 @@ class AccessService:
         return {"available_elements": list(visible)}
 
     def explain_blocking(self, student_id: str, element_id: str) -> Dict[str, Any]:
-        """Собрать объяснение, почему конкретный элемент (не)доступен студенту."""
+        """Собрать объяснение, почему конкретный элемент (не)доступен студенту"""
         student = self._resolve_student(student_id)
         element = self.core.courses.find_by_id(element_id)
         if student is None or element is None:
@@ -94,7 +93,7 @@ class AccessService:
         cascade_name = parent_blocker["element_name"] if parent_blocker else None
         is_available = satisfies_on_element and cascade is None
         if not applicable:
-            is_available = cascade is None  # default-allow для свободного контента
+            is_available = cascade is None  # свободный контент — default-allow
 
         justification = self._collect_justification(student, element, applicable)
 
@@ -114,24 +113,24 @@ class AccessService:
     def _collect_justification(
         self, student: Any, element: Any, applicable: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
-        """Trace вывода is_available_for по мета-правилу SWRL.
+        """Trace вывода is_available_for по мета-правилу SWRL
 
-        Для satisfied политик возвращает binding тела, для unsatisfied — те же
+        Для satisfied-политик возвращает binding тела, для unsatisfied — те же
         биндинги с недостающим атомом. У элемента без активных политик — тривиальный
-        default-allow-узел, CWA.
+        default-allow-узел
         """
         if not applicable:
             return {
                 "status": "available",
                 "rule_template": "default_allow",
-                "note": "У элемента нет активных политик — CWA-default-allow.",
+                "note": "У элемента нет активных политик — default-allow",
             }
         tree: Justification = self.explainer.explain_is_available(student, element)
         return _justification_to_dict(tree)
 
     def _compute_inferred_access(self, student: Any) -> Dict[str, Dict[str, Any]]:
-        """Прогнать CWA-enforcement: элемент доступен, если (нет политик) ИЛИ (is_available_for),
-        причём родительские элементы тоже доступны.
+        """Default-deny: элемент доступен, если (нет политик) ИЛИ (is_available_for),
+        причём родительские элементы тоже доступны
         """
         parent_obj_map = self._build_parent_obj_map()
         inferred: Dict[str, Dict[str, Any]] = {}
@@ -149,10 +148,10 @@ class AccessService:
         return inferred
 
     def _build_parent_obj_map(self) -> Dict[str, Any]:
-        """Один проход по CourseStructure: child.name → parent-object.
+        """Один проход по CourseStructure: child.name → parent-object
 
-        Используется для каскадных проверок без повторного O(N) поиска родителя
-        на каждый элемент.
+        Каскадные проверки идут по этой карте без повторного O(N) поиска родителя
+        на каждый элемент
         """
         mapping: Dict[str, Any] = {}
         for parent in self.core.courses.get_all_elements():
@@ -314,7 +313,7 @@ class AccessService:
 
     def _resolve_student(self, student_id: str) -> Optional[Any]:
         # Sandbox-студент живёт под id "student_sandbox" — сначала ищем по
-        # исходному id, чтобы не создавать фантомного Student с префиксом.
+        # исходному id, чтобы не создавать фантомного Student с префиксом
         found = self.core.onto.search_one(type=self.core.onto.Student, iri=f"*{student_id}")
         if found is not None:
             return found
@@ -358,7 +357,7 @@ class AccessService:
 
 
 def _label_of(owl_obj: Any) -> str:
-    """Человечное название OWL-индивида: rdfs:label или снова ID."""
+    """Человечное название OWL-индивида: rdfs:label или сам ID"""
     if owl_obj is None:
         return ""
     label = getattr(owl_obj, "label", None)

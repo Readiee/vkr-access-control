@@ -1,7 +1,6 @@
-"""ReasoningOrchestrator (DSL §45) + приватный enricher (pipeline A2 pre-enrich).
+"""ReasoningOrchestrator и приватный enricher pre-enrich стадии
 
-Наружу экспортируется только ReasoningOrchestrator. _enricher — приватный
-helper, вызывается только из orchestrator.py.
+Наружу — только ReasoningOrchestrator. _enricher вызывается только из orchestrator.py
 """
 from services.reasoning.orchestrator import (
     DEFAULT_TIMEOUT_SEC,

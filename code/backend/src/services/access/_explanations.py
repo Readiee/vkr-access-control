@@ -1,12 +1,12 @@
-"""Rule-based justifications для выведенных satisfies/is_available_for.
+"""Обоснования выведенных satisfies / is_available_for через SLD-trace тела SWRL
 
 Весь логический вывод в системе — Horn-clause SWRL (атомарный шаблон → satisfies,
-мета-правило → is_available_for). Для Horn-теорий minimal justification равен
+мета-правило → is_available_for). Для Horn-теорий минимальное обоснование равно
 SLD-proof trace, то есть набору ABox-фактов, соответствующих биндингам тела
-правила (Horridge, Parsia 2009, "Laconic and Precise Justifications in OWL", §3.2).
-Здесь собирается это дерево трассировки: для каждого satisfies — binding тела
-соответствующего шаблона, для композитов — рекурсия по has_subpolicy, для
-is_available_for — тривиальная связка satisfies + has_access_policy.
+правила (Horridge, Parsia 2009, "Laconic and Precise Justifications in OWL").
+Здесь собирается это дерево: для каждого satisfies — binding тела соответствующего
+шаблона, для композитов — рекурсия по has_subpolicy, для is_available_for —
+тривиальная связка satisfies и has_access_policy
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from utils.owl_utils import get_owl_prop
 
 @dataclass
 class Justification:
-    """Узел дерева обоснования. Либо witness (positive), либо reason (negative)."""
+    """Узел дерева обоснования; либо witness (positive), либо reason (negative)"""
     status: str  # "satisfied" | "unsatisfied" | "available" | "unavailable"
     rule_template: str
     policy_id: Optional[str] = None
@@ -36,21 +36,20 @@ class Justification:
 
 
 class AccessExplainer:
-    """Обоснование выведенных satisfies/is_available_for через SLD-trace тела SWRL.
+    """Обоснование выведенных satisfies / is_available_for через SLD-trace тела SWRL
 
-    Приватный модуль: вызывается только из AccessService. В DSL не вынесен отдельным
-    компонентом — UC-9 это ФТ-6 (обратная цепочка), ответственность AccessService.
+    Приватный модуль; вызывается только из AccessService
     """
 
     def __init__(self, core: OntologyCore) -> None:
         self.core = core
 
     def explain_is_available(self, student: Any, element: Any) -> Justification:
-        """Мета-правило: is_available_for(el, s) ← has_access_policy(el, p) ∧ is_active(p) ∧ satisfies(s, p).
+        """Мета-правило: is_available_for(el, s) ← has_access_policy(el, p) ∧ is_active(p) ∧ satisfies(s, p)
 
         Trace собирается по всем активным политикам элемента: для satisfied —
         witness с биндингом тела, для unsatisfied — те же биндинги с недостающим
-        атомом. Статус корня определяется по is_available_for из ABox.
+        атомом. Статус корня определяется по is_available_for из ABox
         """
         active_policies = [
             p for p in (getattr(element, "has_access_policy", []) or [])
@@ -78,10 +77,10 @@ class AccessExplainer:
         )
 
     def explain_satisfies(self, student: Any, policy: Any) -> Justification:
-        """Ступень 1: обоснование satisfies(student, policy) через биндинги тела шаблона.
+        """Ступень 1: обоснование satisfies(student, policy) через биндинги тела шаблона
 
         Если satisfies не выведено — возвращает unsatisfied-узел с диагностикой
-        (какое именно условие не выполнено).
+        (какое именно условие не выполнено)
         """
         satisfied = policy in (getattr(student, "satisfies", []) or [])
         rule_type = get_owl_prop(policy, "rule_type", "") or ""
@@ -112,9 +111,6 @@ class AccessExplainer:
             note="Неизвестный rule_type — шаблон не соответствует каталогу SWRL.",
         )
 
-    # ------------------------------------------------------------------
-    # Атомарные шаблоны
-    # ------------------------------------------------------------------
     def _explain_completion(self, student: Any, policy: Any, satisfied: bool) -> Justification:
         target = get_owl_prop(policy, "targets_element")
         pr = self._find_progress(student, target)
@@ -334,9 +330,6 @@ class AccessExplainer:
             ),
         )
 
-    # ------------------------------------------------------------------
-    # Композитные шаблоны
-    # ------------------------------------------------------------------
     def _explain_and(self, student: Any, policy: Any, satisfied: bool) -> Justification:
         subs = list(getattr(policy, "has_subpolicy", []) or [])
         children = [self.explain_satisfies(student, sub) for sub in subs]
@@ -382,9 +375,6 @@ class AccessExplainer:
             ),
         )
 
-    # ------------------------------------------------------------------
-    # helpers
-    # ------------------------------------------------------------------
     def _find_progress(self, student: Any, element: Any) -> Optional[Any]:
         if element is None:
             return None
@@ -400,11 +390,11 @@ class AccessExplainer:
         return None
 
     def _find_competency_chain(self, student_comps: List[Any], required: Any) -> List[Any]:
-        """Найти цепочку ?sub ⊑* ?required, начинающуюся у студента.
+        """Найти цепочку ?sub ⊑* ?required, начинающуюся у студента
 
         Возвращается [required, ..., sub], где sub ∈ student_comps — тот корень,
         из которого required достижим через is_subcompetency_of. Если required
-        уже есть у студента напрямую — цепочка из одного элемента.
+        уже есть у студента напрямую — цепочка из одного элемента
         """
         if required in student_comps:
             return [required]

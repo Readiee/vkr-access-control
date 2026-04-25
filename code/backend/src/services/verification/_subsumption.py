@@ -1,9 +1,9 @@
-"""Обнаружение избыточных (СВ-4) и поглощённых (СВ-5) политик.
+"""Обнаружение избыточных (СВ-4) и поглощённых (СВ-5) политик
 
 Синтаксические эвристики на парах политик: для grade_required и date_restricted
 включение условий проверяется численно (пороги, окна), для group_restricted —
-через вложенность групп. Полная DL-subsumption через Pellet на временных ABox
-оставлена как точка расширения (MVP — без запуска Pellet, единицы миллисекунд).
+через вложенность групп. Полная DL-проверка на временных ABox через Pellet
+оставлена как точка расширения; здесь — единицы миллисекунд без запуска резонера
 """
 from __future__ import annotations
 
@@ -36,20 +36,17 @@ class SubsumptionPair:
 
 
 class SubsumptionChecker:
-    """Проверка всех пар (P1, P2) активных политик на поглощение.
+    """Проверка всех пар (P1, P2) активных политик на поглощение
 
-    Приватный модуль: вызывается только из VerificationService. В DSL СВ-4/5
-    проходят через `verificationService → reasoningOrchestrator` — логически
-    этот чекер часть того же контура, ReasoningOrchestrator сейчас не запускается
-    на парах политик (MVP без Pellet), поэтому модуль отделён физически, но
-    концептуально — внутренняя деталь верификации.
+    Приватный модуль; вызывается только из VerificationService. Резонер на парах
+    не запускается — синтаксические эвристики достаточны для текущего корпуса
     """
 
     def __init__(self, onto: Any) -> None:
         self.onto = onto
 
     def find_all(self) -> List[SubsumptionPair]:
-        """Вернуть все пары с P1 subsumes P2 по синтаксическим правилам."""
+        """Вернуть все пары, где P1 subsumes P2 по синтаксическим правилам"""
         active = self._active_policies()
         reports: List[SubsumptionPair] = []
         seen: set[tuple[str, str]] = set()
@@ -164,11 +161,11 @@ class SubsumptionChecker:
         return None
 
     def _find_equivalent_subpolicy(self, atomic: Any, composite: Any) -> Optional[Any]:
-        """Найти в подполитиках composite ту, что синтаксически эквивалентна atomic.
+        """Найти в подполитиках composite ту, что синтаксически эквивалентна atomic
 
-        Эквивалентность — совпадение rule_type + всех ключевых атрибутов (target,
+        Эквивалентность — совпадение rule_type и всех ключевых атрибутов (target,
         threshold, окно, группа, компетенция). Композитные подполитики не учитываем,
-        чтобы не подменять глубокий DL-subsumption.
+        чтобы не подменять глубокий DL-subsumption
         """
         for sub in list(getattr(composite, "has_subpolicy", []) or []):
             if self._atomic_equivalent(atomic, sub):
@@ -206,7 +203,7 @@ class SubsumptionChecker:
         return next(iter(shared)) if shared else None
 
     def _subgroup(self, narrow: Any, wide: Any) -> bool:
-        """Вернуть True, если narrow ⊆ wide через belongs_to_group студентов."""
+        """True, если narrow ⊆ wide через belongs_to_group студентов"""
         if narrow is wide:
             return False
         members_narrow = self._members(narrow)

@@ -1,14 +1,13 @@
-"""Единая точка запуска DL-reasoning.
+"""Единая точка запуска DL-резонера
 
-Пайплайн:
-  pre-enrich → Pellet + SWRL → подсчёт выводов.
+Пайплайн: pre-enrich → Pellet + SWRL → подсчёт выводов
 
-Pre-enrich очищает старые satisfies / is_available_for и подкладывает индивиды,
-которые SWRL не может вычислить сам (текущее время, агрегаты оценок). Таймаут
-прогона — чтобы HTTP-запрос не висел бесконечно на сложной онтологии.
+Pre-enrich чистит старые satisfies/is_available_for и подкладывает индивиды,
+которые SWRL не может вычислить сам — текущее время и агрегаты оценок. Таймаут
+прогона нужен, чтобы HTTP-запрос не висел бесконечно на сложной онтологии
 
-CWA-enforcement (default-deny при отсутствии вывода) и материализация в Redis
-— ответственность AccessService на чтении, не этого модуля.
+Default-deny при отсутствии вывода и материализация в Redis — ответственность
+AccessService на чтении, не этого модуля
 """
 from __future__ import annotations
 
@@ -30,8 +29,8 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT_SEC = 10  # дальше синхронный HTTP-запрос теряет смысл
 
-# Pellet вызывается через подменённый subprocess.run. Глобальный attr нельзя
-# патчить из двух потоков одновременно — восстановление перетрётся.
+# Pellet вызывается через подменённый subprocess.run; глобальный attr нельзя
+# патчить из двух потоков одновременно — восстановление перетрётся
 _PELLET_PATCH_LOCK = threading.Lock()
 
 
@@ -47,11 +46,11 @@ class ReasoningResult:
 
 
 class ReasoningTimeoutError(Exception):
-    """Pellet не уложился в заданный таймаут."""
+    """Pellet не уложился в заданный таймаут"""
 
 
 class ReasoningOrchestrator:
-    """Единая точка вызова reasoning. Сервисы зовут её вместо sync_reasoner_pellet напрямую."""
+    """Единая точка вызова резонера; сервисы зовут её вместо sync_reasoner_pellet напрямую"""
 
     def __init__(self, onto: Any, timeout_sec: float = DEFAULT_TIMEOUT_SEC) -> None:
         self.onto = onto
@@ -107,10 +106,10 @@ class ReasoningOrchestrator:
         )
 
     def check_consistency(self) -> tuple[bool, Optional[str]]:
-        """Прогнать reasoning и вернуть (consistent, explanation).
+        """Прогнать резонер и вернуть (consistent, explanation)
 
         При ok — (True, None). При inconsistent — (False, сообщение резонера).
-        Таймаут и ошибки тоже трактуем как «нельзя утверждать, что consistent».
+        Таймаут и ошибки трактуются как «нельзя утверждать, что consistent»
         """
         result = self.reason()
         if result.status == "inconsistent":
@@ -119,11 +118,8 @@ class ReasoningOrchestrator:
             return True, None
         return False, result.error or result.status
 
-    # ------------------------------------------------------------------
-    # internals
-    # ------------------------------------------------------------------
     def _run_pellet_with_timeout(self) -> None:
-        """Запускает sync_reasoner_pellet с патчем Jena→OWLAPI и таймаутом."""
+        """Запустить sync_reasoner_pellet с патчем Jena→OWLAPI и таймаутом"""
         error_holder: list[BaseException] = []
 
         def target() -> None:
@@ -137,8 +133,8 @@ class ReasoningOrchestrator:
         thread.join(timeout=self.timeout_sec)
 
         if thread.is_alive():
-            # Pellet крутится в java-subprocess, отдельный поток его не прервёт.
-            # Отдаём таймаут вызывающему, subprocess завершится сам.
+            # Pellet крутится в java-подпроцессе, отдельный поток его не прервёт;
+            # отдаём таймаут вызывающему, подпроцесс завершится сам
             raise ReasoningTimeoutError(
                 f"Pellet не завершился за {self.timeout_sec}s"
             )
@@ -146,7 +142,7 @@ class ReasoningOrchestrator:
             raise error_holder[0]
 
     def _patched_sync_reasoner(self) -> None:
-        """Подменить Jena-loader на OWLAPI в команде запуска Pellet."""
+        """Подменить Jena-loader на OWLAPI в команде запуска Pellet"""
         with _PELLET_PATCH_LOCK:
             original_run = subprocess.run
 
@@ -157,8 +153,8 @@ class ReasoningOrchestrator:
 
             subprocess.run = patched_run
             try:
-                # Первый аргумент: онтология/мир. Без него Pellet берёт default_world
-                # и пропускает индивидов из изолированных World (тесты, многопоточка).
+                # Первый аргумент — онтология/мир; без него Pellet берёт default_world
+                # и пропускает индивидов из изолированных World (тесты, многопоточка)
                 sync_reasoner_pellet(
                     self.onto.world,
                     infer_property_values=True,
