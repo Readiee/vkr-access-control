@@ -375,12 +375,14 @@ procedure pre_enrich(ontology O):
             fact.for_policy ← p
             fact.computed_value ← value
 
-    # LIM6: очистка ранее выведенных is_available_for (restart-from-clean)
+    # LIM6: очистка ранее выведенных satisfies и is_available_for (restart-from-clean)
+    for each s ∈ O.Student:
+        s.satisfies.clear()
     for each e ∈ O.CourseStructure:
         e.is_available_for.clear()
 ```
 
-**Почему очищаются `is_available_for` перед reasoning.** OWL монотонен: если на предыдущем прогоне было выведено `is_available_for(e, s)`, а сейчас студент потерял оценку — Pellet повторным прогоном *не отменит* старую привязку. Pellet только *добавляет* факты. Явная очистка превращает каждый прогон в «вычисление с нуля» поверх актуального ABox — это корректная реализация не-монотонной семантики доступа поверх монотонного резонера.
+**Почему очищаются `satisfies` и `is_available_for` перед reasoning.** OWL монотонен: если на предыдущем прогоне было выведено `is_available_for(e, s)`, а сейчас студент потерял оценку — Pellet повторным прогоном *не отменит* старую привязку. Pellet только *добавляет* факты. Чистятся обе ступени: `satisfies` (ступень 1, на студенте) и `is_available_for` (ступень 2, на элементе) — иначе устаревший `satisfies` от предыдущего прогона повторно сработает в мета-правиле и снова даст `is_available_for`. Реализовано в [_enricher.py::clear_inferred_triples](../code/backend/src/services/reasoning/_enricher.py#L24).
 
 **Почему `CurrentTime` и `AggregateFact` тоже очищаются.** Те же причины: оставшиеся индивиды предыдущего прогона дадут конкурирующие матчи SWRL-правил (несколько `CurrentTime` → неопределённость «текущего времени»; устаревшие `AggregateFact` → заведомо неверный результат после изменения прогресса).
 
@@ -571,11 +573,13 @@ procedure reason_and_materialize(ontology O, student_id s_id?):
 - O2 — pre-enrich реализован в [services/reasoning/_enricher.py](../code/backend/src/services/reasoning/_enricher.py): `CurrentTime` (R2) + `AggregateFact` per (student, policy) (R4).
 - O3 — очистка `is_available_for` перед каждым прогоном — в `_enricher.py`, идемпотентно.
 - O4 — `DateAccessFilter` удалён, дата через шаблон 5 + `CurrentTime` (FIX11 закрыт 21.04, см. §А2.11).
-- O5 — таймаут через `sync_reasoner_pellet(..., graph_lang="SWRL")` обёрнут в `concurrent.futures` таймаут НФТ-3.
+- O5 — таймаут через `sync_reasoner_pellet(..., graph_lang="SWRL")` обёрнут в `concurrent.futures` таймаут НФТ-3 (`DEFAULT_TIMEOUT_SEC = 10`, [orchestrator.py:30](../code/backend/src/services/reasoning/orchestrator.py#L30)).
 - O7 — `OwlReadyInconsistentOntologyError` ловится в `PolicyService.create_policy` → откат ABox-мутаций + HTTP 409 (FIX1).
-- O12 — единый API `reason_and_materialize(student_id=None)` в `ReasoningOrchestrator`.
-- O8/O9 — CWA-enforcement вынесен в [services/access/service.py](../code/backend/src/services/access/service.py) (FIX11 + решение 22.04), иерархическая блокировка — там же, дублирование `is_really_available` убрано.
+- O12 — pipeline разделён между двумя сервисами вместо единого entry-point. `ReasoningOrchestrator.reason()` → `ReasoningResult{status, error}` запускает только pre-enrich + Pellet; материализация и CWA-enforcement вызываются отдельно через `AccessService.rebuild_student_access(student_id)` (per-student) или `AccessService.get_course_access(...)` (lazy при cache miss). Это сознательное разделение ответственности после DI-рефакторинга 23.04: orchestrator не зависит от Redis/CacheManager, materialize не зависит от Pellet — каждый юнит-тестируется изолированно. «Единый API `reason_and_materialize`» как метод одного класса не реализован и не планируется.
+- O8/O9 — CWA-enforcement вынесен в [services/access/service.py](../code/backend/src/services/access/service.py) (`AccessService._compute_inferred_access`, FIX11 + решение 22.04), иерархическая блокировка — там же, дублирование `is_really_available` убрано.
 - O10 — Java/Jena→OWLAPI-патч оформлен как `_patched_sync_reasoner` в Orchestrator.
+
+Дополнительно (FIX9, не упомянут в исходном дифе O1–O12): в [services/access/_explanations.py](../code/backend/src/services/access/_explanations.py) реализован justification tree через SLD-trace по Horn-clause SWRL (Horridge & Parsia 2009). Питается от `GET /access/student/{sid}/element/{eid}/explain` (UC-9). Возвращает дерево обоснований `satisfies` для каждой применимой политики и каскадный блокатор по иерархии.
 
 Остаются:
 
@@ -999,6 +1003,8 @@ procedure detect_unreachable(ontology O) → list[UnreachableReport]:
 
 *Рекомендация порядка в UC-6:* СВ-1 → СВ-2 → СВ-3. СВ-2 даёт диагностически сильное сообщение; после исправления цикла — СВ-3 ловит оставшиеся проблемы. `can_grant_element` защищается от циклов (`if e.id ∈ visited: return false`), поэтому СВ-3 формально независима от СВ-2, но их последовательность в UC-6 оптимизирует UX.
 
+**Реализация порядка в [verification/service.py](../code/backend/src/services/verification/service.py).** СВ-2 запускается *всегда* (чистый граф, не зависит от Pellet), СВ-3 — только при `consistency.status == "passed"` (иначе структурный анализ бессмыслен). При таймауте `ReasoningOrchestrator` отчёт помечается `partial=True`, СВ-1/3 → `unknown`, СВ-2 при этом всё равно считается.
+
 ### А4.10. Граничные случаи
 
 | Случай | Поведение |
@@ -1028,9 +1034,9 @@ procedure detect_unreachable(ontology O) → list[UnreachableReport]:
 
 **Статус реализации (21.04).** Закрыты Блоком 2:
 
-- N1 — [services/verification/service.py](../code/backend/src/services/verification/service.py) создан (подпакет `verification/` с DI-рефакторинга 23.04).
-- N2 — `check_atomic_satisfiability` покрывает grade/date/aggregate-границы; кейсы в [test_verification_atomic.py](../code/backend/src/tests/unit/test_verification_atomic.py) (11 тестов).
-- N3 — `can_grant_element` с мемоизацией через `functools.lru_cache` на parent-map.
+- N1 — [services/verification/service.py](../code/backend/src/services/verification/service.py) создан (подпакет `verification/` с DI-рефакторинга 23.04). Класс `VerificationService.verify(course_id, include_subsumption=False, use_cache=True) → VerificationReport`; СВ-4/5 включаются флагом `include_subsumption`.
+- N2 — `_atomic_check`/`_atomic_unsatisfiable` покрывают grade/date/aggregate/competency-границы; кейсы в [test_verification_atomic.py](../code/backend/src/tests/unit/test_verification_atomic.py) (11 тестов).
+- N3 — `_can_grant_element` реализован императивным DFS с мемоизацией (`cache: Dict[str, bool]` + `visited: set`), эквивалентным фиксированной точке из псевдокода А4.4: один проход по элементам, каждый помеченный достижимым/недостижимым кэширует результат; повторных вызовов на одном `element.name` не происходит. Семантически = least fixed-point на монотонной решётке `bool ⊑ {false, true}`. Реализация в [verification/service.py](../code/backend/src/services/verification/service.py) (`_find_unreachable` + `_can_grant_element`).
 - N5 — эндпоинт `GET /api/v1/verify/course/{id}` (+ `?full=true` для СВ-4/5) в [api/routers/verification.py](../code/backend/src/api/routers/verification.py).
 - N6 — `build_dependency_graph` переиспользуется из `GraphValidator` (А1) без дублирования.
 - N7 — unit + integration тесты: [test_verification_service.py](../code/backend/src/tests/integration/test_verification_service.py), [test_verification_negatives.py](../code/backend/src/tests/integration/test_verification_negatives.py), [test_verification_scenarios.py](../code/backend/src/tests/integration/test_verification_scenarios.py) — суммарно 14 тестов.
@@ -1356,7 +1362,9 @@ procedure check_pair(P1, P2) → Result:
 
 *Доказательство.* По шаблону T_group: `Cond(P)(s) ≡ belongs_to_group(s, group(P))`. Эквивалентность включений — определение. ∎
 
-**Замечание о GROUP.** Лемма 3 формулируется *экстенсионально*: subsumption проверяется по фактическому членству в текущем ABox, а не по TBox-аксиомам типа `Group_advanced ⊑ Group_general`. Это соответствует семантике CWA-enforcement (см. §2.5.4 PROJECT_BIBLE): верификация проходит на снимке ABox, и добавление студента — событие инвалидации кэша верификации (А5.4). Расширение до TBox-уровня (через `rdfs:subClassOf` на классах групп) — часть DL-fallback (§А6.8).
+**Замечание о GROUP.** Лемма 3 формулируется *экстенсионально*: subsumption проверяется по фактическому членству в текущем ABox, а не по TBox-аксиомам типа `Group_advanced ⊑ Group_general`. Это соответствует семантике CWA-enforcement (см. §2.5.4 PROJECT_BIBLE): верификация проходит на снимке ABox, и добавление студента — событие инвалидации кэша верификации (А5.4).
+
+**Иерархия групп через `is_subgroup_of` уже учтена.** В TBox объявлено `is_subgroup_of` (Transitive, см. SAT_DATA_MODELS §1.3) и SWRL-правило **H-3** `rule_group_inheritance` распространяет членство по иерархии: `belongs_to_group(s, g) ∧ is_subgroup_of(g, parent) → belongs_to_group(s, parent)`. `SubsumptionChecker` вызывается из `VerificationService.verify()` *после* прогона `ReasoningOrchestrator.reason()` ([service.py:143,187](../code/backend/src/services/verification/service.py#L143)), поэтому `_subgroup` ([_subsumption.py:217](../code/backend/src/services/verification/_subsumption.py#L217)) видит уже транзитивно замкнутое отношение членства. Это означает: subgroup-цепочки длины ≥ 2 (например `grp_advanced_alpha ⊏ grp_advanced ⊏ grp_general`) корректно обрабатываются синтаксикой без обращения к TBox-аксиомам напрямую — Pellet делает разворачивание за нас.
 
 **Теорема 1 (полнота для атомарных типов).** Для пар `(P1, P2)` с одним типом из {GRADE, DATE, GROUP, COMPLETION, VIEWED} и совпадающим `targets_element` процедура `check_pair` возвращает `subsumes=true` тогда и только тогда, когда `P1 ⊒ P2` в семантике §А6.4.1.
 
@@ -1374,7 +1382,7 @@ procedure check_pair(P1, P2) → Result:
 
 1. **OR-composite.** `P2 = S1 ∨ S2`, `P1` поглощает каждое из `S1`, `S2` по отдельности — требует case-analysis по дизъюнкции.
 2. **Смешанные типы атом ↔ композит.** `P1 = grade_required(t, 60)`, `P2 = and(grade_required(t, 80), date_restricted(…))` — теорема 2 ловит точное равенство, не более слабое включение порогов внутри AND.
-3. **TBox-цепочки.** Транзитивность `is_subcompetency_of` делает `competency_required` с под-компетенцией поглощённой родительской политикой — синтаксика на это не смотрит, требуется DL-вывод по TBox.
+3. **TBox-цепочки для COMPETENCY.** Транзитивность `is_subcompetency_of` делает `competency_required` с под-компетенцией поглощённой родительской политикой — синтаксика на это не смотрит, требуется DL-вывод по TBox. (Для GROUP аналогичная цепочка через `is_subgroup_of` *закрывается* H-3 inheritance до запуска `SubsumptionChecker`, см. замечание после леммы 3.)
 4. **Aggregate.** `aggregate_required(AVG, [e1, e2], 70)` ⊒ покомпонентным правилам — требует арифметического вывода, недоступного без resonera + специализированного рассуждения.
 5. **Cross-type.** `group_restricted(G)` ⊒ `completion_required(e)` для персонального студента из `G` — требует расширения модели свойствами «applies_to» (нет в текущей модели).
 
