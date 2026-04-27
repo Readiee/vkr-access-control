@@ -122,7 +122,7 @@ class ReasoningOrchestrator:
         def target() -> None:
             try:
                 self._patched_sync_reasoner()
-            except BaseException as exc:  # noqa: BLE001
+            except BaseException as exc:
                 error_holder.append(exc)
 
         thread = threading.Thread(target=target, daemon=True)
