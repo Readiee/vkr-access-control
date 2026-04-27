@@ -7,11 +7,11 @@ import unittest
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from core.config import DEFAULT_ONTOLOGY_PATH  # noqa: E402
-from owlready2 import World  # noqa: E402
+from core.config import DEFAULT_ONTOLOGY_PATH  
+from owlready2 import World  
 
-from core.enums import RuleType  # noqa: E402
-from services.graph_validator import GraphValidator, ProbePolicy  # noqa: E402
+from core.enums import RuleType  
+from services.graph_validator import GraphValidator, ProbePolicy  
 
 
 class GraphValidatorTests(unittest.TestCase):

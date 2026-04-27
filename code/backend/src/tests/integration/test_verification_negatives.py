@@ -10,14 +10,14 @@ import unittest
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from owlready2 import World  # noqa: E402
+from owlready2 import World  
 
-from core.enums import ElementType  # noqa: E402
-from schemas.schemas import CourseElement, CourseSyncPayload  # noqa: E402
-from services.integration_service import IntegrationService  # noqa: E402
-from services.ontology_core import OntologyCore  # noqa: E402
-from services.policy_service import PolicyService  # noqa: E402
-from services.verification import VerificationService  # noqa: E402
+from core.enums import ElementType  
+from schemas.schemas import CourseElement, CourseSyncPayload  
+from services.integration_service import IntegrationService  
+from services.ontology_core import OntologyCore  
+from services.policy_service import PolicyService  
+from services.verification import VerificationService  
 
 
 class VerificationNegativeTests(unittest.TestCase):

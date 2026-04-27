@@ -17,7 +17,7 @@ ONTO_DIR = os.path.abspath(os.path.join(HERE, "..", "ontologies"))
 
 sys.path.insert(0, SCENARIOS_DIR)
 
-from happy_path import build_and_save  # noqa: E402
+from happy_path import build_and_save  
 
 scenario_path = build_and_save()
 legacy_path = os.path.join(ONTO_DIR, "demo_knowledge_base.owl")

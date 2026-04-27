@@ -11,7 +11,7 @@ import logging
 from typing import Any, Optional
 
 import redis
-from owlready2 import World, default_world, get_ontology  # noqa: F401
+from owlready2 import World, default_world, get_ontology
 
 from repositories.ontology_repositories import (
     CourseRepository,

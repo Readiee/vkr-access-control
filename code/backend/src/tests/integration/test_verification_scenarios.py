@@ -16,12 +16,12 @@ import unittest
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from owlready2 import World  # noqa: E402
+from owlready2 import World  
 
-from services.cache_manager import CacheManager  # noqa: E402
-from services.ontology_core import OntologyCore  # noqa: E402
-from services.reasoning import ReasoningOrchestrator  # noqa: E402
-from services.verification import VerificationService  # noqa: E402
+from services.cache_manager import CacheManager  
+from services.ontology_core import OntologyCore  
+from services.reasoning import ReasoningOrchestrator  
+from services.verification import VerificationService  
 
 SCENARIOS_OWL_DIR = os.path.abspath(
     os.path.join(

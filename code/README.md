@@ -4,11 +4,11 @@
 
 ## Что поднимается
 
-| Сервис | Порт на хосте | Технология |
-|---|---|---|
-| `backend` | `8000` | FastAPI + Owlready2 + Pellet (JRE) |
-| `frontend` | `8080` | Vue/Vite, раздаётся nginx, `/api/` проксируется в backend |
-| `redis` | `6379` | Redis 7 для кэша `access:*` |
+| Сервис | Порт на хосте | Технология                                                             |
+| ------------ | ------------------------ | -------------------------------------------------------------------------------- |
+| `backend`  | `8000`                 | FastAPI + Owlready2 + Pellet (JRE)                                               |
+| `frontend` | `8080`                 | Vue/Vite, раздаётся nginx,`/api/` проксируется в backend |
+| `redis`    | `6379`                 | Redis 7 для кэша `access:*`                                             |
 
 ## Запуск
 
@@ -18,9 +18,9 @@ docker compose -f code/docker-compose.yml up --build
 
 После сборки:
 
-- Web UI: <http://localhost:8080>
-- Swagger backend: <http://localhost:8000/docs>
-- Health backend: <http://localhost:8000/>
+- Web UI: [http://localhost:8080](http://localhost:8080)
+- Swagger backend: [http://localhost:8000/docs](http://localhost:8000/docs)
+- Health backend: [http://localhost:8000/](http://localhost:8000/)
 
 ## Известная проблема: build падает на установке JRE
 
@@ -54,7 +54,7 @@ cd ../scenarios && for s in bad_sv1_disjointness bad_sv2_cycle bad_sv3_atomic_th
 done
 ```
 
-Результат — файлы в `code/onto/ontologies/scenarios/` плюс ground-truth
+Результат: файлы в `code/onto/ontologies/scenarios/` плюс ground-truth
 `code/backend/src/tests/fixtures/scenarios_ground_truth.json`.
 
 ## Тесты
@@ -66,9 +66,6 @@ pip install -r code/backend/requirements-dev.txt
 cd code/backend
 python -m pytest src/tests/ -q --cov=src/services --cov=src/utils
 ```
-
-Текущее покрытие: 117 тестов, 84% overall, Core Layer ≥82%. Прогон с реальным
-Pellet — около двух минут.
 
 Только unit-слой (без Pellet, ~2 секунды):
 

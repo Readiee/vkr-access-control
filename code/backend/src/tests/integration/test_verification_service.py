@@ -7,13 +7,13 @@ import unittest
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from schemas.schemas import CourseElement, CourseSyncPayload, PolicyCreate  # noqa: E402
-from core.enums import ElementType, RuleType  # noqa: E402
-from core.config import DEFAULT_ONTOLOGY_PATH  # noqa: E402
-from services.integration_service import IntegrationService  # noqa: E402
-from services.ontology_core import OntologyCore  # noqa: E402
-from services.policy_service import PolicyService  # noqa: E402
-from services.verification import VerificationService  # noqa: E402
+from schemas.schemas import CourseElement, CourseSyncPayload, PolicyCreate  
+from core.enums import ElementType, RuleType  
+from core.config import DEFAULT_ONTOLOGY_PATH  
+from services.integration_service import IntegrationService  
+from services.ontology_core import OntologyCore  
+from services.policy_service import PolicyService  
+from services.verification import VerificationService  
 
 
 class VerificationServiceIntegrationTests(unittest.TestCase):

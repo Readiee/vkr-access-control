@@ -12,10 +12,10 @@ from types import SimpleNamespace
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from owlready2 import World  # noqa: E402
+from owlready2 import World  
 
-from core.config import DEFAULT_ONTOLOGY_PATH  # noqa: E402
-from services.access import AccessService  # noqa: E402
+from core.config import DEFAULT_ONTOLOGY_PATH  
+from services.access import AccessService  
 
 
 class _InMemoryCache:

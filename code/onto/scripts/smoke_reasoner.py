@@ -16,8 +16,8 @@ BACKEND_SRC = os.path.abspath(os.path.join(HERE, "..", "..", "backend", "src"))
 ONTO_PATH = os.path.abspath(os.path.join(HERE, "..", "ontologies", "demo_knowledge_base.owl"))
 sys.path.insert(0, BACKEND_SRC)
 
-from services.ontology_core import OntologyCore  # noqa: E402
-from services.reasoning import ReasoningOrchestrator  # noqa: E402
+from services.ontology_core import OntologyCore  
+from services.reasoning import ReasoningOrchestrator  
 
 
 def main() -> int:

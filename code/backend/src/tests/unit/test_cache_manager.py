@@ -12,9 +12,9 @@ import unittest
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-import fakeredis  # noqa: E402
+import fakeredis  
 
-from services.cache_manager import (  # noqa: E402
+from services.cache_manager import (  
     ACCESS_KEY_PREFIX,
     CacheManager,
     ONTO_VERSION_KEY,

@@ -8,10 +8,10 @@ from datetime import datetime
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from core.config import DEFAULT_ONTOLOGY_PATH  # noqa: E402
-from owlready2 import AllDifferent, World  # noqa: E402
+from core.config import DEFAULT_ONTOLOGY_PATH  
+from owlready2 import AllDifferent, World  
 
-from services.verification._subsumption import SubsumptionChecker  # noqa: E402
+from services.verification._subsumption import SubsumptionChecker  
 
 
 class SubsumptionCheckerTests(unittest.TestCase):

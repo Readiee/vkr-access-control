@@ -8,11 +8,11 @@ from datetime import datetime
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from owlready2 import World  # noqa: E402
+from owlready2 import World  
 
-from core.config import DEFAULT_ONTOLOGY_PATH  # noqa: E402
-from services.cache_manager import CacheManager  # noqa: E402
-from services.verification import VerificationService  # noqa: E402
+from core.config import DEFAULT_ONTOLOGY_PATH  
+from services.cache_manager import CacheManager  
+from services.verification import VerificationService  
 
 
 class _StubReasoner:

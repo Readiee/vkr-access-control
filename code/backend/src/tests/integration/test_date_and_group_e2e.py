@@ -12,11 +12,11 @@ from datetime import datetime
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from core.enums import ElementType  # noqa: E402
-from schemas.schemas import CourseElement, CourseSyncPayload  # noqa: E402
-from services.access import AccessService  # noqa: E402
-from services.integration_service import IntegrationService  # noqa: E402
-from services.ontology_core import OntologyCore  # noqa: E402
+from core.enums import ElementType  
+from schemas.schemas import CourseElement, CourseSyncPayload  
+from services.access import AccessService  
+from services.integration_service import IntegrationService  
+from services.ontology_core import OntologyCore  
 
 
 class DateAndGroupReasoningTests(unittest.TestCase):

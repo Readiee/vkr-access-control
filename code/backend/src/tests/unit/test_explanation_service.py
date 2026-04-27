@@ -14,10 +14,10 @@ from types import SimpleNamespace
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from owlready2 import AllDifferent, World  # noqa: E402
+from owlready2 import AllDifferent, World  
 
-from core.config import DEFAULT_ONTOLOGY_PATH  # noqa: E402
-from services.access._explanations import AccessExplainer  # noqa: E402
+from core.config import DEFAULT_ONTOLOGY_PATH  
+from services.access._explanations import AccessExplainer  
 
 
 class AccessExplainerTests(unittest.TestCase):

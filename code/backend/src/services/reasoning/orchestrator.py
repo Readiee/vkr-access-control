@@ -28,9 +28,6 @@ from services.reasoning._enricher import (
 logger = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT_SEC = 10  # дальше синхронный HTTP-запрос теряет смысл
-
-# Pellet вызывается через подменённый subprocess.run; глобальный attr нельзя
-# патчить из двух потоков одновременно — восстановление перетрётся
 _PELLET_PATCH_LOCK = threading.Lock()
 
 
