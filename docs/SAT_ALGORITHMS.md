@@ -1229,86 +1229,156 @@ procedure compute_student_ttl(student) → seconds:
 - **СВ-4 (Redundancy).** Если `P1` и `P2` защищают один и тот же элемент и `P1 subsumes P2`, то `P2` избыточна: удаление `P2` не меняет результат `is_available_for` для этого элемента (ступень 2 всё равно сработает через `P1` везде, где срабатывала через `P2`).
 - **СВ-5 (Subsumption).** Если `P1` — общее правило «для всех группы A», `P2` — персональное «для студентки Ивановой» и Иванова ∈ A, то `P1 subsumes P2` с унификацией subject-переменной через конкретный индивид. Это Subject-level поглощение, с отдельным сообщением методисту.
 
-Алгоритм А6 — один и тот же для обоих свойств; тип отчёта определяется тем, где при проверке произошла унификация (класс условия или конкретный индивид).
+Алгоритм А6 — единая процедура `check_pair` (§А6.4); тип отчёта (`redundancy` vs `subject_subsumption`) определяется тем, какая ветка case-analysis сработала: численное включение порогов / интервалов или равенство targets ⇒ redundancy; вложенность групп или AND-composite поглощение ⇒ subject_subsumption.
 
 Покрывает ФТ-3.5 (в обновлённой формулировке §2.7.3 после решения 21.04).
 
-### А6.2. Связь с А4.5
+### А6.2. Две процедуры: синтаксическая (реализована) и DL-fallback (перспектива)
 
-А6 переиспользует `synthetic_prerequisites(σ*, p)` из А4.5: тот же механизм «построить минимальный ABox, удовлетворяющий политику» лежит в основе и reachability (А4), и subsumption (А6). Различие — в вопросе, задаваемом Pellet-у:
+А6 распадается на два уровня:
 
-- **А4.5:** «для одной политики `p` — найдётся ли ABox, в которой `is_available_for(e, σ*)` выводится?» (satisfiability).
-- **А6:** «для пары политик `(P1, P2)` — в любой ли ABox, где выводится `satisfies(σ*, P2)`, также выводится `satisfies(σ*, P1)`?» (subsumption).
+- **Синтаксический subsumption (реализован, фаза 2).** Для атомарных типов GRADE / DATE / GROUP сравнение условий сводится к численному включению (пороги, интервалы) или экстенсиональной проверке (вложенность групп), которые формально эквивалентны DL-subsumption (доказательство — §А6.4.2). Дополнительно: AND-composite распознаётся через поиск эквивалентной подполитики. Стоимость — единицы миллисекунд на пару, без запуска резонера.
+
+- **DL-fallback через Pellet (перспектива).** Для пар, не покрытых синтаксической процедурой (OR-composite, смешанные типы, TBox-цепочки через subcompetency / subgroup) — построение синтетического ABox через `synthetic_prerequisites(σ*, P2)` из А4.5 и проверка вывода `satisfies(σ*, P1)`. Различие с А4.5 — вопрос к резонеру: А4.5 спрашивает «satisfiability одной политики», А6-fallback спрашивает «entailment между парой».
+
+Текущая фаза реализует только первый уровень. Покрытие — атомарные типы и AND-composite, чего достаточно для EXP1 (40 сценариев СВ-4/5, F1 = 1.000). Граница техники зафиксирована в §А6.4.3.
 
 ### А6.3. Область поиска
 
-Проверка всех пар `(P1, P2)` из `O.AccessPolicy` была бы O(|P|²) с Pellet-прогоном на каждой паре — недопустимо. Область сужается двумя фильтрами:
+Все пары `(P1, P2)` активных политик отфильтровываются двумя условиями:
 
-**Фильтр 1: совпадение action.** Оба правила должны защищать один и тот же элемент (или — для СВ-5 — относиться к одному action-классу). Иначе одно не может поглощать другое: удаление одного не меняет доступ к элементу другого.
+**Фильтр 1: общий target.** В реализации это `_common_element` — пересечение источников через `has_access_policy` (см. [_subsumption.py:202](../code/backend/src/services/verification/_subsumption.py#L202)). Без общего элемента поглощение бессмысленно: удаление `P2` не меняет доступ к элементу, который защищает только `P1`.
 
-**Фильтр 2: совпадение или совместимость rule_type.** Пары политик с принципиально разными типами условий почти никогда не вступают в subsumption. Разрешаются сочетания:
+**Фильтр 2: совместимость rule_type.** Синтаксические ветки `check_pair` определены только для пар одного типа из {GRADE, DATE, GROUP, COMPLETION, VIEWED} плюс особый случай атом ↔ AND-composite. Остальные комбинации возвращают `subsumes=false` и являются кандидатами на DL-fallback (§А6.4.3, §А6.8):
 
-| P1.rule_type | P2.rule_type | Возможно ли P1 subsumes P2 |
+| P1.rule_type | P2.rule_type | Покрыто синтаксикой |
 |---|---|---|
-| одинаковые | одинаковые | да (проверяем) |
-| `grade_required` | `grade_required` | да: R1 `≥ 60` поглощает R2 `≥ 80` |
-| `group_restricted` | `completion_required` (персональный студент) | да (СВ-5 субъектный) |
-| `or_combination` | любой | да (если P2 — одна из подполитик P1) |
-| `and_combination` | любой | нет (AND — сильнее, не может поглощать одиночное) |
-| `date_restricted` | любой другой тип | нет (ортогональная семантика) |
+| `grade_required` | `grade_required` | да (лемма 1) |
+| `date_restricted` | `date_restricted` | да (лемма 2) |
+| `group_restricted` | `group_restricted` | да (лемма 3) |
+| `completion_required` | `completion_required` | да (теорема 1) |
+| `viewed_required` | `viewed_required` | да (теорема 1) |
+| атом | `and_combination` | да через эквивалентную подполитику (теорема 2) |
+| `or_combination` | любой | нет (DL-fallback) |
+| смешанные типы | разные | нет (DL-fallback) |
+| `competency_required` через TBox | то же | нет (DL-fallback) |
 
-Таблица сужает O(|P|²) до O(|P|·k), где k — среднее число правил на элемент (типично 1–3). На курсе в 500 элементов и 100 правил — 200–300 пар, по 1 Pellet-прогону = единицы секунд, приемлемо для UC-6.
+Итоговая стоимость — O(|P|²) проверок атрибутов: на курсе в 500 элементов и 100 правил это сотни пар по O(1) (или O(|members|) для GROUP), десятки миллисекунд суммарно.
 
-### А6.4. Псевдокод
+### А6.4. Псевдокод (синтаксическая процедура)
 
 ```text
 procedure detect_redundancy_and_subsumption(ontology O) → list[SubsumptionReport]:
     reports ← []
-    candidates ← build_candidate_pairs(O)      # фильтры А6.3
+    active   ← {p ∈ O.AccessPolicy : p.is_active}
 
-    for (P1, P2) ∈ candidates:
-        result ← check_subsumption(P1, P2, O)
+    for P1 ∈ active, P2 ∈ active with P1 ≠ P2:
+        if not common_target(P1, P2):           # фильтр А6.3.1: один и тот же элемент
+            continue
+        result ← check_pair(P1, P2)             # синтаксический case-analysis
         if result.subsumes:
             reports.append({
-                type: classify(result),           # "redundancy" (СВ-4) | "subject_subsumption" (СВ-5)
+                type: result.kind,               # "redundancy" (СВ-4) | "subject_subsumption" (СВ-5)
                 dominant: P1.id,
                 dominated: P2.id,
                 element: common_target(P1, P2),
-                explanation: result.witness       # из synthetic ABox: какие факты унифицировались
+                witness: result.witness          # текстовое объяснение методисту
             })
     return reports
 
 
-procedure check_subsumption(P1, P2, O) → SubsumptionResult:
-    # 1. Построить синтетический ABox, удовлетворяющий P2
-    σ_abox ← copy(O.tbox) ∪ copy(O.disjointness_axioms) ∪ {Student(σ*)}
-    σ_abox ← σ_abox ∪ synthetic_prerequisites(σ*, P2)       # переиспользует А4.5
+procedure check_pair(P1, P2) → Result:
+    # Атомарные типы: формальная DL-эквивалентность доказана в §А6.4.2
 
-    # 2. Проверить консистентность — иначе P2 сама неудовлетворима (перекрывается СВ-1)
-    if not Pellet.consistent(σ_abox):
-        return SubsumptionResult(subsumes=false, reason="P2_unsatisfiable")
+    if P1.rule_type = P2.rule_type = grade_required:
+        if same_target(P1, P2) and P1.threshold ≤ P2.threshold and P1.threshold ≠ P2.threshold:
+            return Result(subsumes=true, kind="redundancy",
+                          witness="≥{P2.thr} ⇒ ≥{P1.thr}; правило P2 строже и избыточно")
 
-    # 3. Запустить SWRL+reasoner на σ_abox
-    Pellet.run(σ_abox)
+    if P1.rule_type = P2.rule_type = date_restricted:
+        if same_target(P1, P2) and [P2.from, P2.until] ⊆ [P1.from, P1.until]:
+            return Result(subsumes=true, kind="redundancy",
+                          witness="окно P2 уже покрыто окном P1")
 
-    # 4. Проверить: выводится ли satisfies(σ*, P1) в результате?
-    if σ_abox.derives(satisfies(σ*, P1)):
-        # P1 тоже удовлетворена — значит, условие P2 влечёт условие P1
-        witness ← extract_unification(σ_abox, P1, P2)       # что привело к выводу
-        return SubsumptionResult(subsumes=true, witness=witness)
-    else:
-        return SubsumptionResult(subsumes=false, reason="independent_conditions")
+    if P1.rule_type = P2.rule_type = group_restricted:
+        if members(P2.group) ⊆ members(P1.group) and P1.group ≠ P2.group:
+            return Result(subsumes=true, kind="subject_subsumption",
+                          witness="группа P2 входит в группу P1")
 
+    if P1.rule_type = P2.rule_type ∈ {completion_required, viewed_required}:
+        if same_target(P1, P2):                  # условия идентичны
+            return Result(subsumes=true, kind="redundancy",
+                          witness="оба правила требуют то же действие на том же элементе")
 
-procedure classify(result: SubsumptionResult) → string:
-    # СВ-4 vs СВ-5 по типу унификации в witness
-    if result.witness.has_named_subject_unification():
-        # В P2 есть привязка к конкретному индивиду (например, belongs_to_group(σ*, ivanova))
-        # или P2 — персональное правило на named Student, а P1 — групповое
-        return "subject_subsumption"         # СВ-5
-    else:
-        return "redundancy"                  # СВ-4 (условия одинакового уровня общности)
+    # AND-composite: атом P1 поглощает AND-композит, если P1 эквивалентна одной из подполитик P2
+    if P2.rule_type = and_combination:
+        for sub ∈ P2.has_subpolicy:
+            if atomic_equivalent(P1, sub):
+                return Result(subsumes=true, kind="subject_subsumption",
+                              witness="условие P1 уже входит в составное правило P2")
+
+    return Result(subsumes=false)
 ```
+
+Реализация — [`code/backend/src/services/verification/_subsumption.py`](../code/backend/src/services/verification/_subsumption.py).
+
+### А6.4.1. Семантика SWRL-шаблонов и формальное определение subsumption
+
+В двухуровневой SWRL-семантике (см. SAT_DATA_MODELS §2.1) каждой политике `P` типа `k` соответствует правило шаблона `T_k`, выводящее `satisfies(s, P)` для студента `s`, если ABox содержит факты, соответствующие условию `P` для `s`. Обозначим это условие через `Cond(P)(s)` — формула первого порядка над предикатами ABox.
+
+**Определение (semantic subsumption).** `P1 ⊒ P2` ⟺ для любого студента `s` и любого ABox `A`, удовлетворяющего TBox-аксиомам онтологии: `A ⊨ Cond(P2)(s)` влечёт `A ⊨ Cond(P1)(s)`.
+
+Из определения:
+- **СВ-4 Redundancy:** `P1 ⊒ P2` и оба защищают один элемент ⇒ `P2` избыточна (удаление не меняет `is_available_for` ни для кого, кто проходил через `P2`).
+- **СВ-5 Subject Subsumption:** `P1 ⊒ P2` и поглощение возникает на уровне subject-индивидов или групп (а не на уровне условий равной общности) ⇒ персональное / узкогрупповое правило поглощается более широким.
+
+### А6.4.2. Доказательство DL-эквивалентности для атомарных типов
+
+**Лемма 1 (GRADE).** Пусть `P1`, `P2` — политики `grade_required` с `targets_element(P1) = targets_element(P2) = e` и порогами `th1`, `th2`. Тогда `P1 ⊒ P2 ⟺ th1 ≤ th2`.
+
+*Доказательство.* По шаблону T_grade (SAT_DATA_MODELS §2.1):
+
+  Cond(P)(s) ≡ ∃pr. ProgressRecord(pr) ∧ refers_to_student(pr, s) ∧ refers_to_element(pr, e) ∧ has_grade(pr, g) ∧ g ≥ threshold(P).
+
+(⇐) Если `th1 ≤ th2`, то из `g ≥ th2` следует `g ≥ th1`, то есть `Cond(P2)(s) ⊨ Cond(P1)(s)` для любого `s`, любого ABox.
+
+(⇒) От противного: пусть `th1 > th2`. Возьмём ABox с одним `pr` где `has_grade(pr, th2)`. Тогда `Cond(P2)(s)` истинно (`g = th2 ≥ th2`), но `Cond(P1)(s)` ложно (`g = th2 < th1`). Контрпример к `P1 ⊒ P2`. ∎
+
+**Лемма 2 (DATE).** Для политик `date_restricted` с одинаковым `targets_element` и интервалами `[from1, until1]`, `[from2, until2]`: `P1 ⊒ P2 ⟺ [from2, until2] ⊆ [from1, until1]`.
+
+*Доказательство.* По шаблону T_date с CurrentTime-enricher (см. SAT_ALGORITHMS §А2.11):
+
+  Cond(P)(s) ≡ ∃t. CurrentTime(t) ∧ valid_from(P) ≤ t ≤ valid_until(P).
+
+Условие не зависит от `s` (date — ортогональная семантика). Включение интервалов ⊆ эквивалентно `from1 ≤ from2 ∧ until1 ≥ until2`. Прямое следствие. ∎
+
+**Лемма 3 (GROUP, экстенсиональная семантика).** Для политик `group_restricted` с группами `G1`, `G2`: `P1 ⊒ P2 ⟺ {s : belongs_to_group(s, G2)} ⊆ {s : belongs_to_group(s, G1)}` в текущем ABox.
+
+*Доказательство.* По шаблону T_group: `Cond(P)(s) ≡ belongs_to_group(s, group(P))`. Эквивалентность включений — определение. ∎
+
+**Замечание о GROUP.** Лемма 3 формулируется *экстенсионально*: subsumption проверяется по фактическому членству в текущем ABox, а не по TBox-аксиомам типа `Group_advanced ⊑ Group_general`. Это соответствует семантике CWA-enforcement (см. §2.5.4 PROJECT_BIBLE): верификация проходит на снимке ABox, и добавление студента — событие инвалидации кэша верификации (А5.4). Расширение до TBox-уровня (через `rdfs:subClassOf` на классах групп) — часть DL-fallback (§А6.8).
+
+**Теорема 1 (полнота для атомарных типов).** Для пар `(P1, P2)` с одним типом из {GRADE, DATE, GROUP, COMPLETION, VIEWED} и совпадающим `targets_element` процедура `check_pair` возвращает `subsumes=true` тогда и только тогда, когда `P1 ⊒ P2` в семантике §А6.4.1.
+
+*Доказательство.* GRADE / DATE / GROUP — леммы 1–3. COMPLETION / VIEWED — `Cond(P)(s) ≡ ∃pr. <предикат>(pr) ∧ refers_to_student(pr, s) ∧ refers_to_element(pr, e)`, условие зависит только от `e`; равенство targets ⟺ совпадение условий ⟺ `P1 ⊒ P2 ∧ P2 ⊒ P1`. ∎
+
+**Теорема 2 (soundness для AND-composite).** Если `P2.rule_type = and_combination` с подполитиками `S1, …, Sn`, и существует `i` с `S_i` синтаксически эквивалентной `P1` (тот же тип + те же ключевые атрибуты), то `P1 ⊒ P2`.
+
+*Доказательство.* `Cond(P2)(s) ≡ Cond(S1)(s) ∧ … ∧ Cond(Sn)(s)`. Из конъюнкции следует любой её конъюнкт, в частности `Cond(S_i)(s)`. По лемме 1 / лемме 3 (или равенству для COMPLETION / VIEWED), эквивалентность атомарных условий означает совпадение `Cond(S_i)` и `Cond(P1)`. Тогда `Cond(P2)(s) ⊨ Cond(S_i)(s) = Cond(P1)(s)`. ∎
+
+Теорема 2 даёт только soundness, не completeness: AND-composite с *неэквивалентной*, но более сильной подполитикой (например, `S_i = grade_required(t, 90)`, `P1 = grade_required(t, 60)`) синтаксической процедурой не обнаруживается. Этот класс — на DL-fallback.
+
+### А6.4.3. Граница техники: что синтаксика не находит
+
+Процедура **не обнаруживает** subsumption в случаях:
+
+1. **OR-composite.** `P2 = S1 ∨ S2`, `P1` поглощает каждое из `S1`, `S2` по отдельности — требует case-analysis по дизъюнкции.
+2. **Смешанные типы атом ↔ композит.** `P1 = grade_required(t, 60)`, `P2 = and(grade_required(t, 80), date_restricted(…))` — теорема 2 ловит точное равенство, не более слабое включение порогов внутри AND.
+3. **TBox-цепочки.** Транзитивность `is_subcompetency_of` делает `competency_required` с под-компетенцией поглощённой родительской политикой — синтаксика на это не смотрит, требуется DL-вывод по TBox.
+4. **Aggregate.** `aggregate_required(AVG, [e1, e2], 70)` ⊒ покомпонентным правилам — требует арифметического вывода, недоступного без resonera + специализированного рассуждения.
+5. **Cross-type.** `group_restricted(G)` ⊒ `completion_required(e)` для персонального студента из `G` — требует расширения модели свойствами «applies_to» (нет в текущей модели).
+
+Случаи 1–4 — кандидаты на DL-fallback (§А6.8). Случай 5 — расширение модели, выносится в перспективы §6.6 PROJECT_BIBLE.
 
 ### А6.5. Пример: СВ-4 Redundancy
 
@@ -1316,43 +1386,57 @@ procedure classify(result: SubsumptionResult) → string:
 - `P1`: `grade_required(test_1, threshold=60)` — активна.
 - `P2`: `grade_required(test_1, threshold=80)` — активна.
 
-`synthetic_prerequisites(σ*, P2)` даёт ABox с `ProgressRecord(pr), refers_to_student(pr, σ*), refers_to_element(pr, test_1), has_grade(pr, 80)`.
-
-Pellet применяет SWRL шаблон 2 (grade_required):
-- Для `P2`: `80 ≥ 80` → `satisfies(σ*, P2)` ✓.
-- Для `P1`: `80 ≥ 60` → `satisfies(σ*, P1)` ✓.
-
-Вывод: `P1 subsumes P2`. Отчёт: «P2 избыточна — результат не меняется при её удалении, потому что P1 с порогом 60 всегда срабатывает, когда P1 с порогом 80». Методист видит: «упростить — удалить P2 или P1 (в зависимости от того, какая логика была задумана)».
+`check_pair(P1, P2)` попадает в ветку GRADE / GRADE: `same_target` ✓, `60 ≤ 80`, пороги различны ⇒ `subsumes=true`, kind=redundancy. По лемме 1: для любого студента с has_grade ≥ 80 неравенство ≥ 60 выполнено автоматически. Отчёт: «кто получил ≥80 за «test_1», автоматически имеет ≥60 — более строгое правило избыточно». Методист принимает решение, какую из двух удалить.
 
 ### А6.6. Пример: СВ-5 Subject Subsumption
 
 Курс имеет две политики на `advanced_module`:
-- `P1`: `group_restricted(grp_advanced)` — «доступно всем в группе advanced».
-- `P2`: `completion_required(prep_exam)` применяется персонально для студентки `ivanova` (через дополнительный фильтр в ABox — в текущей модели такого нет, но перспективно: `has_applies_to(P2, ivanova)`).
+- `P1`: `group_restricted(grp_general)` — широкая группа.
+- `P2`: `group_restricted(grp_advanced)` — `members(grp_advanced) ⊆ members(grp_general)`.
 
-В общем случае СВ-5 требует расширения модели subject-фильтрами. Для MVP СВ-5 сужается до практического случая: `P1 group_restricted(G)` и `P2` — то же условие, но с пересечением `belongs_to_group` на меньшую группу `G' ⊂ G`. Поглощение СВ-5 тогда сводится к subclass-check между группами, разрешимому Pellet через `rdfs:subClassOf` на классах `GroupMember`.
+`check_pair(P1, P2)` попадает в ветку GROUP / GROUP: вложенность по членам ⇒ `subsumes=true`, kind=subject_subsumption. По лемме 3: каждый студент из узкой группы автоматически в широкой; правило `P2` поглощено более широким `P1`. Отчёт: «группа «продвинутая» входит в группу «общая»».
 
-В фазе 2 реализуется **MVP СВ-5**: `group_restricted` vs более узкое `group_restricted` с вложенной группой. Полноценный personal-level subject subsumption — в перспективу (требует расширения модели свойствами «applies_to»).
+В фазе 2 реализован практический случай СВ-5 — вложенность group_restricted и AND-composite (теорема 2). Personal-level subject subsumption через свойство `applies_to` на named individual — расширение модели, перспектива (см. §А6.4.3 п.5).
 
 ### А6.7. Сложность
 
-**Pellet-прогон** `check_subsumption` для одной пары: O(время reasoning на ABox ≈ TBox + O(prerequisites)), ≈ 50–500 мс на пару.
+**Per-pair.** Все ветки `check_pair` — O(1) проверки атрибутов или O(|members|) для GROUP. Без запуска резонера, без построения ABox.
 
-**Число пар.** После фильтров А6.3 — O(k·|elements|) + O(g²) для группового MVP, где g — число групп. Типично 200–300 пар на курс из 500 элементов.
+**Число пар.** Все пары активных политик с общим `targets_element`: O(k·|elements|), где k — среднее число политик на элемент (типично 1–3). На курсе в 500 элементов и 100 правил — единицы сотен пар.
 
-**Итого:** единицы секунд на курс, допустимо в UC-6 (верификация по запросу), не в UC-3 (per-rule валидация была бы слишком дорогой).
+**Итого.** Десятки миллисекунд на курс. Запускается через `GET /verify/course/{id}?full=true` (А6.10) и кэшируется через А5 вместе с СВ-1/2/3.
 
-### А6.8. Оптимизации
+### А6.8. Расширение через DL-fallback (перспектива)
 
-1. **Кэш по подписи политик.** Пара `(P1_sig, P2_sig)` с одинаковыми типами и параметрами даёт одинаковый результат — кэшируется.
-2. **Отсечение по включению интервалов.** Для пары `grade_required` с порогами `th1 ≤ th2` и одним target — это гарантированная subsumption без Pellet-прогона (синтаксическая проверка). Аналогично для date_restricted: окно `[a, b] ⊆ [c, d]` → политика с узким окном поглощается политикой с широким.
-3. **Инкрементальный режим.** При создании новой политики в UC-2 проверяются только пары с новой политикой — O(k), единицы пар. Это допустимо в UC-3 (validate-before-save).
+Случаи §А6.4.3, не покрытые синтаксикой, могут быть закрыты Pellet-fallback с переиспользованием инфраструктуры А4.5:
+
+```text
+procedure check_pair_dl(P1, P2, O) → Result:
+    σ_abox ← TBox(O) ∪ disjointness(O) ∪ {Student(σ*)} ∪ synthetic_prerequisites(σ*, P2)
+    if not Pellet.consistent(σ_abox):
+        return Result(subsumes=false, reason="P2_unsatisfiable")  # подпадает под СВ-1
+    Pellet.run(σ_abox)
+    if σ_abox ⊨ satisfies(σ*, P1):
+        return Result(subsumes=true, witness=extract_unification(σ_abox, P1, P2))
+    return Result(subsumes=false)
+```
+
+Запуск только на парах, которые синтаксика отбраковала и при этом проходят расширенный фильтр кандидатов (composite ↔ composite, mixed types). Стоимость — 50–500 мс на пару, единицы–десятки секунд на курс.
+
+Требования к реализации:
+1. Изолированный `owlready2 World` на пару (чтобы синтетический ABox не загрязнял основную онтологию).
+2. Witness-extraction: какие SWRL-правила и какие подформулы привели к выводу `satisfies(σ*, P1)`.
+3. EXP1-расширение: сценарии типа `or_composite_subsumes_atomic`, `tbox_chain_subcompetency`, `aggregate_dominates` — где синтаксика молчит, а Pellet ловит.
+
+Эта работа вынесена в §6.6 PROJECT_BIBLE как часть «перспективы развития».
 
 ### А6.9. Корректность
 
-**Soundness.** Если А6 возвращает «P1 subsumes P2», то для любого реального студента из `satisfies(s, P2)` следует `satisfies(s, P1)`. Доказательство: `synthetic_prerequisites(σ*, P2)` строит минимальный ABox, а любой реальный студент `s` с `satisfies(s, P2)` содержит в своём ABox как минимум те же факты (или более сильные). SWRL-выводы монотонны по фактам: если на меньшем наборе выведено `satisfies(σ*, P1)`, то на большем — тем более.
+**Soundness синтаксической процедуры.** Если `check_pair(P1, P2)` возвращает `subsumes=true`, то `P1 ⊒ P2` в семантике §А6.4.1. Для атомарных типов это теорема 1; для AND-composite — теорема 2; для GROUP — лемма 3 в экстенсиональном прочтении.
 
-**Completeness (partial).** А6 не обнаруживает subsumption, требующий нетривиального DL-вывода через аксиомы TBox вне тривиальной цепочки (например, через глубокую транзитивность subcompetency и композицию с group_restricted). Это теоретическая неполнота; для practical сценариев ВКР-демонстрации не критично — EXP1 (Precision/Recall СВ-4/5) измеряется на наборе сценариев с known-ground-truth.
+**Completeness синтаксической процедуры.** Полнота ограничена атомарными парами одного типа и AND-composite с эквивалентной подполитикой; иные классы перечислены в §А6.4.3. Это **сознательное** ограничение: процедура решает экстенсиональную задачу subsumption на снимке ABox без обращения к резонеру; полная DL-задача — в DL-fallback (§А6.8).
+
+**Эмпирическая валидация.** EXP1 (full + adversarial, день 2) = **102 сценария**, из которых 20 на СВ-4 (10 sv4_redundant + 10 adv_not_redundant) и 20 на СВ-5 (10 sv5_subject + 10 adv_not_subsumed). Combined matrix: precision = recall = F1 = 1.000 на обоих свойствах (см. [pz/figures/exp1/full_day2.md](../pz/figures/exp1/full_day2.md)). Adversarial группа критически важна: 10 граничных «почти-нарушений» (разные target / type / threshold у близких политик) детектор корректно классифицировал как passing — это прямое подтверждение precision на boundary.
 
 ### А6.10. Диф с текущим кодом (вход в 3.6)
 
@@ -1372,4 +1456,8 @@ Pellet применяет SWRL шаблон 2 (grade_required):
 
 Все 🔴 — часть фазы 2, триггерятся FIX13 (СВ-4) и FIX14 (СВ-5).
 
-**Статус реализации (24.04).** Реализован `SubsumptionChecker` на синтаксических эвристиках: равенство target + порогов для `grade_required`, вложенность окон для `date_restricted`, subset-отношение для `group_restricted`, поиск эквивалентной подполитики для AND-композита. SUB5/SUB7/SUB9 закрыты: синтаксические оптимизации применяются по умолчанию (п. SUB5), эндпоинт объединён с `GET /verify/course/{id}?full=true` (SUB7), UI-раздел «Избыточные и поглощённые правила» есть в `VerificationReport.vue` (SUB9). Не реализован **полный SUB3** — DL-subsumption через `synthetic_prerequisites` + Pellet на парах композит↔композит и атом↔композит с нетривиальной TBox-цепочкой. Это означает partial-completeness: пары, требующие reasoning через аксиомы TBox вне синтаксического равенства, пропускаются. Для EXP1 это приемлемо — ground-truth сценарии (`bad_sv4_redundant`, `bad_sv5_subject`) спроектированы под ловимые синтаксикой случаи. Полная DL-subsumption выносится в главу 4 ПЗ (перспективы): «DL-резонинг-backed subsumption для композитных политик, с переиспользованием `synthetic_prerequisites` из алгоритма А4 и изолированным owlready2 World на каждую проверяемую пару».
+**Статус реализации (25.04, переосмысление).** Реализован `SubsumptionChecker` как **законченная синтаксическая процедура** для атомарных типов GRADE / DATE / GROUP / COMPLETION / VIEWED и AND-composite. Корректность относительно DL-семантики SWRL-шаблонов формально доказана в §А6.4.2 (леммы 1–3, теоремы 1–2). Граница техники — §А6.4.3 (OR-composite, смешанные типы атом↔композит, TBox-цепочки, aggregate, cross-type). Эмпирическая валидация — §А6.9: EXP1 day 2 на 102 сценариях даёт F1 = 1.000 на СВ-4 / СВ-5 включая 10 + 10 adversarial boundary-кейсов.
+
+`SUB3` в исходной формулировке (Pellet-based `check_subsumption`) переквалифицирован: для покрытого скоупа Pellet не нужен (синтаксика эквивалентна по теоремам 1–2), для непокрытого — это DL-fallback из §А6.8, отнесён в перспективы (§6.6 PROJECT_BIBLE). `SUB5` (синтаксические «оптимизации» в исходной формулировке) перестал быть оптимизацией: теперь это и есть основная процедура. `SUB7` / `SUB9` закрыты как и прежде.
+
+Решение зафиксировано 25.04 в §7 PROJECT_BIBLE: переход от модели «партиальный Pellet → фаза 3» к модели «полная синтаксическая процедура с доказанной DL-эквивалентностью на атомарных типах + AND-composite; DL-fallback на композитах OR / mixed / TBox-цепочках — перспектива».

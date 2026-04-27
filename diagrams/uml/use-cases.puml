@@ -8,7 +8,7 @@ skinparam usecaseBorderColor Black
 skinparam packageStyle rectangle
 left to right direction
 
-title Диаграмма вариантов использования — UC-1…UC-10
+title Диаграмма вариантов использования
 
 actor "Методист" as M
 actor "Администратор" as A
@@ -62,7 +62,8 @@ LMS --> UC4
 LMS --> UC5
 
 ' Студент — только объяснение блокировки
-S --> UC9
+S --> LMS
+LMS --> UC9
 
 ' Include / Extend
 UC1  ..> UC3  : <<include>>
@@ -73,17 +74,5 @@ UC7c ..> UC4  : <<include>>
 UC10 ..> UC6  : <<include>>
 UC9  ..|> UC4 : <<extend>>
 UC9  ..|> UC7c : <<extend>>
-
-note bottom
-  **Покрытие ФТ (трассировка 2.7.7):**
-  ФТ-1 → UC-1, UC-2, UC-10
-  ФТ-2 → UC-4, UC-7b, UC-7c
-  ФТ-3 → UC-6, UC-10
-  ФТ-4 → UC-5, UC-10
-  ФТ-5 → UC-1, UC-2, UC-3
-  ФТ-6 → UC-4, UC-7c, UC-9
-  ФТ-7 → UC-7a, UC-7b, UC-7c
-  ФТ-8 → UC-5, UC-8
-end note
 
 @enduml

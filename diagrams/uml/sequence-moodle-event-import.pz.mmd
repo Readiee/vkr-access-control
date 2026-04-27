@@ -1,0 +1,34 @@
+%%{init: {'theme': 'default', 'themeVariables': {'fontFamily': 'Segoe UI'}}}%%
+sequenceDiagram
+    autonumber
+    actor Student as Обучающийся
+    participant Moodle as Moodle (PEP)
+    participant Observer as Event Observer Plugin (PHP)
+    participant API as Backend API (FastAPI)
+    participant Progress as ProgressService
+    participant Reasoner as ReasoningOrchestrator
+    participant Cache as Redis
+
+    Note over Student,Moodle: Студент завершает активность в Moodle
+    Student->>Moodle: завершить module / quiz / assignment
+    Moodle-->>Moodle: обновить course_modules_completion / quiz_attempts
+
+    Note over Moodle,Observer: Плагин-наблюдатель ловит событие Moodle
+    Moodle->>Observer: \core\event\course_module_completion_updated
+    Note right of Observer: или \mod_quiz\event\attempt_submitted
+
+    Observer->>API: POST /api/v1/events/progress
+    Note right of Observer: payload: {student_id, element_id,<br/>event_type: completed|viewed,<br/>value?: float, timestamp}
+
+    API->>Progress: register_progress(payload)
+    Progress->>Progress: update_progress: запись факта в ABox
+    API-->>Observer: 202 Accepted
+
+    Note over Progress,Reasoner: Дальнейший пересчёт идёт в фоне
+    Progress->>Reasoner: rerun_reasoning_and_rebuild_cache(student_id)
+
+    Reasoner->>Cache: DEL access:{student_id}
+    Reasoner->>Reasoner: полный прогон логического вывода
+    Reasoner->>Cache: SET access:{student_id}
+
+    Note over Observer,Moodle: При следующем рендере Moodle снова<br/>дёрнет проверку доступности

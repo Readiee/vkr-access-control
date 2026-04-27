@@ -1,0 +1,62 @@
+%%{init: {'theme': 'default', 'themeVariables': {'fontFamily': 'Segoe UI'}}}%%
+sequenceDiagram
+    autonumber
+    title Запрос доступа обучающегося к элементу курса (через кэш)
+
+    participant LMS as Внешняя СДО
+    participant AC as AccessController
+    participant AS as AccessService
+    participant CM as CacheManager
+    participant R as Redis
+    participant RO as ReasoningOrchestrator
+    participant OC as OntologyCore
+    participant P as Pellet<br/>(embedded JVM)
+
+    LMS ->> AC : GET /access/student/{sid}/course/{cid}
+    AC  ->> AS : get_course_access(student, course)
+    AS  ->> CM : get_student_access(student)
+    CM  ->> R  : GET access:{student}
+    R   -->> CM : payload | nil
+
+    alt Попадание в кэш
+        CM -->> AS : cached_map
+        AS ->> AS : фильтр по курсу<br/>+ проверка версии онтологии
+        alt версия онтологии устарела
+            AS ->> CM : invalidate_student(student)
+            note right of AS : переход в ветку промаха
+        end
+        AS -->> AC : AvailableElements{accessible[], blocked[]}
+        AC -->> LMS : 200 {accessible: true/false}
+    else Промах кэша
+        CM -->> AS : nil
+        AS ->> RO : reason_and_materialize(student)
+
+        rect rgb(255, 248, 240)
+            note over RO,P: Полный прогон логического вывода
+            RO ->> OC : очистить is_available_for<br/>пересоздать current_time_ind<br/>пересчитать AggregateFact
+            RO ->> P  : sync_reasoner_pellet + SWRL<br/>(таймаут 10 с)
+
+            alt Таймаут
+                P -->> RO : TIMEOUT
+                RO ->> CM : get_student_access(student) / stale
+                alt устаревший кэш есть
+                    CM -->> AS : stale_cache
+                    AS -->> AC : AvailableElements + заголовок X-Stale
+                    AC -->> LMS : 200 (degraded)
+                else устаревшего кэша нет
+                    AS -->> AC : 503 Service Unavailable
+                    AC -->> LMS : 503
+                end
+            else OK
+                P -->> RO : ABox обновлён
+                RO ->> RO : cwa-enforcement<br/>+ каскадная блокировка<br/>через иерархию курса
+                RO ->> CM : set_student_access(student, map, ttl)
+                CM ->> R  : SET access:{student} EX ttl
+                RO -->> AS : ok
+                AS ->> CM : get_student_access(student)
+                CM -->> AS : fresh_map
+                AS -->> AC : AvailableElements
+                AC -->> LMS : 200
+            end
+        end
+    end

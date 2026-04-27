@@ -1,0 +1,154 @@
+%%{init: {'theme': 'default', 'themeVariables': {'fontFamily': 'Segoe UI'}}}%%
+classDiagram
+    direction TB
+
+    %% =========================================================
+    %% Пользователи
+    %% =========================================================
+    namespace Users {
+        class User {
+            <<abstract>>
+        }
+        class Student
+        class SandboxStudent
+        class Teacher
+        class Methodologist
+    }
+    User <|-- Student
+    Student <|-- SandboxStudent
+    User <|-- Teacher
+    User <|-- Methodologist
+
+    %% =========================================================
+    %% Структура курса
+    %% =========================================================
+    namespace CourseStructurePkg {
+        class CourseStructure {
+            <<abstract>>
+            +order_index : int
+            +is_mandatory : bool
+        }
+        class Course
+        class Module
+        class LearningActivity
+        class Lecture
+        class Test
+        class Assignment
+        class Practice
+    }
+    CourseStructure <|-- Course
+    CourseStructure <|-- Module
+    CourseStructure <|-- LearningActivity
+    LearningActivity <|-- Lecture
+    LearningActivity <|-- Test
+    LearningActivity <|-- Assignment
+    LearningActivity <|-- Practice
+
+    %% =========================================================
+    %% Прогресс и предметная область
+    %% =========================================================
+    namespace ProgressDomain {
+        class ProgressRecord {
+            +has_grade : float
+            +started_at : dateTime
+            +completed_at : dateTime
+            +failed_attempts_count : int
+        }
+        class Status {
+            <<enumeration>>
+            status_viewed
+            status_completed
+            status_failed
+            status_passed
+        }
+        class Competency
+        class Group
+    }
+
+    %% =========================================================
+    %% Политики доступа
+    %% =========================================================
+    namespace Policies {
+        class AccessPolicy {
+            +is_active : bool
+            +rule_type : string
+            +passing_threshold : float
+            +valid_from : dateTime
+            +valid_until : dateTime
+            +aggregate_function : string
+        }
+    }
+
+    %% =========================================================
+    %% Подготовка фактов для логического вывода
+    %% =========================================================
+    namespace FactPreparation {
+        class CurrentTime {
+            +has_value : dateTime
+        }
+        class AggregateFact {
+            +computed_value : float
+        }
+    }
+
+    %% =========================================================
+    %% Иерархия курса
+    %% =========================================================
+    Course "1" *-- "0..*" Module : has_module
+    Module "1" *-- "0..*" LearningActivity : contains_activity
+
+    %% =========================================================
+    %% Прогресс
+    %% =========================================================
+    Student "1" *-- "0..*" ProgressRecord : has_progress_record
+    ProgressRecord --> CourseStructure : refers_to_element
+    ProgressRecord --> Status : has_status
+
+    %% =========================================================
+    %% Компетенции
+    %% =========================================================
+    Student --> Competency : has_competency
+    CourseStructure --> Competency : assesses
+    Competency --> Competency : is_subcompetency_of (transitive)
+
+    %% =========================================================
+    %% Группы
+    %% =========================================================
+    Student "1" --> "0..*" Group : belongs_to_group
+    Group --> Group : is_subgroup_of (transitive)
+
+    %% =========================================================
+    %% Политики доступа
+    %% =========================================================
+    CourseStructure "1" o-- "0..*" AccessPolicy : has_access_policy
+    AccessPolicy --> CourseStructure : targets_element
+    AccessPolicy --> Methodologist : has_author
+    AccessPolicy --> AccessPolicy : has_subpolicy
+    AccessPolicy --> Competency : targets_competency
+    AccessPolicy --> Group : restricted_to_group
+    AccessPolicy --> CourseStructure : aggregate_elements
+
+    %% =========================================================
+    %% Связи вспомогательных индивидов
+    %% =========================================================
+    AggregateFact --> Student : for_student
+    AggregateFact --> AccessPolicy : for_policy
+
+    %% =========================================================
+    %% Свойства, выводимые SWRL-правилами
+    %% =========================================================
+    Student ..> AccessPolicy : satisfies (выводится SWRL)
+    CourseStructure ..> Student : is_available_for (выводится SWRL)
+
+    %% =========================================================
+    %% Примечания
+    %% =========================================================
+    note for AccessPolicy "Значения rule_type:\ncompletion_required, grade_required,\nviewed_required, competency_required,\ndate_restricted, and_combination,\nor_combination, group_restricted,\naggregate_required."
+
+    note for CurrentTime "Один индивид current_time_ind.\nПересоздаётся перед каждым прогоном\nлогического вывода. Так SWRL получает\nдоступ к текущему времени, которого\nна уровне языка правил нет."
+
+    note for AggregateFact "По одному индивиду на каждую активную\nполитику aggregate_required в связке\nс конкретным студентом. Хранит численный\nитог агрегатной функции (AVG, SUM или COUNT)\nпо элементам из aggregate_elements.\nСчитается заранее: SWRL агрегатных\nфункций не имеет."
+
+    note for Status "Перечисление из четырёх именованных\nиндивидов. Связь с записью прогресса\nидёт через функциональное свойство\nhas_status: одна запись имеет\nровно один статус."
+
+    note for SandboxStudent "Песочница: отдельный наследник Student.\nСценарии симулятора не пересекаются\nс реальным прогрессом. Правила работают\nдля обоих классов одинаково, особой\nсемантики у наследника нет."

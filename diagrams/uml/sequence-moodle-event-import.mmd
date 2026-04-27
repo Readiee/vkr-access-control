@@ -1,0 +1,33 @@
+sequenceDiagram
+    autonumber
+    actor Student as Обучающийся
+    participant Moodle as Moodle (PEP)
+    participant Observer as Event Observer Plugin (PHP)
+    participant API as PDP API (FastAPI)
+    participant Progress as ProgressService
+    participant Reasoner as ReasoningOrchestrator
+    participant Cache as Redis
+
+    Note over Student,Moodle: Студент завершает activity в Moodle
+    Student->>Moodle: завершить module/quiz/assignment
+    Moodle-->>Moodle: обновить course_modules_completion / quiz_attempts
+
+    Note over Moodle,Observer: Custom plugin ловит событие Moodle
+    Moodle->>Observer: \core\event\course_module_completion_updated
+    Note right of Observer: или \mod_quiz\event\attempt_submitted
+
+    Observer->>API: POST /api/v1/events/progress
+    Note right of Observer: payload: {student_id, element_id,<br/>status: completed|viewed,<br/>grade?: float, timestamp}
+
+    API->>Progress: record_progress_event(payload)
+    Progress->>Progress: ProgressRepository.upsert_record
+    Progress->>Reasoner: invalidate_and_rebuild(student_id)
+
+    Reasoner->>Cache: DEL access:{student_id}:*
+    Note right of Reasoner: lazy rebuild на следующий cache-miss<br/>(см. алгоритм А5)
+
+    Reasoner-->>Progress: ReasoningResult
+    Progress-->>API: {ok: true, ontology_version}
+    API-->>Observer: 200 OK
+
+    Note over Observer,Moodle: На следующем render Moodle вызовет<br/>availability check (см. вторую sequence-диаграмму)

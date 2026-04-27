@@ -1,0 +1,30 @@
+%%{init: {'theme': 'default', 'themeVariables': {'fontFamily': 'Segoe UI'}}}%%
+C4Container
+    title Контейнерная диаграмма системы управления политиками доступа
+
+    Person(methodist, "Методист", "Проектирует курс и политики доступа.")
+    Person(admin, "Администратор", "Импортирует курсы и ведёт аудит политик.")
+
+    System_Ext(lms, "Внешняя СДО", "Moodle, Canvas, Blackboard, Open edX, Stepik.")
+
+    System_Boundary(accessControl, "Система управления политиками доступа") {
+        Container(webUI, "Web UI", "Vue + PrimeVue (SPA)", "Редактор политик, песочница сценариев, отчёты верификации, интерфейс импорта.")
+
+        Container(apiBackend, "API Backend", "Python + FastAPI + Owlready2 + NetworkX", "REST API. Оркестрация логического вывода, графовый анализ, каскадная агрегация завершённости, cwa-enforcement, инвалидация кэша.")
+
+        ContainerDb(ontologyStore, "Ontology Store", ".owl файл (RDF/XML)", "OWL 2 DL онтология: TBox с классами, аксиомами и SWRL-шаблонами; ABox с фактами курса.")
+
+        ContainerDb(cache, "Cache", "Redis", "Кэш решений о доступе. Источник запасного ответа при таймауте логического вывода.")
+    }
+
+    Rel(methodist, webUI, "Управляет политиками, песочница", "HTTPS")
+    Rel(admin, webUI, "Импортирует и администрирует", "HTTPS")
+
+    Rel(webUI, apiBackend, "Вызовы REST API", "HTTPS / JSON")
+    Rel(lms, apiBackend, "Запросы доступа, webhooks прогресса, импорт", "HTTPS / REST")
+    Rel(apiBackend, lms, "Объяснения блокировок", "HTTPS / REST")
+
+    Rel(apiBackend, ontologyStore, "Чтение и запись онтологии", "Owlready2 I/O")
+    Rel(apiBackend, cache, "Чтение и запись кэша", "Redis protocol")
+
+    UpdateLayoutConfig($c4ShapeInRow="2", $c4BoundaryInRow="1")

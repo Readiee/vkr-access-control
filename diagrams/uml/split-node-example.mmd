@@ -1,0 +1,25 @@
+flowchart TB
+
+    subgraph regular["Обычный граф (нода = элемент курса)"]
+        direction LR
+        Areg["module_A"]
+        Breg["module_B"]
+        Areg -->|p_cycle_ab| Breg
+        Breg -->|p_cycle_ba| Areg
+    end
+
+    subgraph splitnode["Split-node граф (нода = пара access/complete)"]
+        direction LR
+        Aa["module_A.access"]
+        Ac["module_A.complete"]
+        Ba["module_B.access"]
+        Bc["module_B.complete"]
+        Aa -.->|intra| Ac
+        Ba -.->|intra| Bc
+        Bc ==>|p_cycle_ab: completion| Aa
+        Ac ==>|p_cycle_ba: completion| Ba
+    end
+
+    regular --> splitnode
+
+    classDef default fill:#f5f5f5,stroke:#333,color:#000

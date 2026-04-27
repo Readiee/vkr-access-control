@@ -1,0 +1,63 @@
+# Демонстрационный экземпляр Moodle для PoC интеграции (режим Б).
+#
+# Стек поднимается отдельно от основного docker-compose.yml: используется
+# только для воспроизведения интеграционных сценариев главы 3 §3.4 и не
+# предназначен для продуктивного развёртывания.
+#
+# Запуск:
+#   docker compose -f docker-compose.moodle.yml up -d
+#   # дождаться готовности moodle: http://localhost:8081
+#   # авторизоваться admin / Moodle@dmin1, создать курс HAPPYPATH вручную
+#   # включить webservices и выпустить токен (см. README.md)
+
+services:
+  moodle-db:
+    image: bitnami/mariadb:11.0
+    environment:
+      ALLOW_EMPTY_PASSWORD: "no"
+      MARIADB_ROOT_PASSWORD: "moodle_root_pw"
+      MARIADB_USER: "bn_moodle"
+      MARIADB_PASSWORD: "bn_moodle_pw"
+      MARIADB_DATABASE: "bitnami_moodle"
+      MARIADB_CHARACTER_SET: "utf8mb4"
+      MARIADB_COLLATE: "utf8mb4_unicode_ci"
+    volumes:
+      - moodle_db_data:/bitnami/mariadb
+    healthcheck:
+      test: ["CMD", "mariadb", "-uroot", "-pmoodle_root_pw", "-e", "SELECT 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  moodle:
+    image: bitnami/moodle:4.3
+    depends_on:
+      moodle-db:
+        condition: service_healthy
+    ports:
+      - "8081:8080"
+    environment:
+      ALLOW_EMPTY_PASSWORD: "no"
+      MOODLE_DATABASE_HOST: moodle-db
+      MOODLE_DATABASE_PORT_NUMBER: "3306"
+      MOODLE_DATABASE_NAME: "bitnami_moodle"
+      MOODLE_DATABASE_USER: "bn_moodle"
+      MOODLE_DATABASE_PASSWORD: "bn_moodle_pw"
+      MOODLE_USERNAME: "admin"
+      MOODLE_PASSWORD: "Moodle@dmin1"
+      MOODLE_EMAIL: "admin@example.com"
+      MOODLE_SITE_NAME: "OntoRule PoC"
+      BITNAMI_DEBUG: "true"
+    volumes:
+      - moodle_data:/bitnami/moodle
+      - moodle_extra:/bitnami/moodledata
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/login/index.php"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+
+volumes:
+  moodle_db_data:
+  moodle_data:
+  moodle_extra:

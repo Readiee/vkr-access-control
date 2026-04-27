@@ -1,0 +1,84 @@
+%%{init: {'theme': 'default', 'themeVariables': {'fontFamily': 'Segoe UI'}}}%%
+C4Component
+    title Компонентная диаграмма API Backend (3-слойная архитектура)
+
+    Person(methodist, "Методист", "Управляет политиками через Web UI.")
+    System_Ext(lms, "Внешняя СДО", "Webhook-события прогресса, запросы доступа, импорт.")
+
+    Container(webUI, "Web UI", "Vue + PrimeVue (SPA)")
+    ContainerDb(ontologyStore, "Ontology Store", ".owl файл (RDF/XML)")
+    ContainerDb(cache, "Cache", "Redis")
+
+    Container_Boundary(api, "API Backend") {
+
+        Component(policyController, "PolicyController", "FastAPI router, API Layer", "Управление политиками: CRUD и переключение активности.")
+        Component(accessController, "AccessController", "FastAPI router, API Layer", "Чтение доступов студента и объяснение блокировки.")
+        Component(progressController, "ProgressController", "FastAPI router, API Layer", "Webhook приёма событий прогресса.")
+        Component(verificationController, "VerificationController", "FastAPI router, API Layer", "Запуск полной верификации курса.")
+        Component(sandboxController, "SandboxController", "FastAPI router, API Layer", "Песочница: тестовый студент и сценарии.")
+        Component(integrationController, "IntegrationController", "FastAPI router, API Layer", "Импорт структуры курса, метаданные онтологии.")
+
+        Component(policyService, "PolicyService", "Python, Service Layer", "Создание и обновление политик с предварительной проверкой.")
+        Component(accessService, "AccessService", "Python, Service Layer", "Чтение из кэша, фоновый перерасчёт, объяснение блокировок.")
+        Component(progressService, "ProgressService", "Python, Service Layer", "Запись факта, запуск каскадной агрегации, фоновый пересчёт.")
+        Component(verificationService, "VerificationService", "Python, Service Layer", "Полная верификация курса по пяти свойствам.")
+        Component(sandboxService, "SandboxService", "Python, Service Layer", "Прогон сценариев на изолированной копии состояния.")
+        Component(rollupService, "RollupService", "Python, Service Layer", "Каскадная агрегация завершённости вверх по иерархии.")
+        Component(integrationService, "IntegrationService", "Python, Service Layer", "Импорт из СДО, нормализация форматов, автозапуск верификации.")
+
+        Component(ontologyCore, "OntologyCore", "Owlready2, Core Layer", "Загрузка, сохранение, операции над TBox и ABox.")
+        Component(reasoningOrchestrator, "ReasoningOrchestrator", "Python + JPype + Pellet, Core Layer", "Конвейер логического вывода: подготовка фактов, Pellet, cwa-enforcement, материализация.")
+        Component(graphValidator, "GraphValidator", "NetworkX, Core Layer", "Граф зависимостей split-node, поиск циклов, недостижимость.")
+        Component(cacheManager, "CacheManager", "redis-py, Core Layer", "Чтение, запись и инвалидация решений о доступе.")
+    }
+
+    Rel(methodist, webUI, "Управляет политиками", "HTTPS")
+    Rel(lms, integrationController, "Импорт", "HTTPS / REST")
+    Rel(lms, accessController, "Запросы доступа", "HTTPS / REST")
+    Rel(lms, progressController, "События прогресса", "HTTPS / REST")
+    Rel(webUI, policyController, "Управление политиками", "HTTPS / JSON")
+    Rel(webUI, accessController, "Запрос доступов в песочнице", "HTTPS / JSON")
+    Rel(webUI, verificationController, "Запуск верификации", "HTTPS / JSON")
+    Rel(webUI, sandboxController, "Сценарии песочницы", "HTTPS / JSON")
+    Rel(webUI, integrationController, "Запуск импорта", "HTTPS / JSON")
+
+    Rel(policyController, policyService, "Делегирует")
+    Rel(accessController, accessService, "Делегирует")
+    Rel(progressController, progressService, "Делегирует")
+    Rel(verificationController, verificationService, "Делегирует")
+    Rel(sandboxController, sandboxService, "Делегирует")
+    Rel(integrationController, integrationService, "Делегирует")
+
+    Rel(policyService, ontologyCore, "Чтение и запись")
+    Rel(policyService, reasoningOrchestrator, "Проверка непротиворечивости")
+    Rel(policyService, graphValidator, "Проверка ацикличности")
+    Rel(policyService, cacheManager, "Инвалидация затронутых ключей")
+
+    Rel(accessService, ontologyCore, "Чтение ABox")
+    Rel(accessService, cacheManager, "Чтение и запись")
+    Rel(accessService, reasoningOrchestrator, "Промах кэша вызывает пересчёт")
+
+    Rel(progressService, ontologyCore, "Запись факта")
+    Rel(progressService, reasoningOrchestrator, "Фоновый перерасчёт")
+    Rel(progressService, rollupService, "Каскадная агрегация")
+    Rel(progressService, accessService, "Пересборка кэша студента")
+
+    Rel(verificationService, ontologyCore, "Чтение TBox и ABox")
+    Rel(verificationService, reasoningOrchestrator, "Непротиворечивость, субсумпции, избыточность")
+    Rel(verificationService, graphValidator, "Циклы и недостижимость")
+
+    Rel(sandboxService, ontologyCore, "Работа с копией ABox")
+    Rel(sandboxService, accessService, "Запрос решений (межсервисная зависимость)")
+    Rel(sandboxService, progressService, "Имитация событий")
+
+    Rel(rollupService, ontologyCore, "Чтение структуры, запись статусов")
+
+    Rel(integrationService, ontologyCore, "Запись структуры и политик")
+    Rel(integrationService, verificationService, "Автоверификация после импорта")
+    Rel(integrationService, cacheManager, "Инвалидация кэша курса")
+
+    Rel(reasoningOrchestrator, ontologyCore, "Подготовка фактов и cwa-enforcement")
+    Rel(ontologyCore, ontologyStore, "Чтение и запись .owl")
+    Rel(cacheManager, cache, "GET / SET / DEL")
+
+    UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")

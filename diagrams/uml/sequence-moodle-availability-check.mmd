@@ -1,0 +1,43 @@
+sequenceDiagram
+    autonumber
+    actor Student as Обучающийся
+    participant Moodle as Moodle (PEP)
+    participant Plugin as Availability Condition Plugin (PHP)
+    participant API as PDP API (FastAPI)
+    participant Access as AccessService
+    participant Cache as Redis
+
+    Note over Student,Moodle: Студент открывает страницу курса
+    Student->>Moodle: GET /course/view.php?id=N
+    Moodle->>Moodle: загрузить структуру course_modules
+
+    loop для каждой activity на странице
+        Moodle->>Plugin: is_available($cm, $userid)
+
+        Plugin->>API: GET /api/v1/access/student/{sid}/element/{eid}
+        Note right of Plugin: timeout=200ms,<br/>fail-close при timeout
+
+        API->>Access: get_element_access(student, element)
+        Access->>Cache: GET access:{student_id}
+
+        alt cache hit
+            Cache-->>Access: payload (≤50 ms, НФТ-1)
+        else cache miss
+            Access->>Access: rebuild_student_access (А2)
+            Access->>Cache: SET access:{student_id}, TTL=3600
+            Note right of Access: cold path ≤2000 ms (НФТ-2)
+        end
+
+        Access-->>API: ElementAccess{verdict, blocked_by?, reason?}
+        API-->>Plugin: 200 {access: allow|deny, message?}
+
+        alt verdict == allow
+            Plugin-->>Moodle: true
+        else verdict == deny
+            Plugin-->>Moodle: false + локализованное сообщение
+            Note right of Plugin: «Не выполнено: завершить test_1<br/>с оценкой ≥ 70»
+        end
+    end
+
+    Moodle-->>Student: страница курса с заблокированными элементами
+    Note over Student,Moodle: При клике по заблокированной activity —<br/>UC-9 BlockingExplanation в нашем UI

@@ -1,0 +1,77 @@
+%%{init: {'theme': 'default', 'themeVariables': {'fontFamily': 'Segoe UI'}}}%%
+flowchart TB
+    %% =========================================================
+    %% Внешние участники
+    %% =========================================================
+    User((Методист или<br/>администратор))
+    LMS([Внешняя СДО])
+
+    %% =========================================================
+    %% Хост и контейнеры Docker Compose
+    %% =========================================================
+    subgraph Host["Хост: Linux / macOS / Windows + WSL2"]
+        direction TB
+
+        subgraph Stack["Docker Compose"]
+            direction TB
+
+            subgraph NginxNode["container: nginx"]
+                WebUI[/"статика Vue SPA"/]
+            end
+
+            subgraph BackendNode["container: api-backend"]
+                direction TB
+                FastAPI[["FastAPI (uvicorn worker)"]]
+                PyLibs[["Owlready2 + NetworkX + redis-py"]]
+                PelletJVM[["Pellet (embedded JVM через JPype)"]]
+                FastAPI --> PyLibs
+                PyLibs --> PelletJVM
+            end
+
+            subgraph RedisNode["container: redis"]
+                Redis[("Redis in-memory")]
+            end
+
+            subgraph VolumeNode["volume: onto-data"]
+                OwlVol[("OWL-файл (RDF/XML)")]
+            end
+        end
+    end
+
+    %% =========================================================
+    %% Внешние потоки
+    %% =========================================================
+    User --> NginxNode
+    LMS  --> NginxNode
+    NginxNode --> BackendNode
+
+    %% =========================================================
+    %% Внутренние потоки
+    %% =========================================================
+    BackendNode --> RedisNode
+    BackendNode --> VolumeNode
+
+    %% =========================================================
+    %% Примечания
+    %% =========================================================
+    note1[/"Pellet не отдельный контейнер.\nJVM поднимается внутри процесса\nbackend через JPype и разделяет\nс ним жизненный цикл."/]
+    note2[/"Redis опциональный.\nПри его недоступности система\nработает в деградированном режиме:\nкаждый запрос триггерит полный\nпрогон логического вывода."/]
+    note3[/"OWL-файл хранится в volume.\nПерсистентность сохраняется\nмежду перезапусками контейнера."/]
+
+    BackendNode -.-> note1
+    RedisNode   -.-> note2
+    VolumeNode  -.-> note3
+
+    classDef host fill:#f7f7f7,stroke:#444
+    classDef stack fill:#fff,stroke:#222
+    classDef container fill:#eef5ff,stroke:#1f4a8b,color:#0b2a4a
+    classDef storage fill:#fff5e6,stroke:#a06a14,color:#5a3a00
+    classDef ext fill:#fffbe6,stroke:#a07a14,color:#5a4400
+    classDef noteCls fill:#fafaf3,stroke:#888,color:#333,stroke-dasharray: 4 3
+
+    class Host host
+    class Stack stack
+    class NginxNode,BackendNode,RedisNode container
+    class VolumeNode,Redis,OwlVol storage
+    class LMS ext
+    class note1,note2,note3 noteCls

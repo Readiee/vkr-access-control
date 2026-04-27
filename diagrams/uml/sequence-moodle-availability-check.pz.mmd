@@ -1,0 +1,45 @@
+%%{init: {'theme': 'default', 'themeVariables': {'fontFamily': 'Segoe UI'}}}%%
+sequenceDiagram
+    autonumber
+    actor Student as Обучающийся
+    participant Moodle as Moodle (PEP)
+    participant Plugin as Availability Condition Plugin (PHP)
+    participant API as Backend API (FastAPI)
+    participant Access as AccessService
+    participant Cache as Redis
+
+    Note over Student,Moodle: Открытие страницы курса в Moodle
+    Student->>Moodle: GET /course/view.php?id=N
+    Moodle->>Moodle: загрузить структуру course_modules
+
+    loop для каждой активности на странице
+        Moodle->>Plugin: is_available($cm, $userid)
+
+        Plugin->>API: GET /api/v1/access/student/{sid}/course/{cid}
+        Note right of Plugin: таймаут 200 мс,<br/>при таймауте доступ закрывается
+
+        API->>Access: get_course_access(student, course)
+        Access->>Cache: GET access:{student_id}
+
+        alt попадание в кэш
+            Cache-->>Access: payload
+            Note right of Access: быстрый ответ
+        else промах кэша
+            Access->>Access: rebuild_student_access(sid)
+            Access->>Cache: SET access:{student_id}, TTL=3600
+            Note right of Access: холодный путь<br/>через резонер
+        end
+
+        Access-->>API: AvailableElements{accessible[], blocked[]}
+        API-->>Plugin: 200 {access: allow|deny, message?}
+
+        alt доступ разрешён
+            Plugin-->>Moodle: true
+        else доступ закрыт
+            Plugin-->>Moodle: false + локализованное сообщение
+            Note right of Plugin: «Чтобы открыть, нужно завершить<br/>test_1 с оценкой ≥ 70»
+        end
+    end
+
+    Moodle-->>Student: страница курса с заблокированными элементами
+    Note over Student,Moodle: По клику на закрытый элемент студент<br/>получает развёрнутое объяснение блокировки

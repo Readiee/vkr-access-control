@@ -1,0 +1,66 @@
+%%{init: {'theme': 'default', 'themeVariables': {'fontFamily': 'Segoe UI'}}}%%
+sequenceDiagram
+    autonumber
+    title Создание политики доступа с предварительной валидацией
+
+    actor M as Методист
+    participant UI as Web UI
+    participant PC as PolicyController
+    participant PS as PolicyService
+    participant GV as GraphValidator
+    participant RO as ReasoningOrchestrator
+    participant OC as OntologyCore
+    participant CM as CacheManager
+    participant OWL as Ontology Store
+    participant R as Redis
+
+    M  ->> UI  : Заполняет форму политики
+    UI ->> PC  : POST /policies<br/>{src, tgt?, rule_type, params}
+    PC ->> PS  : create_policy(dto)
+
+    rect rgb(240, 248, 255)
+        note over PS,GV: Этап 1: проверка ацикличности
+        PS ->> GV : check_for_cycles(src, probe=ProbePolicy)
+        GV ->> OC : get_course_structure()
+        OC -->> GV : активные элементы и политики
+        GV ->> GV : построить граф зависимостей<br/>+ добавить пробную дугу
+        GV -->> PS : cycle_path (пустой или путь)
+
+        alt Цикл найден
+            PS -->> PC : PolicyConflictError(«Циклическая зависимость: …»)
+            PC -->> UI : 409 Conflict
+            UI -->> M  : «Создание отклонено: цикл»
+        end
+    end
+
+    rect rgb(245, 255, 245)
+        note over PS,RO: Этап 2: проверка непротиворечивости (dry-run)
+        PS ->> OC : clone_abox()
+        PS ->> OC : add_policy_individual(dto)
+        PS ->> RO : check_consistency()
+        RO ->> RO : подготовка фактов
+        RO ->> RO : логический вывод через Pellet
+        alt InconsistentOntologyError
+            RO -->> PS : explanation
+            PS ->> OC : rollback_abox()
+            PS -->> PC : PolicyConflictError(«Конфликт с политикой X»)
+            PC -->> UI : 409 Conflict
+            UI -->> M  : «Конфликт с политикой X»
+        else Непротиворечиво
+            RO -->> PS : ok
+        end
+    end
+
+    rect rgb(255, 250, 240)
+        note over PS,R: Этап 3: применение и материализация
+        PS ->> OC : commit_abox()
+        OC ->> OWL : save()
+        PS ->> RO : reason_and_materialize(student_id=None)
+        RO ->> RO : подготовка фактов + вывод + cwa-enforcement
+        RO ->> CM : invalidate_all_access()
+        CM ->> R  : DEL access:*
+        RO -->> PS : ok
+        PS -->> PC : policy_dict
+        PC -->> UI : 201 Created
+        UI -->> M  : «Политика создана»
+    end

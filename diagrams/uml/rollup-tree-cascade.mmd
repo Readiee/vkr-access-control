@@ -1,0 +1,40 @@
+flowchart BT
+
+    course["course_python_basics<br/>не завершён"]:::pending
+
+    m1["module_1_syntax<br/>завершён"]:::completed
+    m2["module_2_functions<br/>завершён"]:::completed
+    m3["module_3_oop<br/>не завершён"]:::pending
+
+    l1["lecture_1 (обязат.) ✓"]:::completed
+    l2["lecture_2 (обязат.) ✓"]:::completed
+    q1["quiz_1 (обязат.) ✓"]:::completed
+    p1["practice_1 (обязат.) ✓"]:::completed
+
+    l3["lecture_3 (обязат.) ✓"]:::completed
+    q2["quiz_2 (обязат.) ✓"]:::completed
+    p2["practice_2 (обязат.) ✓"]:::completed
+
+    l4["lecture_4 (обязат.) ✓"]:::completed
+    q3["quiz_3 (обязат.) —"]:::pending
+    p3["practice_3 (обязат.) —"]:::pending
+
+    l1 --> m1
+    l2 --> m1
+    q1 --> m1
+    p1 --> m1
+
+    l3 --> m2
+    q2 --> m2
+    p2 --> m2
+
+    l4 --> m3
+    q3 --> m3
+    p3 --> m3
+
+    m1 --> course
+    m2 --> course
+    m3 --> course
+
+    classDef completed fill:#d4f5d4,stroke:#2c8a2c,color:#000
+    classDef pending fill:#fcecd5,stroke:#a86c00,color:#000

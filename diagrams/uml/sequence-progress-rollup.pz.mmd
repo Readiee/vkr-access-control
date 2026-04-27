@@ -1,16 +1,16 @@
 %%{init: {'theme': 'default', 'themeVariables': {'fontFamily': 'Segoe UI'}}}%%
 sequenceDiagram
     autonumber
-    title UC-5 + UC-8: Событие прогресса и каскадное завершение (А3)
+    title Событие прогресса и каскадная агрегация завершённости
 
     participant LMS as Внешняя СДО
     participant PC as ProgressController
     participant PS as ProgressService
     participant OC as OntologyCore
-    participant RS as RollupService<br/>(А3)
-    participant RO as ReasoningOrchestrator<br/>(А2)
+    participant RS as RollupService
+    participant RO as ReasoningOrchestrator
     participant AS as AccessService
-    participant CM as CacheManager<br/>(А5)
+    participant CM as CacheManager
     participant R as Redis
     participant OWL as Ontology Store
 
@@ -18,12 +18,12 @@ sequenceDiagram
     PC  ->> PS : update_progress(student, element, status)
 
     rect rgb(240, 248, 255)
-        note over PS,OC: Шаг 1 — нормализация и запись факта
-        PS ->> OC : find_student(student_id) / get_or_create
-        PS ->> OC : find_element(element_id)
-        alt element не найден
+        note over PS,OC: Шаг 1: нормализация и запись факта
+        PS ->> OC : найти студента / создать
+        PS ->> OC : найти элемент курса
+        alt элемент не найден
             OC -->> PS : None
-            PS -->> PC : ValueError(ElementNotFound)
+            PS -->> PC : ValueError
             PC -->> LMS : 404
         end
         PS ->> OC : create_or_update ProgressRecord<br/>(refers_to_student, refers_to_element,<br/>has_grade?, has_status)
@@ -32,28 +32,28 @@ sequenceDiagram
     end
 
     rect rgb(245, 255, 245)
-        note over PS,RS: Шаг 2 — каскадная агрегация завершённости (А3)
-        alt event_type = "completed" или триггерит completed
+        note over PS,RS: Шаг 2: каскадная агрегация завершённости
+        alt событие завершает элемент
             PS ->> RS : execute(student, just_completed=element, update_callback)
 
-            loop пока parent ≠ None и все обязательные дети завершены
-                RS ->> OC : find_parent(current)
-                alt parent = None (корень)
+            loop пока есть родитель и все обязательные дети завершены
+                RS ->> OC : найти родительский элемент
+                alt родителя нет (корень)
                     OC -->> RS : None
                     note right of RS: выход из рекурсии
                 else
                     OC -->> RS : parent
-                    RS ->> OC : children_of(parent)<br/>filter is_mandatory=true
+                    RS ->> OC : дети parent с is_mandatory=true
                     OC -->> RS : mandatory_set
-                    alt mandatory_set = ∅
-                        note right of RS: нет обязательных — не завершаем
+                    alt mandatory_set пустой
+                        note right of RS: обязательных нет, не завершаем
                     else
                         loop ∀ c ∈ mandatory_set
-                            RS ->> OC : is_completed(student, c)
+                            RS ->> OC : проверить is_completed(student, c)
                         end
                         alt все завершены
-                            RS ->> OC : set_status(student, parent, COMPLETED)
-                            note right of RS: current := parent,<br/>продолжаем вверх
+                            RS ->> OC : пометить parent как COMPLETED
+                            note right of RS: подняться к parent
                         else
                             note right of RS: выход
                         end
@@ -65,13 +65,13 @@ sequenceDiagram
         end
     end
 
-    PC -->> LMS : 202 Accepted (processing_in_background)
+    PC -->> LMS : 202 Accepted (фоновая обработка)
 
     rect rgb(255, 250, 240)
-        note over PS,R: Шаг 3 — фоновый re-reasoning + инвалидация кэша<br/>(BackgroundTasks: rerun_reasoning_and_rebuild_cache)
+        note over PS,R: Шаг 3: фоновый перерасчёт логического вывода
         PS ->> RO : reason_and_materialize(student_id=student)
         activate RO
-        note right of RO: Полный pipeline А2:<br/>pre_enrich → reason →<br/>post_enforce → materialize
+        note right of RO: Подготовка фактов → вывод<br/>через Pellet → cwa-enforcement<br/>→ материализация
         RO -->> PS : ABox обновлён
         deactivate RO
         PS ->> AS : rebuild_student_access(student)

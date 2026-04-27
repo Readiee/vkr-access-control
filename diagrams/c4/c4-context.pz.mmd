@@ -1,0 +1,17 @@
+%%{init: {'theme': 'default', 'themeVariables': {'fontFamily': 'Segoe UI'}}}%%
+C4Context
+    title Контекстная диаграмма системы управления политиками доступа
+
+    Person(methodist, "Методист", "Проектирует курс и политики доступа к активностям и модулям. Запускает верификацию, анализирует отчёты.")
+    Person(admin, "Администратор", "Импортирует курсы из внешних СДО, ведёт аудит, управляет политиками для пулов курсов.")
+
+    System_Ext(lms, "Внешняя СДО", "Moodle, Canvas, Blackboard, Open edX, Stepik. Публикует контент студентам и запрашивает решения о доступе.")
+
+    System(accessControl, "Система управления политиками доступа", "База политик в OWL+SWRL, логический вывод через DL-резонер, графовая верификация, REST API для интеграции с СДО.")
+
+    Rel(methodist, accessControl, "Создаёт политики, запускает верификацию, работает с песочницей", "HTTPS")
+    Rel(admin, accessControl, "Импортирует курсы, ведёт аудит политик", "HTTPS")
+    Rel(lms, accessControl, "Запросы доступа, события прогресса, импорт", "HTTPS / REST")
+    Rel(accessControl, lms, "Решения о доступе, объяснения блокировок", "HTTPS / REST")
+
+    UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")

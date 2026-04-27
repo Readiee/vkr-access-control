@@ -10,37 +10,7 @@ skinparam linetype ortho
 skinparam nodesep 35
 skinparam ranksep 45
 
-title Диаграмма классов backend — проектная декомпозиция (3-слойная архитектура)
 
-' =========================================================
-' API LAYER (тонкий слой FastAPI-роутеров + Pydantic)
-' =========================================================
-package "API Layer" as PkgApi {
-    class PolicyController <<FastAPI>> {
-        + POST /policies
-        + PUT /policies/{id}
-        + DELETE /policies/{id}
-        + PATCH /policies/{id}/toggle
-    }
-    class AccessController <<FastAPI>> {
-        + GET /access/{student}/{element}
-        + GET /access/{student}/{element}/explain
-    }
-    class ProgressController <<FastAPI>> {
-        + POST /progress
-    }
-    class VerificationController <<FastAPI>> {
-        + POST /courses/{id}/verify
-    }
-    class SimulationController <<FastAPI>> {
-        + POST /sandbox/students
-        + PATCH /sandbox/students/{id}
-        + GET /sandbox/students/{id}/map
-    }
-    class IntegrationController <<FastAPI>> {
-        + POST /courses/{id}/sync
-    }
-}
 
 ' =========================================================
 ' SERVICE LAYER (бизнес-логика)
@@ -48,57 +18,71 @@ package "API Layer" as PkgApi {
 package "Service Layer" as PkgSrv {
     class PolicyService {
         - core : OntologyCore
-        - graph : GraphValidator
         - reasoner : ReasoningOrchestrator
         - cache : CacheManager
         + create_policy(data) : Policy
+        + get_policies(course_id?, element_id?) : list<Policy>
         + update_policy(id, data) : Policy
         + delete_policy(id) : bool
         + toggle_policy(id, active) : void
-        - _validate_new_rule(src, tgt, type) : void
     }
 
     class AccessService {
         - core : OntologyCore
-        - reasoner : ReasoningOrchestrator
         - cache : CacheManager
-        + get_access(student, element) : AccessDecision
-        + explain_block(student, element) : list<UnmetCondition>
+        - reasoner : ReasoningOrchestrator
+        - explainer : AccessExplainer
+        + rebuild_student_access(sid) : dict
+        + get_course_access(sid, cid) : AvailableElements
+        + explain_blocking(sid, eid) : dict
     }
 
     class VerificationService {
         - core : OntologyCore
-        - graph : GraphValidator
         - reasoner : ReasoningOrchestrator
-        + verify_course(course_id) : VerificationReport
-        - _check_consistency() : СВ1Result
-        - _check_acyclicity() : СВ2Result
-        - _check_reachability() : СВ3Result
-        - _check_redundancy() : СВ4Result
-        - _check_subsumption() : СВ5Result
+        - cache : CacheManager
+        + verify(course_id, include_subsumption) : VerificationReport
     }
 
-    class SimulationService {
+    class ProgressService {
         - core : OntologyCore
+        - reasoner : ReasoningOrchestrator
+        - rollup : RollupService
         - access : AccessService
-        + create_test_student() : TestStudent
-        + update_facts(id, facts) : void
-        + get_access_map(id) : Map<Element, AccessDecision>
+        + register_progress(event) : dict
+        + update_progress(sid, eid, status) : void
+        + rerun_reasoning_and_rebuild_cache(sid) : void
+        + invalidate_student_cache(sid) : dict
+        + get_student_access(sid, cid) : dict
+    }
+
+    class SandboxService {
+        - core : OntologyCore
+        - reasoner : ReasoningOrchestrator
+        - access : AccessService
+        - progress : ProgressService
+        + get_sandbox_state(cid) : dict
+        + simulate_progress(payload) : dict
+        + rollback_progress(eid) : dict
+        + reset_all() : dict
+        + set_competencies(ids) : dict
+        + set_groups(ids) : dict
     }
 
     class RollupService {
         - core : OntologyCore
-        - cache : CacheManager
-        + execute(student, just_completed) : void
-        - _is_container_completed(student, container) : bool
+        + execute(student, child_element, update_callback) : void
     }
 
     class IntegrationService {
         - core : OntologyCore
-        - rollup : RollupService
         - verification : VerificationService
-        + import_course(payload) : ImportReport
-        + handle_progress_event(event) : void
+        - cache : CacheManager
+        + sync_course_structure(cid, payload) : dict
+        + get_meta() : OntologyMeta
+        + get_course_tree(cid) : list<CourseTreeNode>
+        + set_element_competencies(eid, ids) : dict
+        + set_element_mandatory(eid, flag) : dict
     }
 }
 
@@ -126,12 +110,11 @@ package "Core Layer" as PkgCore {
         - _materialize(student, accessible) : void
     }
 
-    class GraphValidator <<А1, А4>> {
-        + build_dependency_graph(onto) : DiGraph
-        + detect_cycles_with_probe(src, tgt, type) : list<Element>
-        + detect_cycles_full() : list<list<Element>>
-        + find_all_unreachable() : list<UnreachableReport>
-        - _add_policy_edges(G, p, src) : void
+    class GraphValidator <<А1, А4>> <<utility>> {
+        + {static} check_for_cycles(onto, src, probe?) : list<Element>
+        + {static} find_all_cycles(onto) : list<list<Element>>
+        + {static} find_all_unreachable(onto) : list<UnreachableReport>
+        + {static} get_parent_of(onto, eid) : str?
     }
 
     class CacheManager <<А5>> {
@@ -141,6 +124,11 @@ package "Core Layer" as PkgCore {
         + invalidate_student(id) : void
         + invalidate_all_access() : void
         - _compute_ttl(student) : int
+    }
+
+    class AccessExplainer {
+        - core : OntologyCore
+        + explain_blocking(sid, eid) : dict
     }
 }
 
@@ -168,16 +156,21 @@ package "Schemas" as PkgSch {
         competency_id : str?
         timestamp : datetime
     }
-    class AccessDecision <<DTO>> {
-        accessible : bool
-        unmet_conditions : list<UnmetCondition>?
+    class AvailableElements <<DTO>> {
+        accessible : list<str>
+        blocked : list<str>
     }
-    class VerificationReport <<DTO>> {
+    class VerificationReportResponse <<DTO>> {
         consistency : СВ1Result
         acyclicity : СВ2Result
         reachability : СВ3Result
         redundancy : СВ4Result?
         subsumption : СВ5Result?
+    }
+    class CourseSyncPayload <<DTO>> {
+        course_id : str
+        modules : list<ModuleNode>
+        policies : list<PolicyCreate>
     }
 }
 
@@ -186,40 +179,47 @@ package "Schemas" as PkgSch {
 ' =========================================================
 PolicyController       ..> PolicyService
 AccessController       ..> AccessService
-ProgressController     ..> IntegrationService
-ProgressController     ..> RollupService
+ProgressController     ..> ProgressService
 VerificationController ..> VerificationService
-SimulationController   ..> SimulationService
+SandboxController      ..> SandboxService
 IntegrationController  ..> IntegrationService
 
 ' =========================================================
-' DEPENDENCIES: Services → Core + Services (via composition)
+' DEPENDENCIES: Services → Core + Services (composition)
 ' =========================================================
 PolicyService       --> OntologyCore
-PolicyService       --> GraphValidator
 PolicyService       --> ReasoningOrchestrator
 PolicyService       --> CacheManager
+PolicyService       ..> GraphValidator : <<uses static>>
 
 AccessService       --> OntologyCore
 AccessService       --> ReasoningOrchestrator
 AccessService       --> CacheManager
+AccessService       *--> AccessExplainer
 
 VerificationService --> OntologyCore
-VerificationService --> GraphValidator
 VerificationService --> ReasoningOrchestrator
+VerificationService --> CacheManager
+VerificationService ..> GraphValidator : <<uses static>>
 
-SimulationService   --> OntologyCore
-SimulationService   --> AccessService
+ProgressService     --> OntologyCore
+ProgressService     --> ReasoningOrchestrator
+ProgressService     --> RollupService
+ProgressService     --> AccessService
+
+SandboxService      --> OntologyCore
+SandboxService      --> ReasoningOrchestrator
+SandboxService      --> AccessService
+SandboxService      --> ProgressService
 
 RollupService       --> OntologyCore
-RollupService       --> CacheManager
 
 IntegrationService  --> OntologyCore
-IntegrationService  --> RollupService
 IntegrationService  --> VerificationService
+IntegrationService  --> CacheManager
 
 ' =========================================================
-' DEPENDENCIES: Core internal
+' Core internal
 ' =========================================================
 ReasoningOrchestrator --> OntologyCore
 
@@ -228,54 +228,8 @@ ReasoningOrchestrator --> OntologyCore
 ' =========================================================
 PolicyController       ..> PolicyCreate
 ProgressController     ..> ProgressEvent
-AccessController       ..> AccessDecision
-VerificationController ..> VerificationReport
-
-' =========================================================
-' NOTES
-' =========================================================
-note right of ReasoningOrchestrator
-  Pipeline А2 (SAT_ALGORITHMS §А2):
-  1. pre_enrich: CurrentTime, AggregateFact,
-     очистка is_available_for
-  2. reason: Pellet + SWRL через JPype
-  3. post_enforce: CWA + иерархическая блокировка
-  4. materialize: запись в Redis
-  Таймаут 10 с (НФТ-3).
-end note
-
-note bottom of GraphValidator
-  Split-node DiGraph: для каждого элемента
-  два узла (e.access, e.complete). Дуги
-  строятся по rule_type (см. §А1.4).
-  SCC / DFS через NetworkX.
-end note
-
-note bottom of SimulationService
-  Разрешённое исключение слоистой
-  архитектуры: симулятор использует
-  ту же логику доступа, что продакшн
-  (AccessService), без дублирования.
-end note
-
-note bottom of IntegrationService
-  Разрешённое исключение:
-  после импорта курса автоматически
-  запускается верификация (UC-10 include UC-6).
-end note
-
-legend bottom right
-  **Слои и зависимости**
-  API → Service → Core (сверху вниз)
-  ----
-  **Стереотипы:**
-  <<А1>>, <<А2>>, <<А4>>, <<А5>> — покрытие алгоритмов SAT_ALGORITHMS
-  <<FastAPI>> — тонкий роутер + Pydantic-валидация
-  <<DTO>> — Pydantic-схема
-  ----
-  **Разрешённые исключения:**
-  SimulationService → AccessService
-  IntegrationService → VerificationService, RollupService
-endlegend
+AccessController       ..> AvailableElements
+VerificationController ..> VerificationReportResponse
+IntegrationController  ..> CourseSyncPayload
 
 @enduml

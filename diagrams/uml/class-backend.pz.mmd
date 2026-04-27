@@ -1,0 +1,214 @@
+%%{init: {'theme': 'default', 'themeVariables': {'fontFamily': 'Segoe UI'}}}%%
+classDiagram
+    direction TB
+
+    %% =========================================================
+    %% API Layer — тонкие FastAPI-роутеры
+    %% =========================================================
+    namespace ApiLayer {
+        class PolicyController {
+            +GET /policies
+            +POST /policies
+            +PUT /policies/:id
+            +DELETE /policies/:id
+            +PATCH /policies/:id/toggle
+        }
+        class AccessController {
+            +GET /access/student/:sid/course/:cid
+            +GET /access/student/:sid/element/:eid/explain
+        }
+        class ProgressController {
+            +POST /events/progress
+        }
+        class VerificationController {
+            +GET /verify/course/:cid
+        }
+        class SandboxController {
+            +GET /sandbox/state
+            +POST /sandbox/progress
+            +DELETE /sandbox/progress/:eid
+            +POST /sandbox/reset
+            +PUT /sandbox/competencies
+            +PUT /sandbox/groups
+        }
+        class IntegrationController {
+            +POST /courses/:cid/sync
+            +GET /ontology/meta
+            +GET /courses/:cid/tree
+            +PUT /elements/:eid/competencies
+            +PUT /elements/:eid/mandatory
+        }
+    }
+
+    %% =========================================================
+    %% Service Layer — бизнес-логика
+    %% =========================================================
+    namespace ServiceLayer {
+        class PolicyService {
+            -core : OntologyCore
+            -reasoner : ReasoningOrchestrator
+            -cache : CacheManager
+            +create_policy(data) Policy
+            +get_policies(course_id, element_id) list~Policy~
+            +update_policy(id, data) Policy
+            +delete_policy(id) bool
+            +toggle_policy(id, active) void
+        }
+
+        class AccessService {
+            -core : OntologyCore
+            -cache : CacheManager
+            -reasoner : ReasoningOrchestrator
+            -explainer : AccessExplainer
+            +rebuild_student_access(sid) dict
+            +get_course_access(sid, cid) AvailableElements
+            +explain_blocking(sid, eid) dict
+        }
+
+        class VerificationService {
+            -core : OntologyCore
+            -reasoner : ReasoningOrchestrator
+            -cache : CacheManager
+            +verify(course_id, include_subsumption) VerificationReport
+        }
+
+        class ProgressService {
+            -core : OntologyCore
+            -reasoner : ReasoningOrchestrator
+            -rollup : RollupService
+            -access : AccessService
+            +register_progress(event) dict
+            +update_progress(sid, eid, status) void
+            +rerun_reasoning_and_rebuild_cache(sid) void
+            +invalidate_student_cache(sid) dict
+            +get_student_access(sid, cid) dict
+        }
+
+        class SandboxService {
+            -core : OntologyCore
+            -reasoner : ReasoningOrchestrator
+            -access : AccessService
+            -progress : ProgressService
+            +get_sandbox_state(cid) dict
+            +simulate_progress(payload) dict
+            +rollback_progress(eid) dict
+            +reset_all() dict
+            +set_competencies(ids) dict
+            +set_groups(ids) dict
+        }
+
+        class RollupService {
+            -core : OntologyCore
+            +execute(student, child_element, callback) void
+        }
+
+        class IntegrationService {
+            -core : OntologyCore
+            -verification : VerificationService
+            -cache : CacheManager
+            +sync_course_structure(cid, payload) dict
+            +get_meta() OntologyMeta
+            +get_course_tree(cid) list~CourseTreeNode~
+            +set_element_competencies(eid, ids) dict
+            +set_element_mandatory(eid, flag) dict
+        }
+    }
+
+    %% =========================================================
+    %% Core Layer — инфраструктура
+    %% =========================================================
+    namespace CoreLayer {
+        class OntologyCore {
+            -onto : Ontology
+            -path : str
+            +load() void
+            +save() void
+            +find_by_id(id) Individual
+            +create_individual(cls, id) Individual
+            +delete_individual(ind) void
+        }
+
+        class ReasoningOrchestrator {
+            -core : OntologyCore
+            -timeout_s : int
+            +reason_and_materialize(student_id) ReasonResult
+        }
+
+        class GraphValidator {
+            <<utility>>
+            +check_for_cycles(onto, src, probe) list~Element~
+            +find_all_cycles(onto) list~list~Element~~
+            +find_all_unreachable(onto) list~UnreachableReport~
+            +get_parent_of(onto, eid) str
+        }
+
+        class CacheManager {
+            -redis : Redis
+            +get_student_access(id) dict
+            +set_student_access(id, map, ttl) void
+            +invalidate_student(id) void
+            +invalidate_all_access() void
+        }
+
+        class AccessExplainer {
+            -core : OntologyCore
+            +explain_blocking(sid, eid) dict
+        }
+    }
+
+    %% =========================================================
+    %% Контроллеры → сервисы
+    %% =========================================================
+    PolicyController       ..> PolicyService
+    AccessController       ..> AccessService
+    ProgressController     ..> ProgressService
+    VerificationController ..> VerificationService
+    SandboxController      ..> SandboxService
+    IntegrationController  ..> IntegrationService
+
+    %% =========================================================
+    %% Сервисы → core и сервисы
+    %% =========================================================
+    PolicyService       --> OntologyCore
+    PolicyService       --> ReasoningOrchestrator
+    PolicyService       --> CacheManager
+    PolicyService       ..> GraphValidator
+
+    AccessService       --> OntologyCore
+    AccessService       --> ReasoningOrchestrator
+    AccessService       --> CacheManager
+    AccessService       *-- AccessExplainer
+
+    VerificationService --> OntologyCore
+    VerificationService --> ReasoningOrchestrator
+    VerificationService --> CacheManager
+    VerificationService ..> GraphValidator
+
+    ProgressService     --> OntologyCore
+    ProgressService     --> ReasoningOrchestrator
+    ProgressService     --> RollupService
+    ProgressService     --> AccessService
+
+    SandboxService      --> OntologyCore
+    SandboxService      --> ReasoningOrchestrator
+    SandboxService      --> AccessService
+    SandboxService      --> ProgressService
+
+    RollupService       --> OntologyCore
+
+    IntegrationService  --> OntologyCore
+    IntegrationService  --> VerificationService
+    IntegrationService  --> CacheManager
+
+    ReasoningOrchestrator --> OntologyCore
+
+    %% =========================================================
+    %% Примечания
+    %% =========================================================
+    note for ReasoningOrchestrator "Конвейер логического вывода:\nподготовка фактов → Pellet+SWRL\n→ cwa-enforcement → материализация\nдоступов в кэш. Таймаут 10 секунд,\nпри истечении возвращается\nустаревший кэш или 503."
+
+    note for GraphValidator "Граф зависимостей в виде split-node\nDiGraph: на каждый элемент по два узла\n(open и done). DFS и поиск SCC через\nNetworkX. Класс собран как утилита,\nэкземпляры не создаются."
+
+    note for SandboxService "Симулятор переиспользует AccessService\nи ProgressService напрямую. Логика\nдоступа и приёма прогресса не дублируется\nмежду продакшеном и песочницей."
+
+    note for ProgressService "Webhook принимает событие, фиксирует\nфакт в ABox и сразу отвечает 202.\nДальнейший пересчёт логического вывода\nи каскадная агрегация завершённости\nвыполняются в фоне."

@@ -1,0 +1,80 @@
+%%{init: {'theme': 'default', 'themeVariables': {'fontFamily': 'Segoe UI'}}}%%
+flowchart TB
+    title["<b>Процесс to-be: управление доступом в проектируемой системе</b>"]
+    title ~~~ start
+
+    start([Методист создаёт политику<br/>через Web UI])
+    form[Выбор элемента, типа политики,<br/>параметров]
+    post[POST /policies]
+    policySrv[PolicyService.create_policy]
+
+    subgraph validation["<b>Валидация до сохранения</b>"]
+        direction TB
+        v1[Построить граф зависимостей<br/>и добавить пробную дугу]
+        v1check{Цикл<br/>найден?}
+        reject1[Отклонить с путём цикла:<br/>«A → B → C → A»]
+
+        v2[Клонировать ABox,<br/>добавить кандидата-политику,<br/>прогон логического вывода]
+        v2check{Непротиворечиво?}
+        reject2[Отклонить с обоснованием:<br/>«Конфликт с политикой X»]
+
+        v1 --> v1check
+        v1check -- Да --> reject1
+        v1check -- Нет --> v2 --> v2check
+        v2check -- Нет --> reject2
+    end
+
+    commit[Commit: добавить политику<br/>в основной ABox]
+    owl[(OWL Store<br/>RDF/XML файл)]
+    reason[Подготовка фактов → Pellet + SWRL →<br/>cwa-enforcement → материализация]
+    cacheInv[Инвалидация кэша<br/>для всех активных студентов]
+    redis[(Redis<br/>access:*)]
+    saved([Политика сохранена,<br/>непротиворечивость и ацикличность гарантированы])
+
+    start --> form --> post --> policySrv --> v1
+    v2check -- Да --> commit
+    commit --> owl
+    commit --> reason
+    reason --> cacheInv --> redis
+    cacheInv --> saved
+
+    subgraph runtime["<b>Исполнение политик при запросе студентом</b>"]
+        direction TB
+        req(["LMS: GET /access/student/{sid}/course/{cid}"])
+        cacheGet{Попадание<br/>в кэш?}
+        cacheHit[Быстрый ответ из Redis]
+        cacheMiss[Промах кэша,<br/>полный пересчёт через резонер]
+        decision{Доступно?}
+        show[accessible: true]
+        blockExplain[accessible: false<br/>+ список невыполненных условий]
+        respond([JSON-ответ LMS])
+
+        req --> cacheGet
+        cacheGet -- Да --> cacheHit --> decision
+        cacheGet -- Нет --> cacheMiss --> decision
+        decision -- Да --> show --> respond
+        decision -- Нет --> blockExplain --> respond
+    end
+
+    saved -.->|Политики применяются| req
+
+    subgraph verify["<b>Верификация курса (отсутствует в as-is)</b>"]
+        direction TB
+        vReq(["Методист или админ:<br/>GET /verify/course/{cid}"])
+        sv1[Pellet: проверка непротиворечивости]
+        sv2[Графовый анализ: все циклы]
+        sv3[Графовый анализ: недостижимые элементы<br/>в три прохода: атомарный,<br/>структурный, joint через Pellet]
+        sv4[Pellet: проверка субсумпций<br/>и избыточности политик]
+        report([Отчёт: список проблем<br/>с типом, элементами, политиками])
+
+        vReq --> sv1 --> sv2 --> sv3 --> sv4 --> report
+    end
+
+    saved -.->|Периодический аудит| vReq
+
+    classDef new fill:#e6fff2,stroke:#2e8b57,color:#0b3d1e
+    classDef reject fill:#ffeef0,stroke:#ff6b6b,color:#8b0000
+    classDef verify fill:#e6f2ff,stroke:#1e6091,color:#0b2a4a
+    class v1,v2,sv1,sv2,sv3,sv4,vReq,report new
+    class reject1,reject2 reject
+    class verify verify

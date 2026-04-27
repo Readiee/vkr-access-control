@@ -1,0 +1,57 @@
+%%{init: {'theme': 'default', 'themeVariables': {'fontFamily': 'Segoe UI'}}}%%
+flowchart TB
+    title["<b>Процесс as-is: управление доступом в Moodle</b>"]
+    title ~~~ start
+
+    start([Методист открывает<br/>настройки элемента])
+    add[Добавляет условие<br/>Restrict Access]
+    combine{Нужна<br/>логическая<br/>комбинация?}
+    tree[Строит вложенное дерево<br/>AND/OR/NOT через UI]
+    single[Одиночное условие]
+    save[Moodle сериализует условие<br/>в JSON и сохраняет<br/>в course_modules.availability]
+    validate{Валидация<br/>при сохранении?}
+    noVal[Нет: проверки на циклы,<br/>конфликты или недостижимость<br/>не выполняются]
+    done([Правило сохранено])
+
+    start --> add --> combine
+    combine -- Да --> tree --> save
+    combine -- Нет --> single --> save
+    save --> validate --> noVal --> done
+
+    subgraph runtime["Исполнение правил при запросе студентом"]
+        direction TB
+        req([Студент запрашивает<br/>страницу элемента])
+        load[PHP-код Moodle загружает JSON<br/>из course_modules.availability]
+        parse[core_availability/info<br/>рекурсивно интерпретирует<br/>дерево условий]
+        query[(Запросы<br/>к course_modules_completion,<br/>grade_grades, groups_members,<br/>user)]
+        result{Условия<br/>выполнены?}
+        show[Показать элемент]
+        hide[Скрыть или показать<br/>серым с текстом условия]
+        exitNode([Результат студенту])
+
+        req --> load --> parse --> query --> result
+        result -- Да --> show --> exitNode
+        result -- Нет --> hide --> exitNode
+    end
+
+    done -.->|После сохранения| req
+
+    subgraph problems["Проблемы as-is процесса"]
+        direction TB
+        p1[Семантика задана кодом<br/>интерпретатора, не декларативно]
+        p2[Нет предварительной<br/>валидации правила]
+        p3[Циклы не обнаруживаются<br/>автоматически: появляется<br/>навсегда скрытый контент]
+        p4[Логические конфликты<br/>не обнаруживаются]
+        p5[Проприетарный формат хранения,<br/>платформо-независимый анализ невозможен]
+    end
+
+    noVal -.-> p2
+    parse -.-> p1
+    hide -.-> p3
+    hide -.-> p4
+    save -.-> p5
+
+    classDef issue fill:#ffeef0,stroke:#ff6b6b,color:#8b0000
+    class p1,p2,p3,p4,p5 issue
+    classDef absent fill:#fffacd,stroke:#daa520,color:#8b6914
+    class noVal absent
