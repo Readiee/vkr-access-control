@@ -1,8 +1,14 @@
 import logging
 from typing import Any, List
 
-from core.enums import ElementType, ProgressStatus, RuleType
-from schemas.schemas import CourseSyncPayload
+from core.enums import (
+    COURSE_STRUCTURE_OWL_CLASS,
+    ELEMENT_TYPE_TO_OWL_CLASS,
+    ElementType,
+    ProgressStatus,
+    RuleType,
+)
+from schemas import CourseSyncPayload
 from services.cache_manager import CacheManager
 from services.ontology_core import OntologyCore
 from services.verification import VerificationService
@@ -10,6 +16,8 @@ from utils.owl_utils import get_owl_prop, label_or_name
 from utils.policy_formatters import serialize_policy
 
 logger = logging.getLogger(__name__)
+
+_DEFAULT_ORDER_INDEX = 999
 
 
 class IntegrationService:
@@ -56,8 +64,7 @@ class IntegrationService:
         group_cls = getattr(self.core.onto, "Group", None)
         if group_cls is not None:
             for grp in group_cls.instances():
-                # Берём первый ассертированный родитель; транзитивное замыкание из
-                # вывода резонера в иерархию для UI не тянем.
+                # для UI отдаём только прямого родителя; транзитивное замыкание не разворачиваем
                 parents = list(getattr(grp, "is_subgroup_of", []) or [])
                 parent_id = parents[0].name if parents else None
                 groups.append({
@@ -80,21 +87,23 @@ class IntegrationService:
         payload: CourseSyncPayload,
         run_verification: bool = True,
     ) -> dict:
-        course = self.core.courses.get_or_create_element(course_id, "Course")
+        course_class = ELEMENT_TYPE_TO_OWL_CLASS[ElementType.COURSE.value]
+        course = self.core.courses.get_or_create_element(course_id, course_class)
         course.label = [payload.course_name]
         course.is_mandatory = True
 
-        # Soft reset: чистим только связи, индивидов оставляем.
+        # soft reset: разрываем связи, сами индивиды оставляем — на них могут висеть политики
         for old_module in list(course.has_module):
             old_module.contains_activity = []
         course.has_module = []
 
         for idx, elem_data in enumerate(payload.elements):
-            class_name = elem_data.element_type.capitalize()
+            element_type = str(elem_data.element_type).lower()
+            class_name = ELEMENT_TYPE_TO_OWL_CLASS.get(element_type, COURSE_STRUCTURE_OWL_CLASS)
             element = self.core.courses.get_or_create_element(elem_data.element_id, class_name)
 
             element.label = [elem_data.name]
-            element.type = [elem_data.element_type.lower()]
+            element.type = [element_type]
             element.is_mandatory = getattr(elem_data, "is_mandatory", True)
 
             final_order = elem_data.order_index if getattr(elem_data, "order_index", None) is not None else idx
@@ -103,9 +112,9 @@ class IntegrationService:
             if elem_data.parent_id:
                 parent = self.core.courses.find_by_id(elem_data.parent_id)
                 if not parent:
-                    parent = self.core.courses.get_or_create_element(elem_data.parent_id, "CourseStructure")
+                    parent = self.core.courses.get_or_create_element(elem_data.parent_id, COURSE_STRUCTURE_OWL_CLASS)
 
-                if elem_data.element_type == ElementType.MODULE.value:
+                if element_type == ElementType.MODULE.value:
                     if element not in getattr(parent, "has_module", []):
                         parent.has_module.append(element)
                 else:
@@ -121,7 +130,6 @@ class IntegrationService:
             "synced_elements_count": len(payload.elements),
         }
 
-        # На ошибке верификации импорт не откатывается; summary помечается как failed.
         if run_verification:
             try:
                 report = self.verification.verify(course.name, use_cache=False)
@@ -155,7 +163,7 @@ class IntegrationService:
 
             children_objs = sorted(
                 children_objs,
-                key=lambda x: get_owl_prop(x, "order_index", 999),  # без индекса — в конец
+                key=lambda x: get_owl_prop(x, "order_index", _DEFAULT_ORDER_INDEX),
             )
 
             children = [build_node(child) for child in children_objs]
@@ -198,8 +206,8 @@ class IntegrationService:
 
         element.assesses = competencies
         self.core.save()
-        # OWL монотонен: без явной инвалидации has_competency не пересчитается;
-        # резонер не зовём, AccessService пересчитает на первом чтении.
+        # OWL монотонен — без сброса кэша has_competency не пересчитается;
+        # сам резонер дёрнет AccessService при первом чтении
         self.cache.invalidate_all_access()
         self.cache.invalidate_verification()
         return {
@@ -212,8 +220,9 @@ class IntegrationService:
         if element is None:
             raise ValueError(f"Элемент {element_id} не найден.")
 
-        element.is_mandatory = bool(is_mandatory)  # functional property, скаляр
+        flag = bool(is_mandatory)
+        element.is_mandatory = flag
         self.core.save()
         self.cache.invalidate_all_access()
         self.cache.invalidate_verification()
-        return {"element_id": element_id, "is_mandatory": bool(is_mandatory)}
+        return {"element_id": element_id, "is_mandatory": flag}

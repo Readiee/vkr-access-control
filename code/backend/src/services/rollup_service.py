@@ -2,7 +2,7 @@ import logging
 from typing import Callable
 
 from core.enums import ProgressStatus
-from utils.owl_utils import get_owl_prop
+from utils.owl_utils import get_owl_prop, status_value_from_individual
 
 logger = logging.getLogger(__name__)
 
@@ -27,15 +27,8 @@ class RollupService:
             child_record = self.core.progress.find_record(student, child)
             if child_record is None:
                 return
-            status_obj = getattr(child_record, "has_status", None)
-            if status_obj is None:
-                return
-            status_str = (
-                status_obj.name.replace("status_", "")
-                if hasattr(status_obj, "name")
-                else str(status_obj)
-            )
-            if status_str != ProgressStatus.COMPLETED.value:
+            status = status_value_from_individual(getattr(child_record, "has_status", None))
+            if status != ProgressStatus.COMPLETED.value:
                 return
 
         logger.info("Контейнер %s закрыт автоматически: все обязательные элементы завершены", parent.name)

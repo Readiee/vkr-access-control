@@ -1,17 +1,19 @@
-"""SLD-trace тела SWRL для satisfies / is_available_for."""
+"""Построение дерева обоснований доступа: проход по телу SWRL-правил satisfies / is_available_for."""
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
-from core.enums import RuleType
+from core.enums import COMPOSITE_RULE_TYPES, JustificationStatus, RuleType
 from services.ontology_core import OntologyCore
 from utils.owl_utils import get_owl_prop
+
+_AVAILABILITY_TEMPLATE = "meta:is_available_for"
 
 
 @dataclass
 class Justification:
-    status: str  # satisfied | unsatisfied | available | unavailable
+    status: str
     rule_template: str
     policy_id: Optional[str] = None
     variable_bindings: Dict[str, Any] = field(default_factory=dict)
@@ -33,7 +35,7 @@ class _AtomicSpec:
 
 
 class AccessExplainer:
-    """Обоснование выведенных satisfies / is_available_for через SLD-trace тела SWRL.
+    """Разбор satisfies / is_available_for на тело SWRL-правил для UI-обоснования.
 
     Приватный модуль; вызывается только из AccessService.
     """
@@ -42,14 +44,14 @@ class AccessExplainer:
         self.core = core
 
     def explain_is_available(self, student: Any, element: Any) -> Justification:
-        """Trace мета-правила: is_available_for(el, s) ← has_access_policy(el, p) ∧ is_active(p) ∧ satisfies(s, p)."""
+        """Разбор мета-правила is_available_for: активные политики и их satisfies."""
         active_policies = [
             p for p in (getattr(element, "has_access_policy", []) or [])
             if get_owl_prop(p, "is_active", True) is True
         ]
         children = [self.explain_satisfies(student, p) for p in active_policies]
         available = student in (getattr(element, "is_available_for", []) or [])
-        witnesses = [c for c in children if c.status == "satisfied"]
+        witnesses = [c for c in children if c.status == JustificationStatus.SATISFIED.value]
 
         note = (
             f"Элемент доступен через активные политики: {[c.policy_id for c in witnesses]}."
@@ -57,8 +59,8 @@ class AccessExplainer:
             else "is_available_for не выведено: ни одна активная политика не дала satisfies."
         )
         return Justification(
-            status="available" if available else "unavailable",
-            rule_template="meta:is_available_for",
+            status=(JustificationStatus.AVAILABLE if available else JustificationStatus.UNAVAILABLE).value,
+            rule_template=_AVAILABILITY_TEMPLATE,
             variable_bindings={"element": element.name, "student": student.name},
             body_facts=[
                 {"predicate": "has_access_policy", "subject": element.name, "object": p.name}
@@ -71,21 +73,22 @@ class AccessExplainer:
     def explain_satisfies(self, student: Any, policy: Any) -> Justification:
         satisfied = policy in (getattr(student, "satisfies", []) or [])
         rule_type = get_owl_prop(policy, "rule_type", "") or ""
+        atomic_status = (JustificationStatus.SATISFIED if satisfied else JustificationStatus.UNSATISFIED).value
 
-        if rule_type in {RuleType.AND.value, RuleType.OR.value}:
+        if rule_type in COMPOSITE_RULE_TYPES:
             return self._explain_composite(student, policy, satisfied, rule_type)
 
         builder = self._ATOMIC_SPECS.get(rule_type)
         if builder is None:
             return Justification(
-                status="satisfied" if satisfied else "unsatisfied",
+                status=atomic_status,
                 rule_template=f"unknown:{rule_type}",
                 policy_id=policy.name,
                 note="Неизвестный rule_type — шаблон не соответствует каталогу SWRL.",
             )
         spec = builder(self, student, policy)
         return Justification(
-            status="satisfied" if satisfied else "unsatisfied",
+            status=atomic_status,
             rule_template=spec.template,
             policy_id=policy.name,
             variable_bindings=spec.bindings,
@@ -104,16 +107,16 @@ class AccessExplainer:
             "subpolicies": [s.name for s in subs],
         }
         if rule_type == RuleType.AND.value:
-            template = "and_combination"
-            failing = [c for c in children if c.status == "unsatisfied"]
+            template = RuleType.AND.value
+            failing = [c for c in children if c.status == JustificationStatus.UNSATISFIED.value]
             note = (
                 "Все подполитики выполнены; AllDifferent гарантирует отсутствие унификации."
                 if satisfied
                 else f"Не выполнены подполитики: {[c.policy_id for c in failing]}."
             )
         else:
-            template = "or_combination"
-            passing = [c for c in children if c.status == "satisfied"]
+            template = RuleType.OR.value
+            passing = [c for c in children if c.status == JustificationStatus.SATISFIED.value]
             bindings["satisfied_by"] = [c.policy_id for c in passing]
             note = (
                 f"Хотя бы одна подполитика выполнена: {[c.policy_id for c in passing]}."
@@ -121,7 +124,7 @@ class AccessExplainer:
                 else "Ни одна подполитика не выполнена."
             )
         return Justification(
-            status="satisfied" if satisfied else "unsatisfied",
+            status=(JustificationStatus.SATISFIED if satisfied else JustificationStatus.UNSATISFIED).value,
             rule_template=template,
             policy_id=policy.name,
             variable_bindings=bindings,

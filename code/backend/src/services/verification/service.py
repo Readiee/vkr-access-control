@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+from core.enums import ReasoningStatus, VerificationStatus
 from services.cache_manager import CacheManager
 from services.graph_validator import GraphValidator
 from services.ontology_core import OntologyCore
@@ -20,9 +21,26 @@ from utils.policy_formatters import policy_display_name
 logger = logging.getLogger(__name__)
 
 
+class ViolationCode:
+    """Стабильные идентификаторы нарушений для UI и логов."""
+    INCONSISTENT = "SV1_INCONSISTENT"
+    REASONING_PREFIX = "SV1_REASONING_"
+    CYCLE = "SV2_CYCLE"
+    UNREACHABLE = "SV3_UNREACHABLE"
+    ATOMIC_UNSAT = "SV3_ATOMIC_UNSAT"
+    REDUNDANT = "SV4_REDUNDANT"
+    SUBSUMED = "SV5_SUBSUMED"
+
+
+_REDUNDANCY_KIND = "redundancy"
+_PARTIAL_REASONING_STATUSES = frozenset({ReasoningStatus.TIMEOUT.value, ReasoningStatus.ERROR.value})
+_BASE_PROPERTY_NAMES = ("consistency", "acyclicity", "reachability")
+_FULL_PROPERTY_NAMES = ("redundancy", "subsumption")
+
+
 @dataclass
 class PropertyReport:
-    status: str               # "passed" | "failed" | "unknown"
+    status: str
     violations: List[Dict[str, Any]] = field(default_factory=list)
 
 
@@ -41,7 +59,7 @@ class VerificationReport:
             name: {"status": report.status, "violations": report.violations}
             for name, report in self.properties.items()
         }
-        passed = sum(1 for r in self.properties.values() if r.status == "passed")
+        passed = sum(1 for r in self.properties.values() if r.status == VerificationStatus.PASSED.value)
         total = len(self.properties)
         return {
             "course_id": self.course_id,
@@ -57,10 +75,9 @@ class VerificationReport:
 
 def _covers(cached: Dict[str, Any], include_subsumption: bool) -> bool:
     props = cached.get("properties", {})
-    base = {"consistency", "acyclicity", "reachability"}
-    if not base.issubset(props):
+    if not set(_BASE_PROPERTY_NAMES).issubset(props):
         return False
-    if include_subsumption and not {"redundancy", "subsumption"}.issubset(props):
+    if include_subsumption and not set(_FULL_PROPERTY_NAMES).issubset(props):
         return False
     return True
 
@@ -68,7 +85,7 @@ def _covers(cached: Dict[str, Any], include_subsumption: bool) -> bool:
 def _report_from_dict(data: Dict[str, Any]) -> VerificationReport:
     props: Dict[str, PropertyReport] = {
         name: PropertyReport(
-            status=payload.get("status", "unknown"),
+            status=payload.get("status", VerificationStatus.UNKNOWN.value),
             violations=payload.get("violations", []) or [],
         )
         for name, payload in (data.get("properties") or {}).items()
@@ -110,77 +127,31 @@ class VerificationService:
         started = time.monotonic()
         run_id = uuid.uuid4().hex
 
-        consistency = PropertyReport(status="unknown")
-        acyclicity = PropertyReport(status="unknown")
-        reachability = PropertyReport(status="unknown")
-        redundancy = PropertyReport(status="unknown")
-        subsumption = PropertyReport(status="unknown")
+        unknown = VerificationStatus.UNKNOWN.value
+        consistency = PropertyReport(status=unknown)
+        acyclicity = PropertyReport(status=unknown)
+        reachability = PropertyReport(status=unknown)
+        redundancy = PropertyReport(status=unknown)
+        subsumption = PropertyReport(status=unknown)
 
         course = self.core.courses.find_by_id(course_id)
         if course is None:
             raise LookupError(f"Курс {course_id} не найден")
 
         reasoning_result = self.reasoner.reason()
-        partial = reasoning_result.status in {"timeout", "error"}
+        partial = reasoning_result.status in _PARTIAL_REASONING_STATUSES
 
-        if reasoning_result.status == "ok":
-            consistency.status = "passed"
-        elif reasoning_result.status == "inconsistent":
-            consistency.status = "failed"
-            consistency.violations.append({
-                "code": "SV1_INCONSISTENT",
-                "message": reasoning_result.error or "Pellet: онтология inconsistent",
-            })
-        else:
-            consistency.status = "unknown"
-            consistency.violations.append({
-                "code": "SV1_REASONING_" + reasoning_result.status.upper(),
-                "message": reasoning_result.error or f"status={reasoning_result.status}",
-            })
+        self._fill_consistency(consistency, reasoning_result)
 
-        # Acyclicity считается всегда — чистый граф, не зависит от Pellet
-        cycles = GraphValidator.find_all_cycles(self.core.onto)
-        if cycles:
-            acyclicity.status = "failed"
-            for cycle in cycles:
-                acyclicity.violations.append({
-                    "code": "SV2_CYCLE",
-                    "path": cycle,
-                    "path_names": [self._label_by_id(eid) for eid in cycle],
-                    "policies": self._policies_on_cycle(cycle),
-                    "policy_names": [self._label_by_id(pid) for pid in self._policies_on_cycle(cycle)],
-                })
-        else:
-            acyclicity.status = "passed"
+        # Acyclicity считается всегда — чистый граф, не зависит от Pellet.
+        self._fill_acyclicity(acyclicity)
 
-        # Reachability имеет смысл только при consistent онтологии
-        if consistency.status == "passed":
-            unreachable = self._find_unreachable(course)
-            if unreachable:
-                reachability.status = "failed"
-                reachability.violations = unreachable
-            else:
-                reachability.status = "passed"
+        # Reachability имеет смысл только при consistent онтологии.
+        if consistency.status == VerificationStatus.PASSED.value:
+            self._fill_reachability(reachability, course)
 
-        if include_subsumption and consistency.status == "passed":
-            pairs = SubsumptionChecker(self.core.onto).find_all()
-            for pair in pairs:
-                entry = {
-                    "code": "SV4_REDUNDANT" if pair.kind == "redundancy" else "SV5_SUBSUMED",
-                    "dominant": pair.dominant,
-                    "dominant_name": self._label_by_id(pair.dominant),
-                    "dominated": pair.dominated,
-                    "dominated_name": self._label_by_id(pair.dominated),
-                    "element": pair.element,
-                    "element_name": self._label_by_id(pair.element) if pair.element else None,
-                    "witness": pair.witness,
-                }
-                if pair.kind == "redundancy":
-                    redundancy.violations.append(entry)
-                else:
-                    subsumption.violations.append(entry)
-            redundancy.status = "failed" if redundancy.violations else "passed"
-            subsumption.status = "failed" if subsumption.violations else "passed"
+        if include_subsumption and consistency.status == VerificationStatus.PASSED.value:
+            self._fill_subsumption(redundancy, subsumption)
 
         duration_ms = int((time.monotonic() - started) * 1000)
         properties: Dict[str, PropertyReport] = {
@@ -207,6 +178,70 @@ class VerificationService:
 
         return report
 
+    def _fill_consistency(self, report: PropertyReport, reasoning_result: Any) -> None:
+        if reasoning_result.status == ReasoningStatus.OK.value:
+            report.status = VerificationStatus.PASSED.value
+            return
+        if reasoning_result.status == ReasoningStatus.INCONSISTENT.value:
+            report.status = VerificationStatus.FAILED.value
+            report.violations.append({
+                "code": ViolationCode.INCONSISTENT,
+                "message": reasoning_result.error or "Pellet: онтология inconsistent",
+            })
+            return
+        report.status = VerificationStatus.UNKNOWN.value
+        report.violations.append({
+            "code": ViolationCode.REASONING_PREFIX + reasoning_result.status.upper(),
+            "message": reasoning_result.error or f"status={reasoning_result.status}",
+        })
+
+    def _fill_acyclicity(self, report: PropertyReport) -> None:
+        cycles = GraphValidator.find_all_cycles(self.core.onto)
+        if not cycles:
+            report.status = VerificationStatus.PASSED.value
+            return
+        report.status = VerificationStatus.FAILED.value
+        for cycle in cycles:
+            policy_ids = self._policies_on_cycle(cycle)
+            report.violations.append({
+                "code": ViolationCode.CYCLE,
+                "path": cycle,
+                "path_names": [self._label_by_id(eid) for eid in cycle],
+                "policies": policy_ids,
+                "policy_names": [self._label_by_id(pid) for pid in policy_ids],
+            })
+
+    def _fill_reachability(self, report: PropertyReport, course: Any) -> None:
+        unreachable = self._find_unreachable(course)
+        if unreachable:
+            report.status = VerificationStatus.FAILED.value
+            report.violations = unreachable
+        else:
+            report.status = VerificationStatus.PASSED.value
+
+    def _fill_subsumption(self, redundancy: PropertyReport, subsumption: PropertyReport) -> None:
+        for pair in SubsumptionChecker(self.core.onto).find_all():
+            entry = {
+                "code": ViolationCode.REDUNDANT if pair.kind == _REDUNDANCY_KIND else ViolationCode.SUBSUMED,
+                "dominant": pair.dominant,
+                "dominant_name": self._label_by_id(pair.dominant),
+                "dominated": pair.dominated,
+                "dominated_name": self._label_by_id(pair.dominated),
+                "element": pair.element,
+                "element_name": self._label_by_id(pair.element) if pair.element else None,
+                "witness": pair.witness,
+            }
+            if pair.kind == _REDUNDANCY_KIND:
+                redundancy.violations.append(entry)
+            else:
+                subsumption.violations.append(entry)
+        redundancy.status = (
+            VerificationStatus.FAILED.value if redundancy.violations else VerificationStatus.PASSED.value
+        )
+        subsumption.status = (
+            VerificationStatus.FAILED.value if subsumption.violations else VerificationStatus.PASSED.value
+        )
+
     def _find_unreachable(self, course: Any) -> List[Dict[str, Any]]:
         reports: List[Dict[str, Any]] = []
         atomic_unsat = self._atomic_unsatisfiable()
@@ -217,7 +252,7 @@ class VerificationService:
         for element in self._collect_course_elements(course):
             if not self._can_grant_element(element, visited=set(), cache=cache, unsat_policies=unsat_ids):
                 reports.append({
-                    "code": "SV3_UNREACHABLE",
+                    "code": ViolationCode.UNREACHABLE,
                     "element_id": element.name,
                     "element_name": label_or_name(element),
                     "reason": "Не найден путь удовлетворения ни одной политики на элементе",
@@ -232,7 +267,7 @@ class VerificationService:
             reason = self._atomic_check(policy)
             if reason is not None:
                 unsat.append({
-                    "code": "SV3_ATOMIC_UNSAT",
+                    "code": ViolationCode.ATOMIC_UNSAT,
                     "policy_id": policy.name,
                     "policy_name": policy_display_name(policy),
                     "rule_type": get_owl_prop(policy, "rule_type", ""),

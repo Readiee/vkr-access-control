@@ -74,12 +74,30 @@ class AccessServiceTests(unittest.TestCase):
                     idx[child.name] = parent
             return idx
 
+        def _subtree_ids(root_id: str) -> set:
+            root = self.onto.search_one(iri=f"*{root_id}")
+            if root is None:
+                return set()
+            collected = {root.name}
+            stack = [root]
+            while stack:
+                node = stack.pop()
+                for child in list(getattr(node, "has_module", []) or []) + list(
+                    getattr(node, "contains_activity", []) or []
+                ):
+                    if child.name in collected:
+                        continue
+                    collected.add(child.name)
+                    stack.append(child)
+            return collected
+
         self.core = SimpleNamespace(
             onto=self.onto,
             courses=SimpleNamespace(
                 find_by_id=lambda eid: self.onto.search_one(iri=f"*{eid}"),
                 get_all_elements=lambda: list(self.onto.CourseStructure.instances()),
                 parent_index=_parent_index,
+                subtree_ids=_subtree_ids,
             ),
             students=SimpleNamespace(get_or_create=lambda sid: self.student),
         )
@@ -191,7 +209,7 @@ class AccessServiceTests(unittest.TestCase):
 
     def test_explain_blocking_matches_pydantic_response_schema(self):
         """Ответ explain_blocking валидно ложится на BlockingExplanationResponse."""
-        from schemas.schemas import BlockingExplanationResponse
+        from schemas import BlockingExplanationResponse
 
         self.lec_guarded.is_available_for = [self.student]
         self.student.satisfies = [self.policy]

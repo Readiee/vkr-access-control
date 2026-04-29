@@ -4,14 +4,21 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 
 from api.dependencies import get_policy_service
-from schemas.schemas import Policy, PolicyCreate, TogglePolicy
-from services.policy_service import PolicyConflictError, PolicyService
+from schemas import Policy, PolicyCreate, TogglePolicy
+from services.policy_service import PolicyConflictError, PolicyNotFoundError, PolicyService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/policies", tags=["Policies"])
 
-INTERNAL_ERROR_DETAIL = "Внутренняя ошибка сервера"
+_INTERNAL_ERROR = "Внутренняя ошибка сервера"
+
+
+def _not_found(policy_id: str) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"Политика {policy_id} не найдена",
+    )
 
 
 @router.get("", response_model=List[Policy], summary="Список политик")
@@ -20,7 +27,13 @@ async def get_policies(
     element_id: Optional[str] = Query(None, description="Фильтр по ID элемента"),
     service: PolicyService = Depends(get_policy_service),
 ) -> List[Policy]:
-    return service.get_policies(course_id=course_id, element_id=element_id)
+    try:
+        return service.get_policies(course_id=course_id, element_id=element_id)
+    except Exception:
+        logger.exception("get_policies упал (course_id=%s, element_id=%s)", course_id, element_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=_INTERNAL_ERROR,
+        )
 
 
 @router.post(
@@ -42,8 +55,7 @@ async def create_policy(
     except Exception:
         logger.exception("create_policy упал на payload %s", policy)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=INTERNAL_ERROR_DETAIL,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=_INTERNAL_ERROR,
         )
 
 
@@ -60,8 +72,13 @@ async def delete_policy(
         deleted = service.delete_policy(policy_id)
     except PolicyConflictError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.explanation)
+    except Exception:
+        logger.exception("delete_policy %s упал", policy_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=_INTERNAL_ERROR,
+        )
     if not deleted:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Политика {policy_id} не найдена")
+        raise _not_found(policy_id)
     return {"status": "deleted", "policy_id": policy_id}
 
 
@@ -77,15 +94,16 @@ async def update_policy(
 ) -> dict:
     try:
         return service.update_policy(policy_id, data)
+    except PolicyNotFoundError:
+        raise _not_found(policy_id)
     except PolicyConflictError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.explanation)
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     except Exception:
         logger.exception("update_policy %s упал на payload %s", policy_id, data)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=INTERNAL_ERROR_DETAIL,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=_INTERNAL_ERROR,
         )
 
 
@@ -97,12 +115,17 @@ async def toggle_policy(
 ) -> dict:
     try:
         service.toggle_policy(policy_id, toggle_data.is_active)
-        return {
-            "message": "Статус успешно изменён",
-            "policy_id": policy_id,
-            "is_active": toggle_data.is_active,
-        }
+    except PolicyNotFoundError:
+        raise _not_found(policy_id)
     except PolicyConflictError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.explanation)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except Exception:
+        logger.exception("toggle_policy %s упал", policy_id)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=_INTERNAL_ERROR,
+        )
+    return {
+        "message": "Статус успешно изменён",
+        "policy_id": policy_id,
+        "is_active": toggle_data.is_active,
+    }

@@ -11,7 +11,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 from owlready2 import World  
 
 from core.enums import ElementType, RuleType  
-from schemas.schemas import (  
+from schemas import (
     AggregateFunction,
     CourseElement,
     CourseSyncPayload,

@@ -5,7 +5,7 @@ import unittest
 # tests/integration/ → tests/ → src/
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from schemas.schemas import CourseElement, PolicyCreate, ProgressEvent, CourseSyncPayload
+from schemas import CourseElement, PolicyCreate, ProgressEvent, CourseSyncPayload
 from core.enums import ElementType, RuleType, ProgressStatus, EventType
 from core.config import DEFAULT_ONTOLOGY_PATH
 from services.ontology_core import OntologyCore

@@ -1,4 +1,8 @@
-"""DI-граф сервисов через FastAPI Depends."""
+"""DI-граф сервисов через FastAPI Depends.
+
+`OntologyCore`, `Redis` и `CacheManager` — singleton'ы (lru_cache по нулевой
+сигнатуре). Сервисы создаются на запрос: они stateless и дёшевы по конструктору.
+"""
 from functools import lru_cache
 from typing import Optional
 
@@ -30,7 +34,6 @@ def get_redis_client() -> Optional[redis.Redis]:
 
 @lru_cache()
 def get_cache_manager() -> CacheManager:
-    # Хэш онтологии кэшируется внутри CacheManager по mtime файла; Redis-клиент тоже singleton.
     return CacheManager(get_redis_client(), onto_path=settings.ONTOLOGY_FILE_PATH)
 
 

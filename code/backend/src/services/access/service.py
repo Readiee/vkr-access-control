@@ -1,14 +1,14 @@
-"""Чтение доступа студента к элементам курса с default-deny и каскадной блокировкой.
+"""Чтение доступа студента: default-deny и каскадная блокировка по родителям.
 
-date_restricted здесь не фильтруется: окно целиком обсчитывает SWRL-шаблон через
-CurrentTime, и за пределами окна элемент не получит is_available_for.
+Дата-ограничения здесь не фильтруются — окно целиком обсчитывает SWRL через
+CurrentTime, и за пределами окна is_available_for не выводится резонером.
 """
 from __future__ import annotations
 
 import logging
 from typing import Any, Dict, List, Optional, Set
 
-from core.enums import RuleType
+from core.enums import JustificationStatus, RuleType
 from services.access._explanations import AccessExplainer, Justification
 from services.cache_manager import CacheManager
 from services.ontology_core import OntologyCore
@@ -17,6 +17,8 @@ from utils.owl_utils import get_owl_prop, label_or_name
 from utils.policy_formatters import policy_display_name
 
 logger = logging.getLogger(__name__)
+
+_DEFAULT_ALLOW_TEMPLATE = "default_allow"
 
 
 class AccessService:
@@ -101,8 +103,8 @@ class AccessService:
     ) -> Dict[str, Any]:
         if not applicable:
             return {
-                "status": "available",
-                "rule_template": "default_allow",
+                "status": JustificationStatus.AVAILABLE.value,
+                "rule_template": _DEFAULT_ALLOW_TEMPLATE,
                 "note": "У элемента нет активных политик — default-allow",
             }
         tree: Justification = self.explainer.explain_is_available(student, element)
@@ -290,21 +292,7 @@ class AccessService:
         return self.core.students.get_or_create(node_id)
 
     def _collect_course_elements(self, course_id: str) -> Set[str]:
-        course = self.core.courses.find_by_id(course_id)
-        if not course:
-            return set()
-        collected = {course.name}
-
-        def walk(node: Any) -> None:
-            for m in getattr(node, "has_module", []) or []:
-                collected.add(m.name)
-                walk(m)
-            for a in getattr(node, "contains_activity", []) or []:
-                collected.add(a.name)
-                walk(a)
-
-        walk(course)
-        return collected
+        return self.core.courses.subtree_ids(course_id)
 
     def _is_really_available(self, eid: str, cache: Dict[str, Any], parent_index: Dict[str, Any]) -> bool:
         node_id = eid

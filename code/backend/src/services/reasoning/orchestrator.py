@@ -1,8 +1,8 @@
-"""Единая точка запуска DL-резонера: pre-enrich -> Pellet+SWRL -> подсчёт выводов.
+"""Единая точка запуска DL-резонера: pre-enrich, Pellet, подсчёт выводов.
 
 Pre-enrich чистит старые satisfies/is_available_for и подкладывает индивиды,
-которых SWRL не знает: текущее время и агрегаты оценок. Default-deny — забота
-AccessService на чтении.
+которых SWRL не знает: текущее время и агрегаты оценок. Default-deny остаётся
+за AccessService при чтении.
 """
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ from typing import Any, Optional
 
 from owlready2 import sync_reasoner_pellet
 
+from core.enums import ReasoningStatus
 from services.reasoning._enricher import (
     clear_inferred_triples,
     enrich_aggregates,
@@ -24,14 +25,17 @@ from services.reasoning._enricher import (
 logger = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT_SEC = 10  # дальше синхронный HTTP-запрос теряет смысл
-# sync_reasoner_pellet и pre-enrich дёргают общий World; параллельные reason()
-# затёрли бы друг друга в ABox, поэтому весь прогон сериализуется одним process-wide локом.
+
+# pre-enrich и sync_reasoner_pellet работают на общий World; без сериализации
+# параллельные прогоны затрут друг друга в ABox
 _REASON_LOCK = threading.Lock()
+
+_INCONSISTENT_MARKERS = ("inconsistent", "InconsistentOntologyError")
 
 
 @dataclass
 class ReasoningResult:
-    status: str  # "ok" | "timeout" | "inconsistent" | "error"
+    status: str
     duration_sec: float = 0.0
     aggregate_facts: int = 0
     satisfies_count: int = 0
@@ -62,29 +66,29 @@ class ReasoningOrchestrator:
             agg_count = enrich_aggregates(self.onto)
         except Exception as exc:
             logger.exception("pre-enrich упал")
-            return ReasoningResult(status="error", error=f"pre_enrich: {exc}")
+            return ReasoningResult(status=ReasoningStatus.ERROR.value, error=f"pre_enrich: {exc}")
 
         try:
             self._run_pellet_with_timeout()
         except ReasoningTimeoutError:
             logger.warning("Pellet не уложился в %.1fs", self.timeout_sec)
             return ReasoningResult(
-                status="timeout",
+                status=ReasoningStatus.TIMEOUT.value,
                 duration_sec=time.monotonic() - started,
                 aggregate_facts=agg_count,
                 timed_out=True,
             )
         except Exception as exc:
             msg = str(exc)
-            if "inconsistent" in msg.lower() or "InconsistentOntologyError" in msg:
+            if any(marker.lower() in msg.lower() for marker in _INCONSISTENT_MARKERS):
                 logger.warning("Онтология inconsistent: %s", msg)
                 return ReasoningResult(
-                    status="inconsistent", error=msg,
+                    status=ReasoningStatus.INCONSISTENT.value, error=msg,
                     duration_sec=time.monotonic() - started,
                 )
             logger.exception("Pellet упал")
             return ReasoningResult(
-                status="error", error=msg,
+                status=ReasoningStatus.ERROR.value, error=msg,
                 duration_sec=time.monotonic() - started,
             )
 
@@ -98,7 +102,7 @@ class ReasoningOrchestrator:
         )
 
         return ReasoningResult(
-            status="ok",
+            status=ReasoningStatus.OK.value,
             duration_sec=time.monotonic() - started,
             aggregate_facts=agg_count,
             satisfies_count=satisfies_count,
@@ -108,9 +112,9 @@ class ReasoningOrchestrator:
     def check_consistency(self) -> tuple[bool, Optional[str]]:
         """(consistent, explanation): timeout/error трактуются как «не-consistent»."""
         result = self.reason()
-        if result.status == "inconsistent":
+        if result.status == ReasoningStatus.INCONSISTENT.value:
             return False, result.error
-        if result.status == "ok":
+        if result.status == ReasoningStatus.OK.value:
             return True, None
         return False, result.error or result.status
 
@@ -128,8 +132,8 @@ class ReasoningOrchestrator:
         thread.join(timeout=self.timeout_sec)
 
         if thread.is_alive():
-            # Pellet работает в java-подпроцессе; thread.join не прервёт его.
-            # Возвращаем таймаут вызывающему, подпроцесс завершится сам.
+            # Pellet крутится в java-подпроцессе; thread.join не убьёт его —
+            # отдадим таймаут наверх, java-процесс отработает и закроется сам
             raise ReasoningTimeoutError(f"Pellet не завершился за {self.timeout_sec}s")
         if error_holder:
             raise error_holder[0]
@@ -145,8 +149,8 @@ class ReasoningOrchestrator:
 
         subprocess.run = patched_run
         try:
-            # Передаём world явно: без него Pellet берёт default_world и пропускает
-            # индивидов из изолированных World (тесты, многопоточка).
+            # явный world обязателен: иначе Pellet берёт default_world и теряет
+            # индивидов в изолированных World — это особенно бьёт по тестам
             sync_reasoner_pellet(
                 self.onto.world,
                 infer_property_values=True,

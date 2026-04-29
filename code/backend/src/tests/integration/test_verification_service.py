@@ -7,7 +7,7 @@ import unittest
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from schemas.schemas import CourseElement, CourseSyncPayload, PolicyCreate  
+from schemas import CourseElement, CourseSyncPayload, PolicyCreate
 from core.enums import ElementType, RuleType  
 from core.config import DEFAULT_ONTOLOGY_PATH  
 from services.integration_service import IntegrationService  
@@ -101,7 +101,7 @@ class VerificationServiceIntegrationTests(unittest.TestCase):
         self.assertEqual(report["properties"]["redundancy"]["status"], "failed")
 
     def test_report_validates_against_pydantic_response_schema(self):
-        from schemas.schemas import VerificationReportResponse
+        from schemas import VerificationReportResponse
 
         self.policy_service.create_policy(PolicyCreate(
             source_element_id="lec_v2",

@@ -4,7 +4,7 @@ import logging
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 
 from api.dependencies import get_progress_service
-from schemas.schemas import ProgressEvent
+from schemas import ProgressEvent
 from services.progress_service import ProgressService
 
 logger = logging.getLogger(__name__)

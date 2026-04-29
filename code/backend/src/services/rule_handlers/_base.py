@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 import networkx as nx
 
 if TYPE_CHECKING:
-    from schemas.schemas import PolicyCreate
+    from schemas import PolicyCreate
     from services.ontology_core import OntologyCore
     from services.graph_validator import ProbePolicy
 

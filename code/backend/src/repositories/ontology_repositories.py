@@ -3,8 +3,16 @@ from typing import Any, List
 
 from owlready2 import destroy_entity
 
+from core.enums import OWL_STATUS_PREFIX, ProgressStatus
 
-_STATUS_VALUES = ("completed", "failed", "viewed")
+
+_OWL_STATUS_VALUES = frozenset({
+    ProgressStatus.COMPLETED.value,
+    ProgressStatus.FAILED.value,
+    ProgressStatus.VIEWED.value,
+})
+
+_STUDENT_PREFIX = "student_"
 
 
 class StudentRepository:
@@ -12,14 +20,15 @@ class StudentRepository:
         self.onto = onto
 
     def get_or_create(self, student_id: str):
-        direct = self.onto.search_one(type=self.onto.Student, iri=f"*{student_id}")
-        if direct is not None:
-            return direct
-        node_id = student_id if student_id.startswith("student_") else f"student_{student_id}"
-        student = self.onto.search_one(type=self.onto.Student, iri=f"*{node_id}")
-        if not student:
-            student = self.onto.Student(node_id)
-        return student
+        found = self.onto.search_one(type=self.onto.Student, iri=f"*{student_id}")
+        if found is not None:
+            return found
+        node_id = student_id if student_id.startswith(_STUDENT_PREFIX) else _STUDENT_PREFIX + student_id
+        if node_id != student_id:
+            found = self.onto.search_one(type=self.onto.Student, iri=f"*{node_id}")
+            if found is not None:
+                return found
+        return self.onto.Student(node_id)
 
 
 class CourseRepository:
@@ -53,6 +62,24 @@ class CourseRepository:
                 index[child.name] = parent
         return index
 
+    def subtree_ids(self, root_id: str) -> set:
+        """Множество имён индивидов в поддереве курса/модуля, включая корень."""
+        root = self.find_by_id(root_id)
+        if root is None:
+            return set()
+        collected = {root.name}
+        stack = [root]
+        while stack:
+            node = stack.pop()
+            for child in list(getattr(node, "has_module", []) or []) + list(
+                getattr(node, "contains_activity", []) or []
+            ):
+                if child.name in collected:
+                    continue
+                collected.add(child.name)
+                stack.append(child)
+        return collected
+
 
 class ProgressRepository:
     def __init__(self, onto):
@@ -85,12 +112,10 @@ class ProgressRepository:
         destroy_entity(record)
 
     def get_owl_status(self, status_value):
-        # StrEnum проходит isinstance(_, str), но f-string подтягивает str(Enum) —
-        # `ProgressStatus.COMPLETED` вместо `completed`. Нормализуем заранее.
         name = getattr(status_value, "value", status_value)
-        if name not in _STATUS_VALUES:
+        if name not in _OWL_STATUS_VALUES:
             return None
-        return getattr(self.onto, f"status_{name}", None)
+        return getattr(self.onto, f"{OWL_STATUS_PREFIX}{name}", None)
 
 
 class PolicyRepository:

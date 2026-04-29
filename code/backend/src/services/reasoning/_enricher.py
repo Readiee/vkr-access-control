@@ -1,23 +1,24 @@
-"""Подготовка ABox перед запуском резонера.
-
-SWRL не умеет брать текущее время и считать агрегаты, поэтому реифицируем
-эти значения в индивиды. OWL монотонен и не делает truth maintenance —
-старые выводы (satisfies, is_available_for) чистим целиком перед каждым
-прогоном, не точечно.
+"""Подготовка ABox перед запуском резонера: чистка прошлых выводов и реификация
+встроенных значений (текущее время, агрегаты), которых нет в SWRL.
 """
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, List
 
 from owlready2 import destroy_entity
 
+from core.enums import RuleType
 from utils.owl_utils import get_owl_prop
 
 logger = logging.getLogger(__name__)
 
 CURRENT_TIME_INDIVIDUAL = "current_time_ind"
+
+_AGGREGATE_AVG = "AVG"
+_AGGREGATE_SUM = "SUM"
+_AGGREGATE_COUNT = "COUNT"
 
 
 def clear_inferred_triples(onto: Any) -> None:
@@ -33,9 +34,11 @@ def enrich_current_time(onto: Any, now: datetime | None = None) -> Any:
     """Положить в ABox единственный индивид CurrentTime."""
     for ind in list(onto.CurrentTime.instances()):
         destroy_entity(ind)
-    now = now or datetime.utcnow()
+    # SWRL-сравнения работают с naive datetime; явное приведение через aware-объект
+    # избавляет от deprecation-warning utcnow()
+    now = now or datetime.now(timezone.utc).replace(tzinfo=None)
     ct = onto.CurrentTime(CURRENT_TIME_INDIVIDUAL)
-    ct.has_value = now  # functional, скаляр
+    ct.has_value = now
     return ct
 
 
@@ -50,7 +53,7 @@ def enrich_aggregates(onto: Any) -> int:
 
     aggregate_policies = [
         p for p in onto.AccessPolicy.instances()
-        if get_owl_prop(p, "rule_type") == "aggregate_required"
+        if get_owl_prop(p, "rule_type") == RuleType.AGGREGATE.value
         and get_owl_prop(p, "is_active", True) is True
     ]
     if not aggregate_policies:
@@ -60,7 +63,7 @@ def enrich_aggregates(onto: Any) -> int:
     created = 0
 
     for policy in aggregate_policies:
-        fn = get_owl_prop(policy, "aggregate_function") or "AVG"
+        fn = (get_owl_prop(policy, "aggregate_function") or _AGGREGATE_AVG).upper()
         elements = list(getattr(policy, "aggregate_elements", []) or [])
         if not elements:
             logger.warning(
@@ -79,7 +82,7 @@ def enrich_aggregates(onto: Any) -> int:
                 if target is not None and target.name in element_names and grade is not None:
                     grades.append(grade)
 
-            if not grades and fn != "COUNT":
+            if not grades and fn != _AGGREGATE_COUNT:
                 continue
 
             value = _apply_aggregate(fn, grades)
@@ -93,11 +96,10 @@ def enrich_aggregates(onto: Any) -> int:
 
 
 def _apply_aggregate(fn: str, grades: List[float]) -> float:
-    fn = fn.upper()
-    if fn == "AVG":
+    if fn == _AGGREGATE_AVG:
         return sum(grades) / len(grades)
-    if fn == "SUM":
+    if fn == _AGGREGATE_SUM:
         return sum(grades)
-    if fn == "COUNT":
+    if fn == _AGGREGATE_COUNT:
         return float(len(grades))
     raise ValueError(f"Неизвестная aggregate_function: {fn}")

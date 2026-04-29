@@ -2,8 +2,13 @@ import logging
 import uuid
 from typing import Any, List, Optional
 
-from core.enums import RuleType
-from schemas.schemas import PolicyCreate
+from core.enums import (
+    COMPOSITE_RULE_TYPES,
+    COURSE_STRUCTURE_OWL_CLASS,
+    ReasoningStatus,
+    RuleType,
+)
+from schemas import PolicyCreate
 from services.cache_manager import CacheManager
 from services.graph_validator import GraphValidator, ProbePolicy
 from services.ontology_core import OntologyCore
@@ -23,7 +28,12 @@ class PolicyConflictError(Exception):
         self.explanation = explanation
 
 
-# Functional properties — скаляры; non-functional — multi-valued, snapshot как список.
+class PolicyNotFoundError(LookupError):
+    def __init__(self, policy_id: str):
+        super().__init__(policy_id)
+        self.policy_id = policy_id
+
+
 _SNAPSHOT_SCALAR_PROPS = (
     "rule_type",
     "is_active",
@@ -39,8 +49,11 @@ _SNAPSHOT_LIST_PROPS = (
     "has_subpolicy",
     "aggregate_elements",
 )
-# rule_type и is_active reset не трогает — они выставляются вызывающим заново.
 _RESET_EXCLUDED = frozenset({"rule_type", "is_active"})
+
+
+def _is_composite(rule_type: str) -> bool:
+    return rule_type in COMPOSITE_RULE_TYPES
 
 
 class PolicyService:
@@ -69,11 +82,7 @@ class PolicyService:
 
         rule_type_value = self._rule_type_str(policy_data.rule_type)
         new_policy.rule_type = rule_type_value
-        # Композит активен, пока активны его подусловия — отдельный флаг бессмыслен.
-        if rule_type_value in {RuleType.AND.value, RuleType.OR.value}:
-            new_policy.is_active = True
-        else:
-            new_policy.is_active = getattr(policy_data, 'is_active', True)
+        new_policy.is_active = self._effective_is_active(rule_type_value, policy_data)
         self._apply_type_specific_fields(new_policy, policy_data, rule_type_value)
 
         author = self.core._get_or_create_element(policy_data.author_id, self.core.onto.Methodologist)
@@ -82,10 +91,10 @@ class PolicyService:
         source = self._attach_to_source(new_policy, policy_data.source_element_id)
 
         result = self.reasoner.reason()
-        if result.status != "ok":
+        if result.status != ReasoningStatus.OK.value:
             self._rollback_policy(new_policy, source)
             self._delete_policies_by_id(created_children)
-            if result.status == "inconsistent":
+            if result.status == ReasoningStatus.INCONSISTENT.value:
                 logger.warning("Политика %s сделала онтологию inconsistent: %s", policy_id, result.error)
                 raise PolicyConflictError(
                     f"Политика создаёт логическое противоречие: {result.error or 'онтология inconsistent'}"
@@ -93,7 +102,7 @@ class PolicyService:
             raise PolicyConflictError(f"Reasoning {result.status}: {result.error or '—'}")
 
         self.core.save()
-        self._invalidate_all_access_caches()
+        self._invalidate_caches()
         return serialize_policy(new_policy, source_id=policy_data.source_element_id)
 
     def get_policies(
@@ -101,11 +110,14 @@ class PolicyService:
         course_id: Optional[str] = None,
         element_id: Optional[str] = None,
     ) -> List[dict]:
+        course_scope = self.core.courses.subtree_ids(course_id) if course_id else None
         policies: List[dict] = []
         for policy in self.core.onto.AccessPolicy.instances():
             source_elements = self.core.policies.find_by_source_element(policy)
             source_id: str = source_elements[0].name if source_elements else "unknown"
             if element_id and source_id != element_id:
+                continue
+            if course_scope is not None and source_id not in course_scope:
                 continue
             policies.append(serialize_policy(policy, source_id=source_id))
         return policies
@@ -120,23 +132,25 @@ class PolicyService:
                 element.has_access_policy.remove(policy)
         self.core.policies.delete(policy)
         result = self.reasoner.reason()
-        if result.status != "ok":
-            # На диск пишем только консистентное состояние; в памяти политика удалена,
-            # но без save следующий запуск увидит её снова.
-            logger.warning("Резонер после delete_policy %s вернул %s: %s",
-                           policy_id, result.status, result.error)
-            self._invalidate_all_access_caches()
+        if result.status != ReasoningStatus.OK.value:
+            # на диск пишем только консистентное состояние; без save следующий запуск
+            # снова увидит политику, хотя в памяти она уже снята
+            logger.warning(
+                "Резонер после delete_policy %s вернул %s: %s",
+                policy_id, result.status, result.error,
+            )
+            self._invalidate_caches()
             raise PolicyConflictError(
                 f"После удаления политики reasoning {result.status}: {result.error or '—'}"
             )
         self.core.save()
-        self._invalidate_all_access_caches()
+        self._invalidate_caches()
         return True
 
     def update_policy(self, policy_id: str, data: PolicyCreate) -> dict:
         policy = self.core.policies.find_by_id(policy_id)
         if not policy:
-            raise ValueError(f"Политика с ID {policy_id} не найдена")
+            raise PolicyNotFoundError(policy_id)
 
         snapshot = self._snapshot_policy(policy)
         old_subs = list(getattr(policy, "has_subpolicy", []) or [])
@@ -151,30 +165,27 @@ class PolicyService:
 
         new_type = self._rule_type_str(data.rule_type)
         policy.rule_type = new_type
-        if new_type in {RuleType.AND.value, RuleType.OR.value}:
-            policy.is_active = True
-        else:
-            policy.is_active = getattr(data, 'is_active', True)
+        policy.is_active = self._effective_is_active(new_type, data)
         self._reset_policy_fields(policy)
 
         self._apply_type_specific_fields(policy, data, new_type)
 
         result = self.reasoner.reason()
-        if result.status != "ok":
+        if result.status != ReasoningStatus.OK.value:
             self._restore_policy(policy, snapshot)
             self._delete_policies_by_id(created_nested)
-            if result.status == "inconsistent":
+            if result.status == ReasoningStatus.INCONSISTENT.value:
                 raise PolicyConflictError(
                     f"Политика создаёт логическое противоречие: {result.error or 'онтология inconsistent'}"
                 )
             raise PolicyConflictError(f"Reasoning {result.status}: {result.error or '—'}")
 
-        # Cleanup осиротевших подусловий — после успешного reason: иначе rollback
-        # восстановит has_subpolicy ссылками на уничтоженные индивиды.
+        # cleanup только после успешного reason: rollback по snapshot ссылается на
+        # старые has_subpolicy и поломается, если их уже уничтожили
         self._cleanup_orphan_nested(policy, old_subs)
 
         self.core.save()
-        self._invalidate_all_access_caches()
+        self._invalidate_caches()
 
         source_elements = self.core.policies.find_by_source_element(policy)
         source_id = source_elements[0].name if source_elements else data.source_element_id
@@ -183,28 +194,34 @@ class PolicyService:
     def toggle_policy(self, policy_id: str, is_active: bool) -> None:
         policy = self.core.policies.find_by_id(policy_id)
         if not policy:
-            raise ValueError(f"Политика с ID {policy_id} не найдена")
-        # is_active — functional, скаляр; bool() гарантирует, что rollback не положит
-        # список в скалярное свойство.
+            raise PolicyNotFoundError(policy_id)
         previous = bool(get_owl_prop(policy, "is_active", True))
         policy.is_active = bool(is_active)
         result = self.reasoner.reason()
-        if result.status != "ok":
+        if result.status != ReasoningStatus.OK.value:
             policy.is_active = previous
-            self._invalidate_all_access_caches()
+            self._invalidate_caches()
             raise PolicyConflictError(
                 f"Переключение активности привело к reasoning {result.status}: {result.error or '—'}"
             )
         self.core.save()
-        self._invalidate_all_access_caches()
+        self._invalidate_caches()
 
-    def _invalidate_all_access_caches(self) -> None:
+    def _invalidate_caches(self) -> None:
+        """Сброс access- и verification-ключей разом — любая правка политики ломает оба."""
         self.cache.invalidate_all_access()
         self.cache.invalidate_verification()
 
     @staticmethod
     def _rule_type_str(value: Any) -> str:
         return value if isinstance(value, str) else value.value
+
+    @staticmethod
+    def _effective_is_active(rule_type: str, data: PolicyCreate) -> bool:
+        # композит активен, пока активны его подусловия — собственный флаг бессмыслен
+        if _is_composite(rule_type):
+            return True
+        return bool(getattr(data, "is_active", True))
 
     def _build_probe(self, policy_data: PolicyCreate) -> ProbePolicy:
         rule_type = self._rule_type_str(policy_data.rule_type)
@@ -244,8 +261,7 @@ class PolicyService:
                 self.core.policies.delete(pol)
 
     def _check_cycle(self, policy_data: PolicyCreate) -> None:
-        # Политика без source — это только подполитика композита; в граф зависимостей
-        # она не попадает, так как не висит через has_access_policy.
+        # без source это подполитика композита — в граф зависимостей не попадает
         if not policy_data.source_element_id:
             return
         rule_type = self._rule_type_str(policy_data.rule_type)
@@ -296,7 +312,7 @@ class PolicyService:
             return None
         source = self.core.courses.find_by_id(source_element_id)
         if not source:
-            source = self.core.courses.get_or_create_element(source_element_id, "CourseStructure")
+            source = self.core.courses.get_or_create_element(source_element_id, COURSE_STRUCTURE_OWL_CLASS)
         source.has_access_policy.append(policy)
         return source
 
@@ -321,12 +337,10 @@ class PolicyService:
         if data.target_element_id:
             target = self.core.courses.find_by_id(data.target_element_id)
             if not target:
-                target = self.core.courses.get_or_create_element(data.target_element_id, "CourseStructure")
+                target = self.core.courses.get_or_create_element(data.target_element_id, COURSE_STRUCTURE_OWL_CLASS)
             policy.targets_element = target
         if data.target_competency_id:
-            # Competency — не CourseStructure; courses.find_by_id её не находит,
-            # без явного поиска по type=Competency targets_competency останется пустым
-            # и competency_required-правила не сработают в SWRL.
+            # competency не CourseStructure, поэтому courses.find_by_id не подходит
             comp_cls = getattr(self.core.onto, "Competency", None)
             comp = (
                 self.core.onto.search_one(type=comp_cls, iri=f"*{data.target_competency_id}")

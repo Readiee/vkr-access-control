@@ -1,20 +1,17 @@
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from core.enums import ProgressStatus
-from schemas.schemas import ProgressEvent
+from schemas import ProgressEvent
 from services.access import AccessService
 from services.ontology_core import OntologyCore
 from services.reasoning import ReasoningOrchestrator
 from services.rollup_service import RollupService
 
-logger = logging.getLogger(__name__)
-
 
 class ProgressService:
-    """ABox -> резонер -> rollup -> кэш."""
+    """Регистрация прогресса студента: запись в ABox, прогон резонера, rollup и сброс кэша."""
 
     def __init__(
         self,
@@ -46,19 +43,15 @@ class ProgressService:
             else event_data.event_type
         )
         if event_type == ProgressStatus.COMPLETED.value:
-            progress_record.has_status = self.core.progress.get_owl_status("completed")
+            progress_record.has_status = self.core.progress.get_owl_status(ProgressStatus.COMPLETED)
         elif event_type == ProgressStatus.FAILED.value:
-            progress_record.has_status = self.core.progress.get_owl_status("failed")
+            progress_record.has_status = self.core.progress.get_owl_status(ProgressStatus.FAILED)
 
         if event_data.grade is not None:
             progress_record.has_grade = float(event_data.grade)
 
         self.core.save()
-
-        logger.info("Запуск Pellet для студента %s...", student_node_id)
         self.reasoner.reason()
-        logger.info("Резонер завершил работу.")
-
         return self.invalidate_student_cache(event_data.student_id)
 
     def invalidate_student_cache(self, student_id: str) -> dict:
@@ -79,11 +72,9 @@ class ProgressService:
             record = self.core.progress.create_record(student, element)
 
         val = status if isinstance(status, str) else status.value
-        # has_status — functional; completed покрывает viewed через
-        # вспомогательное SWRL-правило, оба статуса одновременно держать незачем.
+        # has_status — functional; completed покрывает viewed вспомогательным SWRL-правилом
         record.has_status = self.core.progress.get_owl_status(val)
         self.core.save()
-        logger.info("Статус %s для %s обновлён до %s", element_id, student.name, val)
 
         if val == ProgressStatus.COMPLETED.value:
             self.rollup.execute(student, element, self.update_progress)

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from core.enums import ProgressStatus
@@ -8,9 +7,7 @@ from services.access import AccessService
 from services.ontology_core import OntologyCore
 from services.progress_service import ProgressService
 from services.reasoning import ReasoningOrchestrator
-from utils.owl_utils import label_or_name
-
-logger = logging.getLogger(__name__)
+from utils.owl_utils import label_or_name, status_value_from_individual
 
 SANDBOX_STUDENT_ID = "student_sandbox"
 
@@ -30,8 +27,8 @@ class SandboxService:
         self.reasoner = reasoner
         self.access = access
         self.progress = progress
-        # OWL монотонен: убрать выведенный has_competency без явной очистки нельзя.
-        # Для песочницы храним «ручную» подложку в памяти, при рестарте теряется.
+        # OWL монотонен — выведенный has_competency не убрать без явной очистки.
+        # Подложку методиста держим в памяти; при рестарте сервиса она сбрасывается
         self._manual_competencies: dict[str, list[str]] = {}
 
     def _sandbox_student(self):
@@ -55,8 +52,7 @@ class SandboxService:
         progress_dict: dict[str, dict[str, Any]] = {}
         for r in self.core.progress.find_all_for_student(student):
             element_id = r.refers_to_element.name if getattr(r, "refers_to_element", None) else None
-            status_obj = getattr(r, "has_status", None)
-            status = status_obj.name.replace("status_", "") if status_obj is not None else None
+            status = status_value_from_individual(getattr(r, "has_status", None))
             grade = r.has_grade if getattr(r, "has_grade", None) is not None else None
             if element_id and status:
                 progress_dict[element_id] = {"status": status, "grade": grade}
@@ -91,7 +87,8 @@ class SandboxService:
         student = self._sandbox_student()
         sandbox_user_id = student.name
 
-        # Даунгрейд (viewed/failed): сносим родительские рекорды, чтобы агрегация пересчитала их.
+        # даунгрейд (viewed/failed): сносим записи родителей, иначе rollup
+        # будет жить с устаревшим состоянием подэлемента
         if payload.status != ProgressStatus.COMPLETED.value:
             element = self.core.courses.find_by_id(payload.element_id)
             if element:
@@ -134,12 +131,11 @@ class SandboxService:
                 elem.is_available_for.remove(student)
 
     def _reset_competencies_to_manual(self, student) -> None:
-        """Откат has_competency к ручной подложке методиста.
+        """Откат has_competency к подложке методиста перед каждым прогоном резонера.
 
-        OWL монотонен: отзыв prerequisite сам по себе не удаляет ранее
-        выведенный has_competency. Перед каждым прогоном перезаписываем
-        список на тот, что задал методист через set_competencies; дальше
-        резонер допишет выводы из актуального прогресса.
+        OWL монотонен; отзыв prerequisite не удаляет уже выведенный has_competency.
+        Перезаписываем список тем, что задал методист через set_competencies — резонер
+        дальше допишет выводы из текущего прогресса.
         """
         comp_cls = getattr(self.core.onto, "Competency", None)
         manual_ids = self._manual_competencies.get(student.name, [])
@@ -168,7 +164,7 @@ class SandboxService:
     def set_competencies(self, competency_ids: list[str]) -> dict:
         student = self._sandbox_student()
         comp_cls = getattr(self.core.onto, "Competency", None)
-        # Некорректные id игнорируем молча — фронт не должен их слать, это защита.
+        # неизвестные id молча отбрасываем: ABox мог измениться между запросами фронта
         valid_ids: list[str] = []
         if comp_cls is not None:
             for cid in competency_ids:

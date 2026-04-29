@@ -5,7 +5,13 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 
 from api.dependencies import get_integration_service
-from schemas.schemas import CourseSyncPayload, CourseTreeNode, OntologyMeta
+from schemas import (
+    CourseSyncPayload,
+    CourseTreeNode,
+    ElementCompetenciesPayload,
+    ElementMandatoryPayload,
+    OntologyMeta,
+)
 from services.integration_service import IntegrationService
 
 logger = logging.getLogger(__name__)
@@ -66,12 +72,12 @@ async def get_course_tree(
     summary="Перезаписать список выдаваемых элементом компетенций",
 )
 async def set_element_competencies(
-    payload: dict,
+    payload: ElementCompetenciesPayload,
     element_id: str = Path(..., description="ID элемента курса"),
     service: IntegrationService = Depends(get_integration_service),
 ) -> dict:
     try:
-        return service.set_element_competencies(element_id, payload.get("competency_ids", []))
+        return service.set_element_competencies(element_id, payload.competency_ids)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
@@ -81,12 +87,11 @@ async def set_element_competencies(
     summary="Перезаписать флаг обязательности элемента",
 )
 async def set_element_mandatory(
-    payload: dict,
+    payload: ElementMandatoryPayload,
     element_id: str = Path(..., description="ID элемента курса"),
     service: IntegrationService = Depends(get_integration_service),
 ) -> dict:
     try:
-        is_mandatory = bool(payload.get("is_mandatory"))
-        return service.set_element_mandatory(element_id, is_mandatory)
+        return service.set_element_mandatory(element_id, payload.is_mandatory)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))

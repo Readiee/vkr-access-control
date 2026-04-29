@@ -13,7 +13,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 from owlready2 import World  
 
 from core.enums import ElementType  
-from schemas.schemas import CourseElement, CourseSyncPayload  
+from schemas import CourseElement, CourseSyncPayload
 from services.integration_service import IntegrationService  
 from services.ontology_core import OntologyCore  
 from services.policy_service import PolicyService  

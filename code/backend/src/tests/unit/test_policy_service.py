@@ -16,7 +16,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 from owlready2 import World
 
 from core.enums import RuleType
-from schemas.schemas import PolicyCreate
+from schemas import PolicyCreate
 from services.cache_manager import CacheManager
 from services.ontology_core import OntologyCore
 from services.policy_service import PolicyConflictError, PolicyService

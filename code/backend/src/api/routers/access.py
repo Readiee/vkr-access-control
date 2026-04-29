@@ -3,7 +3,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 
 from api.dependencies import get_access_service
-from schemas.schemas import AvailableElements, BlockingExplanationResponse
+from schemas import AvailableElements, BlockingExplanationResponse
 from services.access import AccessService
 
 logger = logging.getLogger(__name__)
