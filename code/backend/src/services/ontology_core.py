@@ -1,17 +1,11 @@
-"""Тонкая обёртка над Owlready2: загрузка и сохранение OWL плюс репозитории ABox
-
-OntologyCore отвечает за I/O онтологии и операции TBox/ABox. Кэш, резонер и
-graph-анализ — отдельные компоненты, инжектятся через api/dependencies.py.
-Репозитории (Student/Course/Progress/Policy) живут внутри OntologyCore — это
-типизированные вьюхи над ABox, не самостоятельные сервисы
-"""
+"""Загрузка и сохранение OWL-онтологии плюс репозитории ABox."""
 from __future__ import annotations
 
 import logging
 from typing import Any, Optional
 
 import redis
-from owlready2 import World, default_world, get_ontology
+from owlready2 import World, default_world
 
 from repositories.ontology_repositories import (
     CourseRepository,
@@ -25,8 +19,6 @@ logger = logging.getLogger(__name__)
 
 
 class OntologyCore:
-    """Управляет загрузкой и сохранением онтологии, доступом к ABox через репозитории"""
-
     def __init__(self, onto_path: Optional[str] = None, world: Optional[World] = None) -> None:
         from core.config import DEFAULT_ONTOLOGY_PATH
 
@@ -45,20 +37,15 @@ class OntologyCore:
         self.policies = PolicyRepository(self.onto)
 
     def save(self) -> None:
-        """Сохранить текущее состояние онтологии в файл"""
         self.onto.save(file=self.onto_file)
 
     def _get_node_label(self, node_id: str) -> str:
-        """Человекочитаемое название OWL-индивида: rdfs:label или сам ID"""
         el = self.onto.search_one(iri=f"*{node_id}")
         return label_or_name(el) if el is not None else node_id
 
     def _get_or_create_element(self, element_id: str, element_class: Any) -> Any:
-        """Найти OWL-индивид по ID или создать новый
-
-        Поиск ограничен переданным классом, иначе суффикс `*element_id` может
-        матчить индивид другого класса с тем же хвостом IRI
-        """
+        # Поиск ограничен переданным классом: суффикс `*element_id` без type=
+        # матчит индивид другого класса с тем же хвостом IRI.
         element = self.onto.search_one(type=element_class, iri=f"*{element_id}")
         if not element:
             element = element_class(element_id)
@@ -66,7 +53,6 @@ class OntologyCore:
 
 
 def connect_redis(redis_url: str) -> Optional[redis.Redis]:
-    """Подключение к Redis по URL; None при недоступности — кэш становится no-op"""
     try:
         client = redis.Redis.from_url(redis_url, decode_responses=True)
         client.ping()

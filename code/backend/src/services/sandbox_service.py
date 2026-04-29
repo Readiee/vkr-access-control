@@ -16,12 +16,7 @@ SANDBOX_STUDENT_ID = "student_sandbox"
 
 
 class SandboxService:
-    """Песочница методиста: симуляция прогресса на тестовом студенте
-
-    Работает с единственным SandboxStudent: методист дёргает один и тот же
-    профиль для проверки правил. Пул тестовых студентов убран — смысл симулятора
-    в быстрой проверке правила, а не в репрезентативной выборке
-    """
+    """Симулятор прогресса для методиста на единственном тестовом студенте."""
 
     def __init__(
         self,
@@ -36,11 +31,10 @@ class SandboxService:
         self.access = access
         self.progress = progress
         # OWL монотонен: убрать выведенный has_competency без явной очистки нельзя.
-        # При рестарте теряется — для песочницы это приемлемо
+        # Для песочницы храним «ручную» подложку в памяти, при рестарте теряется.
         self._manual_competencies: dict[str, list[str]] = {}
 
     def _sandbox_student(self):
-        """Единственный sandbox-студент; создаёт индивида, если его ещё нет"""
         cls = getattr(self.core.onto, "SandboxStudent", None)
         if cls is None:
             return self.core.students.get_or_create(SANDBOX_STUDENT_ID)
@@ -59,25 +53,16 @@ class SandboxService:
         available_elements = access_data.get("available_elements", [])
 
         progress_dict: dict[str, dict[str, Any]] = {}
-        records = self.core.progress.find_all_for_student(student)
-        for r in records:
+        for r in self.core.progress.find_all_for_student(student):
             element_id = r.refers_to_element.name if getattr(r, "refers_to_element", None) else None
             status_obj = getattr(r, "has_status", None)
             status = status_obj.name.replace("status_", "") if status_obj is not None else None
-
             grade = r.has_grade if getattr(r, "has_grade", None) is not None else None
-
             if element_id and status:
-                progress_dict[element_id] = {
-                    "status": status,
-                    "grade": grade,
-                }
+                progress_dict[element_id] = {"status": status, "grade": grade}
 
         active_comps = [comp.name for comp in getattr(student, "has_competency", [])]
-
         groups = list(getattr(student, "belongs_to_group", []) or [])
-        group_ids = [g.name for g in groups]
-        group_names = [label_or_name(g) for g in groups]
 
         return {
             "student_id": sandbox_user_id,
@@ -85,8 +70,8 @@ class SandboxService:
             "available_elements": available_elements,
             "progress": progress_dict,
             "active_competencies": active_comps,
-            "group_ids": group_ids,
-            "group_names": group_names,
+            "group_ids": [g.name for g in groups],
+            "group_names": [label_or_name(g) for g in groups],
         }
 
     def _cascade_delete_parent_records(self, student, element):
@@ -106,7 +91,7 @@ class SandboxService:
         student = self._sandbox_student()
         sandbox_user_id = student.name
 
-        # Даунгрейд (viewed/failed): сносим родительские рекорды, чтобы агрегация пересчитала их
+        # Даунгрейд (viewed/failed): сносим родительские рекорды, чтобы агрегация пересчитала их.
         if payload.status != ProgressStatus.COMPLETED.value:
             element = self.core.courses.find_by_id(payload.element_id)
             if element:
@@ -144,19 +129,17 @@ class SandboxService:
         return {"status": "success", "message": f"Откат {element_id} завершен"}
 
     def _clear_inferred_access(self, student):
-        """Чистит выведенные доступы, чтобы резонер собрал их заново (OWL монотонен)"""
         for elem in self.core.courses.get_all_elements():
             if student in getattr(elem, "is_available_for", []):
                 elem.is_available_for.remove(student)
 
     def _reset_competencies_to_manual(self, student) -> None:
-        """Откат has_competency к перезачёту методиста
+        """Откат has_competency к ручной подложке методиста.
 
-        Вспомогательное SWRL-правило выводит компетенции из ProgressRecord,
-        но OWL монотонен и отзыв prerequisite сам по себе не удаляет ранее
+        OWL монотонен: отзыв prerequisite сам по себе не удаляет ранее
         выведенный has_competency. Перед каждым прогоном перезаписываем
-        has_competency на то, что задал методист вручную через set_competencies;
-        дальше резонер допишет выводы из актуального прогресса
+        список на тот, что задал методист через set_competencies; дальше
+        резонер допишет выводы из актуального прогресса.
         """
         comp_cls = getattr(self.core.onto, "Competency", None)
         manual_ids = self._manual_competencies.get(student.name, [])
@@ -173,8 +156,7 @@ class SandboxService:
 
         self._manual_competencies.pop(student.name, None)
         student.has_competency = []
-        records = self.core.progress.find_all_for_student(student)
-        for r in records:
+        for r in self.core.progress.find_all_for_student(student):
             self.core.progress.delete_record(student, r)
 
         self._clear_inferred_access(student)
@@ -186,8 +168,7 @@ class SandboxService:
     def set_competencies(self, competency_ids: list[str]) -> dict:
         student = self._sandbox_student()
         comp_cls = getattr(self.core.onto, "Competency", None)
-        # Валидируем, что все id — действительно Competency. Некорректные
-        # id игнорируем молча: фронт не должен их слать, это просто защита
+        # Некорректные id игнорируем молча — фронт не должен их слать, это защита.
         valid_ids: list[str] = []
         if comp_cls is not None:
             for cid in competency_ids:
@@ -204,11 +185,6 @@ class SandboxService:
         return {"status": "success", "message": "Компетенции обновлены"}
 
     def set_groups(self, group_ids: list[str]) -> dict:
-        """Перезаписать набор групп sandbox-студента; пустой список — снять все
-
-        Студент может состоять в нескольких группах (поток + проектная команда).
-        Дубликаты игнорируются, неизвестные id поднимают ValueError
-        """
         student = self._sandbox_student()
         group_cls = getattr(self.core.onto, "Group", None)
 

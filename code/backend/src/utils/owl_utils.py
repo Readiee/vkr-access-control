@@ -2,10 +2,10 @@ from typing import Any
 
 
 def get_owl_prop(owl_individual: Any, property_name: str, default: Any = None) -> Any:
-    """Первое значение свойства у OWL-индивида (работает для list и scalar API).
+    """Первое значение свойства OWL-индивида (работает и для list, и для scalar API).
 
-    Non-functional property возвращает list ([] для пустого); functional —
-    скаляр (или None). Единая функция нормализует к «либо значение, либо default».
+    Non-functional property возвращает list ([] для пустого), functional — скаляр
+    или None. Здесь нормализуется к «либо значение, либо default».
     """
     value = getattr(owl_individual, property_name, None)
     if value is None:
@@ -16,11 +16,7 @@ def get_owl_prop(owl_individual: Any, property_name: str, default: Any = None) -
 
 
 def label_or_name(obj: Any) -> str:
-    """rdfs:label[0] или техническое имя индивида; пустая строка для None
-
-    Используется в UI и трейсах: пользователь видит rdfs:label если он задан,
-    fallback — onto-name индивида
-    """
+    """rdfs:label[0] или техническое имя индивида; "" для None."""
     if obj is None:
         return ""
     label = getattr(obj, "label", None)

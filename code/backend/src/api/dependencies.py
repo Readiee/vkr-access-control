@@ -1,10 +1,4 @@
-"""DI-граф сервисов через FastAPI Depends
-
-OntologyCore тонкий, CacheManager и ReasoningOrchestrator — отдельные
-компоненты Core-слоя. Сервисы Service-слоя получают зависимости через Depends
-и не лезут в core.* напрямую: это убирает service-locator antipattern и
-делает зависимости видимыми в сигнатурах конструкторов
-"""
+"""DI-граф сервисов через FastAPI Depends."""
 from functools import lru_cache
 from typing import Optional
 
@@ -36,8 +30,7 @@ def get_redis_client() -> Optional[redis.Redis]:
 
 @lru_cache()
 def get_cache_manager() -> CacheManager:
-    # Singleton: хэш онтологии кэшируется внутри CacheManager по mtime файла,
-    # Redis-клиент тоже singleton через get_redis_client.
+    # Хэш онтологии кэшируется внутри CacheManager по mtime файла; Redis-клиент тоже singleton.
     return CacheManager(get_redis_client(), onto_path=settings.ONTOLOGY_FILE_PATH)
 
 

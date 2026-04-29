@@ -1,9 +1,4 @@
-"""Базовый класс хэндлера типа правила доступа
-
-Каждый тип правила наследует RuleHandler и переопределяет нужные методы.
-No-op defaults — для типов, у которых метод семантически пуст (например,
-date/group не добавляют дуги в граф зависимостей).
-"""
+"""Базовый класс хэндлера типа правила доступа."""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
@@ -17,16 +12,14 @@ if TYPE_CHECKING:
 
 
 class RuleHandler:
-    """Протокол поведения одного типа правила доступа.
+    """Поведение одного типа правила: граф зависимостей, probe, верификация, ABox, описание.
 
-    Методы вызываются диспетчерами в GraphValidator, VerificationService,
-    policy_formatters и PolicyService. Default-реализации — no-op или «разрешено».
-    Конкретный тип переопределяет только те методы, где его семантика нетривиальна
+    Дефолты — no-op: типы, у которых метод семантически пуст
+    (date/group не дают структурных дуг; completion/grade/viewed не пишут ABox),
+    наследуют без override.
     """
 
     rule_type: str = ""
-
-    # ---- граф зависимостей ------------------------------------------------
 
     def add_dependency_edges(
         self,
@@ -36,8 +29,7 @@ class RuleHandler:
         source_id: str,
         recurse: Callable,
         depth: int,
-    ) -> None:
-        """Добавить дуги для реальной политики из ABox"""
+    ) -> None: ...
 
     def add_probe_edges(
         self,
@@ -45,13 +37,9 @@ class RuleHandler:
         onto: Any,
         probe: "ProbePolicy",
         recurse_policy: Callable,
-    ) -> None:
-        """Добавить дуги для probe-политики при создании/обновлении"""
-
-    # ---- верификация -------------------------------------------------------
+    ) -> None: ...
 
     def atomic_unsat_reason(self, onto: Any, policy: Any) -> Optional[str]:
-        """Вернуть причину невыполнимости или None, если политика корректна"""
         return None
 
     def can_grant(
@@ -64,22 +52,15 @@ class RuleHandler:
         cache: Dict[str, bool],
         unsat_policies: set,
     ) -> bool:
-        """Можно ли теоретически выполнить политику (структурная достижимость)"""
         return True
 
-    # ---- форматирование ----------------------------------------------------
-
     def describe(self, policy: Any) -> str:
-        """Строковое описание для UI (без rdfs:label)"""
         from utils.owl_utils import get_owl_prop
         return get_owl_prop(policy, "rule_type", "") or policy.name
-
-    # ---- ABox write --------------------------------------------------------
 
     def apply_abox_fields(
         self,
         policy: Any,
         data: "PolicyCreate",
         core: "OntologyCore",
-    ) -> None:
-        """Перенести типо-специфичные поля из PolicyCreate в ABox-индивид"""
+    ) -> None: ...

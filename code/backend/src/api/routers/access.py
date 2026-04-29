@@ -21,7 +21,6 @@ async def get_student_access(
     course_id: str = Path(..., description="ID курса"),
     service: AccessService = Depends(get_access_service),
 ) -> AvailableElements:
-    """Доступные элементы курса из кэша Redis (через AccessService)."""
     try:
         return service.get_course_access(student_id, course_id)
     except Exception:
@@ -34,7 +33,7 @@ async def get_student_access(
 
 @router.get(
     "/student/{student_id}/element/{element_id}/explain",
-    summary="Объяснение (не)доступа к элементу (UC-9)",
+    summary="Объяснение (не)доступа к элементу",
     response_model=BlockingExplanationResponse,
 )
 async def explain_access(
@@ -42,7 +41,6 @@ async def explain_access(
     element_id: str = Path(..., description="ID элемента"),
     service: AccessService = Depends(get_access_service),
 ) -> dict:
-    """Возвращает, какая политика заблокировала элемент или какой родитель каскадно."""
     try:
         return service.explain_blocking(student_id, element_id)
     except ValueError as exc:

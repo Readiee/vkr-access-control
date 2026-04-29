@@ -13,11 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class IntegrationService:
-    """Импорт структуры курса и правил из СДО, чтение метаданных онтологии
-
-    После импорта запускается автоверификация через VerificationService.
-    Чтение дерева и meta-endpoints — утилитная часть, нужна фронту
-    """
+    """Импорт структуры курса и правил из СДО, чтение метаданных онтологии."""
 
     def __init__(
         self,
@@ -30,15 +26,12 @@ class IntegrationService:
         self.verification = verification
         self.cache = cache
 
-
     def get_meta(self) -> dict:
-        """Метаданные онтологии: типы правил, статусы, компетенции, элементы, группы"""
         rule_types = [rt.value for rt in RuleType]
         statuses = [ps.value for ps in ProgressStatus]
 
         competencies: List[dict] = []
-        all_comps = self.core.courses.get_all_competencies()
-        for comp in all_comps:
+        for comp in self.core.courses.get_all_competencies():
             parent_list = getattr(comp, "is_subcompetency_of", [])
             parent_id = parent_list[0].name if parent_list else None
             competencies.append({
@@ -48,8 +41,7 @@ class IntegrationService:
             })
 
         course_elements: List[dict] = []
-        all_course_elements = self.core.courses.get_all_elements()
-        for el in all_course_elements:
+        for el in self.core.courses.get_all_elements():
             raw_type = el.type[0] if getattr(el, "type", None) else None
             if not raw_type:
                 raw_type = el.__class__.__name__.lower()
@@ -64,7 +56,8 @@ class IntegrationService:
         group_cls = getattr(self.core.onto, "Group", None)
         if group_cls is not None:
             for grp in group_cls.instances():
-                # берём первый ассертированный элемент, а не транзитивное замыкание из вывода
+                # Берём первый ассертированный родитель; транзитивное замыкание из
+                # вывода резонера в иерархию для UI не тянем.
                 parents = list(getattr(grp, "is_subgroup_of", []) or [])
                 parent_id = parents[0].name if parents else None
                 groups.append({
@@ -91,7 +84,7 @@ class IntegrationService:
         course.label = [payload.course_name]
         course.is_mandatory = True
 
-        # Soft reset курса: чистим только связи, индивидов оставляем
+        # Soft reset: чистим только связи, индивидов оставляем.
         for old_module in list(course.has_module):
             old_module.contains_activity = []
         course.has_module = []
@@ -104,7 +97,6 @@ class IntegrationService:
             element.type = [elem_data.element_type.lower()]
             element.is_mandatory = getattr(elem_data, "is_mandatory", True)
 
-            # Неявная или явная сортировка
             final_order = elem_data.order_index if getattr(elem_data, "order_index", None) is not None else idx
             element.order_index = final_order
 
@@ -129,7 +121,7 @@ class IntegrationService:
             "synced_elements_count": len(payload.elements),
         }
 
-        # на ошибке верификации импорт не откатывается — только summary помечается failed
+        # На ошибке верификации импорт не откатывается; summary помечается как failed.
         if run_verification:
             try:
                 report = self.verification.verify(course.name, use_cache=False)
@@ -141,7 +133,6 @@ class IntegrationService:
         return result
 
     def get_course_tree(self, course_id: str) -> List[dict]:
-        """Иерархия курса с прикреплёнными политиками"""
         course = self.core.courses.find_by_id(course_id)
         if not course:
             return []
@@ -190,9 +181,6 @@ class IntegrationService:
         return [build_node(course, ElementType.COURSE.value)]
 
     def set_element_competencies(self, element_id: str, competency_ids: List[str]) -> dict:
-        """Перезаписать assesses у элемента; OWL монотонен, поэтому инвалидация
-        обоих кэшей обязательна — без неё has_competency не обновится автоматически.
-        """
         element = self.core.courses.find_by_id(element_id)
         if element is None:
             raise ValueError(f"Элемент {element_id} не найден.")
@@ -210,7 +198,8 @@ class IntegrationService:
 
         element.assesses = competencies
         self.core.save()
-        # резонер не гоним сразу — AccessService пересчитает на первом чтении
+        # OWL монотонен: без явной инвалидации has_competency не пересчитается;
+        # резонер не зовём, AccessService пересчитает на первом чтении.
         self.cache.invalidate_all_access()
         self.cache.invalidate_verification()
         return {
@@ -219,15 +208,11 @@ class IntegrationService:
         }
 
     def set_element_mandatory(self, element_id: str, is_mandatory: bool) -> dict:
-        """Перезаписать флаг обязательности; влияет на агрегацию завершённости
-        родительских модулей. Пересчёт идёт при следующем simulate_progress.
-        """
         element = self.core.courses.find_by_id(element_id)
         if element is None:
             raise ValueError(f"Элемент {element_id} не найден.")
 
-        # is_mandatory — FunctionalProperty, скалярный API
-        element.is_mandatory = bool(is_mandatory)
+        element.is_mandatory = bool(is_mandatory)  # functional property, скаляр
         self.core.save()
         self.cache.invalidate_all_access()
         self.cache.invalidate_verification()

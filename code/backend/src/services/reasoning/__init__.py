@@ -1,7 +1,3 @@
-"""ReasoningOrchestrator и приватный enricher pre-enrich стадии
-
-Наружу — только ReasoningOrchestrator. _enricher вызывается только из orchestrator.py
-"""
 from services.reasoning.orchestrator import (
     DEFAULT_TIMEOUT_SEC,
     ReasoningOrchestrator,

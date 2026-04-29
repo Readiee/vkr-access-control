@@ -1,12 +1,9 @@
-"""Подготовка ABox перед запуском резонера
+"""Подготовка ABox перед запуском резонера.
 
-SWRL не умеет брать текущее время и считать агрегаты — это делаем здесь,
-реифицируя значения в индивидов, на которые правила могут ссылаться. OWL
-монотонен и не поддерживает truth maintenance, поэтому старые выводы
-(satisfies, is_available_for) чистим целиком перед каждым прогоном, а не
-обновляем точечно
-
-Приватный модуль; импортируется только из orchestrator.py
+SWRL не умеет брать текущее время и считать агрегаты, поэтому реифицируем
+эти значения в индивиды. OWL монотонен и не делает truth maintenance —
+старые выводы (satisfies, is_available_for) чистим целиком перед каждым
+прогоном, не точечно.
 """
 from __future__ import annotations
 
@@ -16,13 +13,14 @@ from typing import Any, List
 
 from owlready2 import destroy_entity
 
+from utils.owl_utils import get_owl_prop
+
 logger = logging.getLogger(__name__)
 
 CURRENT_TIME_INDIVIDUAL = "current_time_ind"
 
 
 def clear_inferred_triples(onto: Any) -> None:
-    """Удалить ранее выведенные satisfies и is_available_for со всех индивидов"""
     for student in onto.Student.instances():
         if hasattr(student, "satisfies"):
             student.satisfies = []
@@ -32,40 +30,37 @@ def clear_inferred_triples(onto: Any) -> None:
 
 
 def enrich_current_time(onto: Any, now: datetime | None = None) -> Any:
-    """Положить в ABox одиночный индивид CurrentTime с текущим временем
-
-    Старые экземпляры уничтожаются: класс должен содержать ровно один индивид
-    """
+    """Положить в ABox единственный индивид CurrentTime."""
     for ind in list(onto.CurrentTime.instances()):
         destroy_entity(ind)
     now = now or datetime.utcnow()
     ct = onto.CurrentTime(CURRENT_TIME_INDIVIDUAL)
-    ct.has_value = now  # functional property, скалярный API
+    ct.has_value = now  # functional, скаляр
     return ct
 
 
 def enrich_aggregates(onto: Any) -> int:
-    """Пересчитать AggregateFact для всех активных aggregate_required-политик
+    """Пересчитать AggregateFact для всех активных aggregate_required-политик.
 
-    Удаляет все старые факты и создаёт новые — по одному на пару (студент, политика),
-    где значение = AVG/SUM/COUNT по оценкам за aggregate_elements. Возвращает число
-    созданных фактов
+    Один факт на пару (студент, политика) с computed_value = AVG/SUM/COUNT
+    по оценкам за aggregate_elements. Возвращает число созданных фактов.
     """
     for fact in list(onto.AggregateFact.instances()):
         destroy_entity(fact)
 
-    created = 0
     aggregate_policies = [
         p for p in onto.AccessPolicy.instances()
-        if _one(p.rule_type) == "aggregate_required" and _one(p.is_active)
+        if get_owl_prop(p, "rule_type") == "aggregate_required"
+        and get_owl_prop(p, "is_active", True) is True
     ]
     if not aggregate_policies:
         return 0
 
     students = list(onto.Student.instances())
+    created = 0
 
     for policy in aggregate_policies:
-        fn = _one(policy.aggregate_function) or "AVG"
+        fn = get_owl_prop(policy, "aggregate_function") or "AVG"
         elements = list(getattr(policy, "aggregate_elements", []) or [])
         if not elements:
             logger.warning(
@@ -74,22 +69,22 @@ def enrich_aggregates(onto: Any) -> int:
             )
             continue
 
-        element_set = {e.name for e in elements}
+        element_names = {e.name for e in elements}
 
         for student in students:
-            grades: List[float] = [
-                _one(pr.has_grade)
-                for pr in getattr(student, "has_progress_record", [])
-                if _one(pr.refers_to_element) is not None
-                and _one(pr.refers_to_element).name in element_set
-                and _one(pr.has_grade) is not None
-            ]
+            grades: List[float] = []
+            for pr in getattr(student, "has_progress_record", []) or []:
+                target = get_owl_prop(pr, "refers_to_element")
+                grade = get_owl_prop(pr, "has_grade")
+                if target is not None and target.name in element_names and grade is not None:
+                    grades.append(grade)
+
             if not grades and fn != "COUNT":
                 continue
 
             value = _apply_aggregate(fn, grades)
             fact = onto.AggregateFact(f"agg_{student.name}_{policy.name}")
-            fact.for_student = student        # functional, scalar
+            fact.for_student = student
             fact.for_policy = policy
             fact.computed_value = value
             created += 1
@@ -106,12 +101,3 @@ def _apply_aggregate(fn: str, grades: List[float]) -> float:
     if fn == "COUNT":
         return float(len(grades))
     raise ValueError(f"Неизвестная aggregate_function: {fn}")
-
-
-def _one(value: Any) -> Any:
-    """Развернуть значение owlready-свойства в скаляр — берём первое из списка"""
-    if value is None:
-        return None
-    if isinstance(value, list):
-        return value[0] if value else None
-    return value

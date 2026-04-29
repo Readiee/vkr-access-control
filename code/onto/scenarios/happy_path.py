@@ -24,9 +24,6 @@ def build(onto: Any) -> None:
         grp_standard = onto.Group("grp_standard"); grp_standard.label = ["Стандартный поток"]
         grp_advanced = onto.Group("grp_advanced"); grp_advanced.label = ["Продвинутый поток"]
         grp_remote = onto.Group("grp_remote"); grp_remote.label = ["Дистанционный поток"]
-        # Проектная команда внутри продвинутого потока. is_subgroup_of в связке с
-        # SWRL H-3 даёт наследование членства вверх: студент в alpha-команде через
-        # резонер становится членом grp_advanced и проходит политику p8
         grp_advanced_alpha = onto.Group("grp_advanced_alpha")
         grp_advanced_alpha.label = ["Команда Alpha (продвинутый поток)"]
         grp_advanced_alpha.is_subgroup_of = [grp_advanced]
@@ -51,8 +48,6 @@ def build(onto: Any) -> None:
 
         student_ivanov.belongs_to_group = [grp_standard]
         student_petrov.belongs_to_group = [grp_standard]
-        # Sidorov — в проектной подгруппе. Доступ к p8 (на grp_advanced) приходит
-        # через H-3 наследование членства, а не напрямую
         student_sidorov.belongs_to_group = [grp_advanced_alpha]
         student_korolev.belongs_to_group = [grp_remote]
 
@@ -106,14 +101,8 @@ def build(onto: Any) -> None:
         quiz3.is_mandatory = True; quiz3.order_index = 1
         prac3 = onto.Practice("practice_3"); prac3.label = ["Практика. ООП"]
         prac3.is_mandatory = True; prac3.order_index = 2
-        # comp_oop получают через перезачёт (has_competency напрямую) или через
-        # наследование H-1 с внешних курсов. Attaching assesses на элементы внутри
-        # module_3_oop (защищённого comp_functions) дал бы структурный цикл через
-        # competency-раскрытие + hierarchy descent — GraphValidator детектирует.
         m3.contains_activity = [lec4, quiz3, prac3]
 
-        # Дополнительная секция курса: contains_activity в TBox требует domain=Module,
-        # поэтому прямые элементы курса оборачиваем в module_extras.
         m_extras = onto.Module("module_extras"); m_extras.label = ["Дополнительно"]
         m_extras.is_mandatory = False; m_extras.order_index = 4
         course.has_module = list(course.has_module) + [m_extras]

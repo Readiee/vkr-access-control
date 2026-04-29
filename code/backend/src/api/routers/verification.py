@@ -9,16 +9,16 @@ router = APIRouter(prefix="/api/v1/verify", tags=["Verification"])
 
 @router.get(
     "/course/{course_id}",
-    summary="Базовая верификация курса (СВ-1/2/3)",
+    summary="Верификация курса",
     status_code=status.HTTP_200_OK,
     response_model=VerificationReportResponse,
 )
 async def verify_course(
     course_id: str = Path(..., description="ID курса в онтологии"),
-    full: bool = Query(False, description="Включить СВ-4 Redundancy и СВ-5 Subsumption"),
+    full: bool = Query(False, description="Включить redundancy и subsumption"),
     service: VerificationService = Depends(get_verification_service),
 ) -> dict:
-    """Consistency + Acyclicity + Reachability. При full=true также СВ-4/5."""
+    """Consistency + acyclicity + reachability; при full=true также redundancy/subsumption."""
     try:
         report = service.verify(course_id, include_subsumption=full)
     except LookupError as exc:

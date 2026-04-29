@@ -1,13 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from services.sandbox_service import SandboxService
-from schemas.schemas import SandboxProgressPayload
 from api.dependencies import get_sandbox_service
+from schemas.schemas import SandboxProgressPayload
+from services.sandbox_service import SandboxService
 
 router = APIRouter(prefix="/api/v1/sandbox", tags=["Sandbox"])
 
 
-@router.get("/state", summary="Получить состояние песочницы (доступы и прогресс)")
+@router.get("/state", summary="Состояние песочницы (доступы и прогресс)")
 def get_sandbox_state(
     course_id: str,
     service: SandboxService = Depends(get_sandbox_service),
@@ -29,7 +29,7 @@ def simulate_progress(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.delete("/progress/{element_id}", summary="Откатить прогресс для элемента")
+@router.delete("/progress/{element_id}", summary="Откатить прогресс по элементу")
 def rollback_progress(
     element_id: str,
     service: SandboxService = Depends(get_sandbox_service),
@@ -40,7 +40,7 @@ def rollback_progress(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.post("/reset", summary="Ядерная кнопка: полная очистка песочницы")
+@router.post("/reset", summary="Полная очистка песочницы")
 def reset_all(
     service: SandboxService = Depends(get_sandbox_service),
 ):
@@ -61,7 +61,7 @@ def set_competencies(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.put("/groups", summary="Перезаписать набор групп тестового студента (пустой список — снять все)")
+@router.put("/groups", summary="Перезаписать группы тестового студента")
 def set_groups(
     payload: dict,
     service: SandboxService = Depends(get_sandbox_service),

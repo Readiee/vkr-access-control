@@ -1,9 +1,4 @@
-"""Деревья обоснований для satisfies / is_available_for: для каждого тела
-SWRL-шаблона собирается binding ABox-фактов, для композитов — рекурсия по
-has_subpolicy. Атомарные правила декларируются спецификациями: общий
-строитель собирает Justification из spec, частная логика остаётся только
-в построении биндингов и текста note
-"""
+"""SLD-trace тела SWRL для satisfies / is_available_for."""
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
@@ -16,8 +11,7 @@ from utils.owl_utils import get_owl_prop
 
 @dataclass
 class Justification:
-    """Узел дерева обоснования; либо witness (positive), либо reason (negative)"""
-    status: str  # "satisfied" | "unsatisfied" | "available" | "unavailable"
+    status: str  # satisfied | unsatisfied | available | unavailable
     rule_template: str
     policy_id: Optional[str] = None
     variable_bindings: Dict[str, Any] = field(default_factory=dict)
@@ -26,14 +20,11 @@ class Justification:
     note: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        out = asdict(self)
-        out["children"] = [c if isinstance(c, dict) else c for c in out["children"]]
-        return out
+        return asdict(self)
 
 
 @dataclass
 class _AtomicSpec:
-    """Декларативное описание тела одного атомарного SWRL-шаблона"""
     template: str
     bindings: Dict[str, Any]
     body_facts: List[Dict[str, Any]]
@@ -42,21 +33,16 @@ class _AtomicSpec:
 
 
 class AccessExplainer:
-    """Обоснование выведенных satisfies / is_available_for через SLD-trace тела SWRL
+    """Обоснование выведенных satisfies / is_available_for через SLD-trace тела SWRL.
 
-    Приватный модуль; вызывается только из AccessService
+    Приватный модуль; вызывается только из AccessService.
     """
 
     def __init__(self, core: OntologyCore) -> None:
         self.core = core
 
     def explain_is_available(self, student: Any, element: Any) -> Justification:
-        """Мета-правило: is_available_for(el, s) ← has_access_policy(el, p) ∧ is_active(p) ∧ satisfies(s, p)
-
-        Trace собирается по всем активным политикам элемента: для satisfied —
-        witness с биндингом тела, для unsatisfied — те же биндинги с недостающим
-        атомом. Статус корня определяется по is_available_for из ABox
-        """
+        """Trace мета-правила: is_available_for(el, s) ← has_access_policy(el, p) ∧ is_active(p) ∧ satisfies(s, p)."""
         active_policies = [
             p for p in (getattr(element, "has_access_policy", []) or [])
             if get_owl_prop(p, "is_active", True) is True
@@ -83,7 +69,6 @@ class AccessExplainer:
         )
 
     def explain_satisfies(self, student: Any, policy: Any) -> Justification:
-        """Ступень 1: обоснование satisfies(student, policy) через биндинги тела шаблона"""
         satisfied = policy in (getattr(student, "satisfies", []) or [])
         rule_type = get_owl_prop(policy, "rule_type", "") or ""
 
@@ -144,8 +129,6 @@ class AccessExplainer:
             children=children,
             note=note,
         )
-
-    # ---- спецификации атомарных шаблонов -----------------------------------
 
     def _spec_completion(self, student: Any, policy: Any) -> _AtomicSpec:
         target = get_owl_prop(policy, "targets_element")
@@ -348,8 +331,6 @@ class AccessExplainer:
             note_negative=note_negative,
         )
 
-    # ---- helpers -----------------------------------------------------------
-
     def _find_progress(self, student: Any, element: Any) -> Optional[Any]:
         if element is None:
             return None
@@ -365,11 +346,10 @@ class AccessExplainer:
         return None
 
     def _find_competency_chain(self, student_comps: List[Any], required: Any) -> List[Any]:
-        """Цепочка ?sub ⊑* ?required, начинающаяся у студента
+        """Цепочка ?sub ⊑* ?required, начинающаяся в student_comps.
 
-        Возвращается [required, ..., sub], где sub ∈ student_comps — корень,
-        из которого required достижим через is_subcompetency_of. Если required
-        уже есть у студента напрямую — цепочка из одного элемента
+        Возвращает [required, ..., sub], где sub ∈ student_comps; если required
+        уже у студента — цепочка из одного элемента; если пути нет — [].
         """
         if required in student_comps:
             return [required]
@@ -386,8 +366,6 @@ class AccessExplainer:
                 for parent in getattr(node, "is_subcompetency_of", []) or []:
                     stack.append((parent, path + [parent]))
         return []
-
-    # ---- registry ----------------------------------------------------------
 
     _ATOMIC_SPECS: Dict[str, Callable[["AccessExplainer", Any, Any], _AtomicSpec]] = {
         RuleType.COMPLETION.value: _spec_completion,

@@ -1,18 +1,17 @@
 import uuid
 from typing import Any, List
 
+from owlready2 import destroy_entity
+
+
+_STATUS_VALUES = ("completed", "failed", "viewed")
+
+
 class StudentRepository:
     def __init__(self, onto):
         self.onto = onto
 
     def get_or_create(self, student_id: str):
-        """Находит студента по ID или создаёт нового.
-
-        Sandbox-студент живёт под id `student_sandbox` (класс SandboxStudent
-        наследует Student). Сначала ищем индивид по оригинальному id — иначе
-        создастся второй Student с префиксом, и прогресс с выводом
-        is_available_for разойдутся на двух разных индивидах с одним именем.
-        """
         direct = self.onto.search_one(type=self.onto.Student, iri=f"*{student_id}")
         if direct is not None:
             return direct
@@ -21,6 +20,7 @@ class StudentRepository:
         if not student:
             student = self.onto.Student(node_id)
         return student
+
 
 class CourseRepository:
     def __init__(self, onto):
@@ -43,7 +43,7 @@ class CourseRepository:
         return self.onto.Competency.instances() if hasattr(self.onto, "Competency") else []
 
     def parent_index(self) -> dict:
-        """child.name → parent OWL-индивид; один проход, O(1) lookup при каскадном обходе."""
+        """child.name -> parent OWL-индивид; один проход, O(1) lookup при каскаде."""
         index: dict = {}
         for parent in self.get_all_elements():
             children = list(getattr(parent, "has_module", []) or []) + list(
@@ -53,12 +53,17 @@ class CourseRepository:
                 index[child.name] = parent
         return index
 
+
 class ProgressRepository:
     def __init__(self, onto):
         self.onto = onto
 
     def find_record(self, student, element):
-        return self.onto.search_one(type=self.onto.ProgressRecord, refers_to_student=student, refers_to_element=element)
+        return self.onto.search_one(
+            type=self.onto.ProgressRecord,
+            refers_to_student=student,
+            refers_to_element=element,
+        )
 
     def find_all_for_student(self, student) -> List[Any]:
         return list(self.onto.search(type=self.onto.ProgressRecord, refers_to_student=student))
@@ -73,17 +78,20 @@ class ProgressRepository:
         return record
 
     def delete_record(self, student, record):
-        if record:
-            if hasattr(student, "has_progress_record") and record in student.has_progress_record:
-                student.has_progress_record.remove(record)
-            from owlready2 import destroy_entity
-            destroy_entity(record)
+        if not record:
+            return
+        if hasattr(student, "has_progress_record") and record in student.has_progress_record:
+            student.has_progress_record.remove(record)
+        destroy_entity(record)
 
-    def get_owl_status(self, status_value: str):
-        if status_value == "completed": return getattr(self.onto, "status_completed", None)
-        if status_value == "failed": return getattr(self.onto, "status_failed", None)
-        if status_value == "viewed": return getattr(self.onto, "status_viewed", None)
-        return None
+    def get_owl_status(self, status_value):
+        # StrEnum проходит isinstance(_, str), но f-string подтягивает str(Enum) —
+        # `ProgressStatus.COMPLETED` вместо `completed`. Нормализуем заранее.
+        name = getattr(status_value, "value", status_value)
+        if name not in _STATUS_VALUES:
+            return None
+        return getattr(self.onto, f"status_{name}", None)
+
 
 class PolicyRepository:
     def __init__(self, onto):
@@ -102,6 +110,5 @@ class PolicyRepository:
         return policy
 
     def delete(self, policy):
-        from owlready2 import destroy_entity
         if policy:
             destroy_entity(policy)

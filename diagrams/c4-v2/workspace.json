@@ -1,0 +1,1316 @@
+{
+  "configuration" : { },
+  "description" : "Система управления правилами доступа к образовательному контенту в СДО на основе OWL+SWRL с формальной верификацией. Версия с rule_handlers (Strategy-реестр диспетчеризации по типам правил). Магистерская ВКР ИТМО, см. docs/PROJECT_BIBLE.md §3.5.1.",
+  "documentation" : { },
+  "id" : 1,
+  "lastModifiedDate" : "2026-04-29T11:26:33Z",
+  "model" : {
+    "people" : [ {
+      "description" : "Проектирует курс и правила доступа к активностям и модулям. Запускает верификацию, анализирует отчёты.",
+      "id" : "1",
+      "name" : "Методист",
+      "properties" : {
+        "structurizr.dsl.identifier" : "methodist"
+      },
+      "relationships" : [ {
+        "description" : "Создаёт правила, запускает верификацию, работает с симулятором",
+        "destinationId" : "4",
+        "id" : "27",
+        "sourceId" : "1",
+        "tags" : "Relationship",
+        "technology" : "HTTPS"
+      }, {
+        "description" : "Управляет правилами, сценарии симулятора",
+        "destinationId" : "5",
+        "id" : "31",
+        "sourceId" : "1",
+        "tags" : "Relationship",
+        "technology" : "HTTPS"
+      } ],
+      "tags" : "Element,Person"
+    }, {
+      "description" : "Импортирует курсы из внешних СДО, ведёт аудит, управляет правилами для пулов курсов.",
+      "id" : "2",
+      "name" : "Администратор",
+      "properties" : {
+        "structurizr.dsl.identifier" : "admin"
+      },
+      "relationships" : [ {
+        "description" : "Импортирует курсы, ведёт аудит правил",
+        "destinationId" : "4",
+        "id" : "28",
+        "sourceId" : "2",
+        "tags" : "Relationship",
+        "technology" : "HTTPS"
+      }, {
+        "description" : "Импортирует и администрирует",
+        "destinationId" : "5",
+        "id" : "32",
+        "sourceId" : "2",
+        "tags" : "Relationship",
+        "technology" : "HTTPS"
+      } ],
+      "tags" : "Element,Person"
+    } ],
+    "softwareSystems" : [ {
+      "description" : "Moodle, Canvas, Blackboard, Open edX, Stepik или СДО Дистех. Публикует контент студентам и запрашивает у нашей системы решения о доступе.",
+      "documentation" : { },
+      "id" : "3",
+      "name" : "Внешняя СДО",
+      "properties" : {
+        "structurizr.dsl.identifier" : "lms"
+      },
+      "relationships" : [ {
+        "description" : "Запросы доступа, события прогресса, импорт",
+        "destinationId" : "4",
+        "id" : "29",
+        "sourceId" : "3",
+        "tags" : "Relationship",
+        "technology" : "HTTPS/REST"
+      }, {
+        "description" : "Запросы доступа, webhooks",
+        "destinationId" : "6",
+        "id" : "34",
+        "sourceId" : "3",
+        "tags" : "Relationship",
+        "technology" : "HTTPS/REST"
+      }, {
+        "description" : "Запросы доступа",
+        "destinationId" : "8",
+        "id" : "43",
+        "sourceId" : "3",
+        "tags" : "Relationship",
+        "technology" : "HTTPS/REST"
+      }, {
+        "description" : "События прогресса",
+        "destinationId" : "9",
+        "id" : "44",
+        "sourceId" : "3",
+        "tags" : "Relationship",
+        "technology" : "HTTPS/REST (webhook)"
+      }, {
+        "description" : "Импорт и синхронизация",
+        "destinationId" : "12",
+        "id" : "45",
+        "sourceId" : "3",
+        "tags" : "Relationship",
+        "technology" : "HTTPS/REST"
+      } ],
+      "tags" : "Element,Software System,External"
+    }, {
+      "containers" : [ {
+        "description" : "Редактор правил, симулятор сценариев (UC-7a/b/c), отчёты верификации, интерфейс импорта.",
+        "documentation" : { },
+        "id" : "5",
+        "name" : "Web UI",
+        "properties" : {
+          "structurizr.dsl.identifier" : "accessControl.webUI"
+        },
+        "relationships" : [ {
+          "description" : "Вызовы UC-1…UC-10",
+          "destinationId" : "6",
+          "id" : "33",
+          "sourceId" : "5",
+          "tags" : "Relationship",
+          "technology" : "HTTPS/JSON"
+        }, {
+          "description" : "Управление правилами",
+          "destinationId" : "7",
+          "id" : "38",
+          "sourceId" : "5",
+          "tags" : "Relationship",
+          "technology" : "HTTPS/JSON"
+        }, {
+          "description" : "Проверка доступа в симуляторе",
+          "destinationId" : "8",
+          "id" : "39",
+          "sourceId" : "5",
+          "tags" : "Relationship",
+          "technology" : "HTTPS/JSON"
+        }, {
+          "description" : "Запуск верификации",
+          "destinationId" : "10",
+          "id" : "40",
+          "sourceId" : "5",
+          "tags" : "Relationship",
+          "technology" : "HTTPS/JSON"
+        }, {
+          "description" : "Сценарии симулятора",
+          "destinationId" : "11",
+          "id" : "41",
+          "sourceId" : "5",
+          "tags" : "Relationship",
+          "technology" : "HTTPS/JSON"
+        }, {
+          "description" : "Запуск импорта",
+          "destinationId" : "12",
+          "id" : "42",
+          "sourceId" : "5",
+          "tags" : "Relationship",
+          "technology" : "HTTPS/JSON"
+        } ],
+        "tags" : "Element,Container,Web Browser",
+        "technology" : "Vue 3 + PrimeVue (SPA)"
+      }, {
+        "components" : [ {
+          "description" : "CRUD правил с предварительной валидацией (UC-1, UC-2, UC-3).",
+          "documentation" : { },
+          "group" : "API Layer",
+          "id" : "7",
+          "name" : "PolicyController",
+          "properties" : {
+            "structurizr.dsl.identifier" : "accessControl.apiBackend.policyController"
+          },
+          "relationships" : [ {
+            "description" : "Делегирует",
+            "destinationId" : "13",
+            "id" : "46",
+            "sourceId" : "7",
+            "tags" : "Relationship",
+            "technology" : "Python call"
+          } ],
+          "tags" : "Element,Component",
+          "technology" : "FastAPI router + Pydantic"
+        }, {
+          "description" : "Решение о доступе к ресурсу для студента с объяснением (UC-4, UC-9).",
+          "documentation" : { },
+          "group" : "API Layer",
+          "id" : "8",
+          "name" : "AccessController",
+          "properties" : {
+            "structurizr.dsl.identifier" : "accessControl.apiBackend.accessController"
+          },
+          "relationships" : [ {
+            "description" : "Делегирует",
+            "destinationId" : "14",
+            "id" : "47",
+            "sourceId" : "8",
+            "tags" : "Relationship",
+            "technology" : "Python call"
+          } ],
+          "tags" : "Element,Component",
+          "technology" : "FastAPI router"
+        }, {
+          "description" : "Приём событий прогресса, запуск восходящей агрегации (UC-5, UC-8).",
+          "documentation" : { },
+          "group" : "API Layer",
+          "id" : "9",
+          "name" : "ProgressController",
+          "properties" : {
+            "structurizr.dsl.identifier" : "accessControl.apiBackend.progressController"
+          },
+          "relationships" : [ {
+            "description" : "Делегирует",
+            "destinationId" : "15",
+            "id" : "48",
+            "sourceId" : "9",
+            "tags" : "Relationship",
+            "technology" : "Python call"
+          } ],
+          "tags" : "Element,Component",
+          "technology" : "FastAPI router"
+        }, {
+          "description" : "Запуск полной верификации курса по СВ-1, СВ-2, СВ-3, СВ-4, СВ-5 (UC-6).",
+          "documentation" : { },
+          "group" : "API Layer",
+          "id" : "10",
+          "name" : "VerificationController",
+          "properties" : {
+            "structurizr.dsl.identifier" : "accessControl.apiBackend.verificationController"
+          },
+          "relationships" : [ {
+            "description" : "Делегирует",
+            "destinationId" : "16",
+            "id" : "49",
+            "sourceId" : "10",
+            "tags" : "Relationship",
+            "technology" : "Python call"
+          } ],
+          "tags" : "Element,Component",
+          "technology" : "FastAPI router"
+        }, {
+          "description" : "Песочница: гипотетический студент, изменение фактов, карта доступа (UC-7).",
+          "documentation" : { },
+          "group" : "API Layer",
+          "id" : "11",
+          "name" : "SandboxController",
+          "properties" : {
+            "structurizr.dsl.identifier" : "accessControl.apiBackend.sandboxController"
+          },
+          "relationships" : [ {
+            "description" : "Делегирует",
+            "destinationId" : "17",
+            "id" : "50",
+            "sourceId" : "11",
+            "tags" : "Relationship",
+            "technology" : "Python call"
+          } ],
+          "tags" : "Element,Component",
+          "technology" : "FastAPI router"
+        }, {
+          "description" : "Импорт структуры и правил, webhook-события от внешней СДО (UC-5, UC-10).",
+          "documentation" : { },
+          "group" : "API Layer",
+          "id" : "12",
+          "name" : "IntegrationController",
+          "properties" : {
+            "structurizr.dsl.identifier" : "accessControl.apiBackend.integrationController"
+          },
+          "relationships" : [ {
+            "description" : "Делегирует",
+            "destinationId" : "19",
+            "id" : "51",
+            "sourceId" : "12",
+            "tags" : "Relationship",
+            "technology" : "Python call"
+          } ],
+          "tags" : "Element,Component",
+          "technology" : "FastAPI router"
+        }, {
+          "description" : "Создание, обновление, удаление правил с предпроверкой (ФТ-1, ФТ-5).",
+          "documentation" : { },
+          "group" : "Service Layer",
+          "id" : "13",
+          "name" : "PolicyService",
+          "properties" : {
+            "structurizr.dsl.identifier" : "accessControl.apiBackend.policyService"
+          },
+          "relationships" : [ {
+            "description" : "apply_abox_fields — запись типо-специфичных полей в ABox",
+            "destinationId" : "20",
+            "id" : "56",
+            "sourceId" : "13",
+            "tags" : "Relationship",
+            "technology" : "Python call"
+          }, {
+            "description" : "Проверка ацикличности",
+            "destinationId" : "23",
+            "id" : "59",
+            "sourceId" : "13",
+            "tags" : "Relationship",
+            "technology" : "Python call"
+          }, {
+            "description" : "Проверка консистентности",
+            "destinationId" : "22",
+            "id" : "60",
+            "sourceId" : "13",
+            "tags" : "Relationship",
+            "technology" : "Python call"
+          }, {
+            "description" : "Изменение TBox/ABox",
+            "destinationId" : "21",
+            "id" : "61",
+            "sourceId" : "13",
+            "tags" : "Relationship",
+            "technology" : "Python call"
+          }, {
+            "description" : "Инвалидация затронутых ключей",
+            "destinationId" : "24",
+            "id" : "62",
+            "sourceId" : "13",
+            "tags" : "Relationship",
+            "technology" : "Python call"
+          } ],
+          "tags" : "Element,Component",
+          "technology" : "Python service"
+        }, {
+          "description" : "Cache-first решение о доступе, cache miss → reasoning, обратная цепочка (ФТ-2, ФТ-6).",
+          "documentation" : { },
+          "group" : "Service Layer",
+          "id" : "14",
+          "name" : "AccessService",
+          "properties" : {
+            "structurizr.dsl.identifier" : "accessControl.apiBackend.accessService"
+          },
+          "relationships" : [ {
+            "description" : "Cache lookup / store",
+            "destinationId" : "24",
+            "id" : "63",
+            "sourceId" : "14",
+            "tags" : "Relationship",
+            "technology" : "Python call"
+          }, {
+            "description" : "Cache miss → reasoning",
+            "destinationId" : "22",
+            "id" : "64",
+            "sourceId" : "14",
+            "tags" : "Relationship",
+            "technology" : "Python call"
+          }, {
+            "description" : "Чтение ABox",
+            "destinationId" : "21",
+            "id" : "65",
+            "sourceId" : "14",
+            "tags" : "Relationship",
+            "technology" : "Python call"
+          } ],
+          "tags" : "Element,Component",
+          "technology" : "Python service"
+        }, {
+          "description" : "Приём события прогресса, запись в ABox, запуск reasoning, триггер rollup (UC-5).",
+          "documentation" : { },
+          "group" : "Service Layer",
+          "id" : "15",
+          "name" : "ProgressService",
+          "properties" : {
+            "structurizr.dsl.identifier" : "accessControl.apiBackend.progressService"
+          },
+          "relationships" : [ {
+            "description" : "Запись прогресса в ABox",
+            "destinationId" : "21",
+            "id" : "52",
+            "sourceId" : "15",
+            "tags" : "Relationship",
+            "technology" : "Python call"
+          }, {
+            "description" : "Перерасчёт после события",
+            "destinationId" : "22",
+            "id" : "53",
+            "sourceId" : "15",
+            "tags" : "Relationship",
+            "technology" : "Python call"
+          }, {
+            "description" : "Каскадная агрегация (UC-8)",
+            "destinationId" : "18",
+            "id" : "54",
+            "sourceId" : "15",
+            "tags" : "Relationship",
+            "technology" : "Python call"
+          }, {
+            "description" : "Инвалидация кэша студента",
+            "destinationId" : "14",
+            "id" : "55",
+            "sourceId" : "15",
+            "tags" : "Relationship",
+            "technology" : "Python call"
+          } ],
+          "tags" : "Element,Component",
+          "technology" : "Python service"
+        }, {
+          "description" : "Полная верификация курса (ФТ-3): СВ-1 (consistency) и СВ-4, СВ-5 через ReasoningOrchestrator; СВ-2 (acyclicity), СВ-3 (reachability) через GraphValidator.",
+          "documentation" : { },
+          "group" : "Service Layer",
+          "id" : "16",
+          "name" : "VerificationService",
+          "properties" : {
+            "structurizr.dsl.identifier" : "accessControl.apiBackend.verificationService"
+          },
+          "relationships" : [ {
+            "description" : "atomic_unsat_reason, can_grant — проверка СВ-4 (невыполнимость), СВ-5 (достижимость)",
+            "destinationId" : "20",
+            "id" : "57",
+            "sourceId" : "16",
+            "tags" : "Relationship",
+            "technology" : "Python call"
+          }, {
+            "description" : "СВ-2, СВ-3",
+            "destinationId" : "23",
+            "id" : "66",
+            "sourceId" : "16",
+            "tags" : "Relationship",
+            "technology" : "Python call"
+          }, {
+            "description" : "СВ-1, СВ-4, СВ-5",
+            "destinationId" : "22",
+            "id" : "67",
+            "sourceId" : "16",
+            "tags" : "Relationship",
+            "technology" : "Python call"
+          }, {
+            "description" : "Чтение TBox + ABox",
+            "destinationId" : "21",
+            "id" : "68",
+            "sourceId" : "16",
+            "tags" : "Relationship",
+            "technology" : "Python call"
+          } ],
+          "tags" : "Element,Component",
+          "technology" : "Python service"
+        }, {
+          "description" : "Сценарии песочницы на изолированной копии ABox (ФТ-7).",
+          "documentation" : { },
+          "group" : "Service Layer",
+          "id" : "17",
+          "name" : "SandboxService",
+          "properties" : {
+            "structurizr.dsl.identifier" : "accessControl.apiBackend.sandboxService"
+          },
+          "relationships" : [ {
+            "description" : "Работа с копией ABox",
+            "destinationId" : "21",
+            "id" : "69",
+            "sourceId" : "17",
+            "tags" : "Relationship",
+            "technology" : "Python call"
+          }, {
+            "description" : "Запрос решений (разрешённое исключение)",
+            "destinationId" : "14",
+            "id" : "70",
+            "sourceId" : "17",
+            "tags" : "Relationship",
+            "technology" : "Python call"
+          } ],
+          "tags" : "Element,Component",
+          "technology" : "Python service"
+        }, {
+          "description" : "Восходящая агрегация завершённости А3 (ФТ-8).",
+          "documentation" : { },
+          "group" : "Service Layer",
+          "id" : "18",
+          "name" : "RollupService",
+          "properties" : {
+            "structurizr.dsl.identifier" : "accessControl.apiBackend.rollupService"
+          },
+          "relationships" : [ {
+            "description" : "Чтение структуры, запись состояний",
+            "destinationId" : "21",
+            "id" : "71",
+            "sourceId" : "18",
+            "tags" : "Relationship",
+            "technology" : "Python call"
+          }, {
+            "description" : "Инвалидация после прогресса",
+            "destinationId" : "24",
+            "id" : "72",
+            "sourceId" : "18",
+            "tags" : "Relationship",
+            "technology" : "Python call"
+          } ],
+          "tags" : "Element,Component",
+          "technology" : "Python service"
+        }, {
+          "description" : "Импорт из СДО, нормализация форматов, автозапуск верификации (ФТ-4).",
+          "documentation" : { },
+          "group" : "Service Layer",
+          "id" : "19",
+          "name" : "IntegrationService",
+          "properties" : {
+            "structurizr.dsl.identifier" : "accessControl.apiBackend.integrationService"
+          },
+          "relationships" : [ {
+            "description" : "Запись структуры и правил",
+            "destinationId" : "21",
+            "id" : "73",
+            "sourceId" : "19",
+            "tags" : "Relationship",
+            "technology" : "Python call"
+          }, {
+            "description" : "Первичная агрегация после импорта",
+            "destinationId" : "18",
+            "id" : "74",
+            "sourceId" : "19",
+            "tags" : "Relationship",
+            "technology" : "Python call"
+          }, {
+            "description" : "Автоверификация (разрешённое исключение)",
+            "destinationId" : "16",
+            "id" : "75",
+            "sourceId" : "19",
+            "tags" : "Relationship",
+            "technology" : "Python call"
+          } ],
+          "tags" : "Element,Component",
+          "technology" : "Python service"
+        }, {
+          "description" : "Strategy-реестр: 9 хэндлеров по rule_type (7 атомарных + 2 составных). Диспетчер для GraphValidator, PolicyService и VerificationService.",
+          "documentation" : { },
+          "group" : "Rule Handler Registry",
+          "id" : "20",
+          "name" : "RuleHandlerRegistry",
+          "properties" : {
+            "structurizr.dsl.identifier" : "accessControl.apiBackend.ruleHandlerRegistry"
+          },
+          "tags" : "Element,Component",
+          "technology" : "Python package: rule_handlers"
+        }, {
+          "description" : "Обёртка Owlready2: load/save, операции TBox/ABox, транзакции.",
+          "documentation" : { },
+          "group" : "Core Layer",
+          "id" : "21",
+          "name" : "OntologyCore",
+          "properties" : {
+            "structurizr.dsl.identifier" : "accessControl.apiBackend.ontologyCore"
+          },
+          "relationships" : [ {
+            "description" : "Загрузка и сохранение .owl",
+            "destinationId" : "25",
+            "id" : "76",
+            "sourceId" : "21",
+            "tags" : "Relationship",
+            "technology" : "Owlready2 I/O"
+          } ],
+          "tags" : "Element,Component",
+          "technology" : "Owlready2"
+        }, {
+          "description" : "Pipeline А2: enricher (now(), roll-up) → Pellet → CWA-enforcement → таймаут + fallback. Pellet встроен как embedded JVM через JPype, отдельным процессом не деплоится.",
+          "documentation" : { },
+          "group" : "Core Layer",
+          "id" : "22",
+          "name" : "ReasoningOrchestrator",
+          "properties" : {
+            "structurizr.dsl.identifier" : "accessControl.apiBackend.reasoningOrchestrator"
+          },
+          "relationships" : [ {
+            "description" : "Инжекция и CWA-enforcement",
+            "destinationId" : "21",
+            "id" : "77",
+            "sourceId" : "22",
+            "tags" : "Relationship",
+            "technology" : "Python call"
+          } ],
+          "tags" : "Element,Component",
+          "technology" : "Python + JPype + Pellet 2.x (embedded JVM)"
+        }, {
+          "description" : "Split-node DiGraph А1, DFS cycle detection, reachability А4. Дуги строятся через RuleHandlerRegistry.",
+          "documentation" : { },
+          "group" : "Core Layer",
+          "id" : "23",
+          "name" : "GraphValidator",
+          "properties" : {
+            "structurizr.dsl.identifier" : "accessControl.apiBackend.graphValidator"
+          },
+          "relationships" : [ {
+            "description" : "add_dependency_edges, add_probe_edges — построение дуг по типу правила",
+            "destinationId" : "20",
+            "id" : "58",
+            "sourceId" : "23",
+            "tags" : "Relationship",
+            "technology" : "Python call"
+          } ],
+          "tags" : "Element,Component",
+          "technology" : "NetworkX"
+        }, {
+          "description" : "GET/SET/DEL решений, инвалидация затронутых ключей (А5).",
+          "documentation" : { },
+          "group" : "Core Layer",
+          "id" : "24",
+          "name" : "CacheManager",
+          "properties" : {
+            "structurizr.dsl.identifier" : "accessControl.apiBackend.cacheManager"
+          },
+          "relationships" : [ {
+            "description" : "GET/SET/DEL",
+            "destinationId" : "26",
+            "id" : "78",
+            "sourceId" : "24",
+            "tags" : "Relationship",
+            "technology" : "Redis protocol"
+          } ],
+          "tags" : "Element,Component",
+          "technology" : "redis-py"
+        } ],
+        "description" : "REST API для UC-1…UC-10. Оркестрация reasoning, графовый анализ, агрегация завершённости, CWA-enforcement, инвалидация кэша.",
+        "documentation" : { },
+        "id" : "6",
+        "name" : "API Backend",
+        "properties" : {
+          "structurizr.dsl.identifier" : "accessControl.apiBackend"
+        },
+        "relationships" : [ {
+          "description" : "Объяснения блокировок",
+          "destinationId" : "3",
+          "id" : "35",
+          "sourceId" : "6",
+          "tags" : "Relationship",
+          "technology" : "HTTPS/REST"
+        }, {
+          "description" : "Чтение и запись онтологии",
+          "destinationId" : "25",
+          "id" : "36",
+          "sourceId" : "6",
+          "tags" : "Relationship",
+          "technology" : "Owlready2 I/O"
+        }, {
+          "description" : "Чтение и запись кэша",
+          "destinationId" : "26",
+          "id" : "37",
+          "sourceId" : "6",
+          "tags" : "Relationship",
+          "technology" : "Redis protocol"
+        } ],
+        "tags" : "Element,Container",
+        "technology" : "Python 3.11 + FastAPI + Owlready2 + NetworkX"
+      }, {
+        "description" : "OWL 2 DL онтология: TBox (классы, аксиомы, SWRL-шаблоны) + ABox (факты курса).",
+        "documentation" : { },
+        "id" : "25",
+        "name" : "Ontology Store",
+        "properties" : {
+          "structurizr.dsl.identifier" : "accessControl.ontologyStore"
+        },
+        "tags" : "Element,Container,Storage",
+        "technology" : ".owl файл (RDF/XML)"
+      }, {
+        "description" : "Кэш решений о доступе. Fallback при таймауте reasoning (НФТ-3).",
+        "documentation" : { },
+        "id" : "26",
+        "name" : "Cache",
+        "properties" : {
+          "structurizr.dsl.identifier" : "accessControl.cache"
+        },
+        "tags" : "Element,Container,Cache",
+        "technology" : "Redis 7"
+      } ],
+      "description" : "База правил в OWL+SWRL, DL-reasoning, графовая верификация, API для интеграции со внешними СДО.",
+      "documentation" : { },
+      "id" : "4",
+      "name" : "Система управления правилами доступа",
+      "properties" : {
+        "structurizr.dsl.identifier" : "accessControl"
+      },
+      "relationships" : [ {
+        "description" : "Решения о доступе, объяснения блокировок",
+        "destinationId" : "3",
+        "id" : "30",
+        "sourceId" : "4",
+        "tags" : "Relationship",
+        "technology" : "HTTPS/REST"
+      } ],
+      "tags" : "Element,Software System"
+    } ]
+  },
+  "name" : "VKR Access Control v2",
+  "properties" : {
+    "structurizr.dsl.identifier" : "workspace",
+    "structurizr.inspection.error" : "3",
+    "structurizr.dsl" : "d29ya3NwYWNlICJWS1IgQWNjZXNzIENvbnRyb2wgdjIiICLQodC40YHRgtC10LzQsCDRg9C/0YDQsNCy0LvQtdC90LjRjyDQv9GA0LDQstC40LvQsNC80Lgg0LTQvtGB0YLRg9C/0LAg0Log0L7QsdGA0LDQt9C+0LLQsNGC0LXQu9GM0L3QvtC80YMg0LrQvtC90YLQtdC90YLRgyDQsiDQodCU0J4g0L3QsCDQvtGB0L3QvtCy0LUgT1dMK1NXUkwg0YEg0YTQvtGA0LzQsNC70YzQvdC+0Lkg0LLQtdGA0LjRhNC40LrQsNGG0LjQtdC5LiDQktC10YDRgdC40Y8g0YEgcnVsZV9oYW5kbGVycyAoU3RyYXRlZ3kt0YDQtdC10YHRgtGAINC00LjRgdC/0LXRgtGH0LXRgNC40LfQsNGG0LjQuCDQv9C+INGC0LjQv9Cw0Lwg0L/RgNCw0LLQuNC7KS4g0JzQsNCz0LjRgdGC0LXRgNGB0LrQsNGPINCS0JrQoCDQmNCi0JzQniwg0YHQvC4gZG9jcy9QUk9KRUNUX0JJQkxFLm1kIMKnMy41LjEuIiB7CgogICAgIWlkZW50aWZpZXJzIGhpZXJhcmNoaWNhbAoKICAgIHByb3BlcnRpZXMgewogICAgICAgICJzdHJ1Y3R1cml6ci5kc2wuaWRlbnRpZmllciIgIndvcmtzcGFjZSIKICAgIH0KCiAgICBtb2RlbCB7CiAgICAgICAgbWV0aG9kaXN0ID0gcGVyc29uICLQnNC10YLQvtC00LjRgdGCIiAi0J/RgNC+0LXQutGC0LjRgNGD0LXRgiDQutGD0YDRgSDQuCDQv9GA0LDQstC40LvQsCDQtNC+0YHRgtGD0L/QsCDQuiDQsNC60YLQuNCy0L3QvtGB0YLRj9C8INC4INC80L7QtNGD0LvRj9C8LiDQl9Cw0L/Rg9GB0LrQsNC10YIg0LLQtdGA0LjRhNC40LrQsNGG0LjRjiwg0LDQvdCw0LvQuNC30LjRgNGD0LXRgiDQvtGC0YfRkdGC0YsuIgogICAgICAgIGFkbWluICAgICA9IHBlcnNvbiAi0JDQtNC80LjQvdC40YHRgtGA0LDRgtC+0YAiICLQmNC80L/QvtGA0YLQuNGA0YPQtdGCINC60YPRgNGB0Ysg0LjQtyDQstC90LXRiNC90LjRhSDQodCU0J4sINCy0LXQtNGR0YIg0LDRg9C00LjRgiwg0YPQv9GA0LDQstC70Y/QtdGCINC/0YDQsNCy0LjQu9Cw0LzQuCDQtNC70Y8g0L/Rg9C70L7QsiDQutGD0YDRgdC+0LIuIgoKICAgICAgICBsbXMgPSBzb2Z0d2FyZVN5c3RlbSAi0JLQvdC10YjQvdGP0Y8g0KHQlNCeIiAiTW9vZGxlLCBDYW52YXMsIEJsYWNrYm9hcmQsIE9wZW4gZWRYLCBTdGVwaWsg0LjQu9C4INCh0JTQniDQlNC40YHRgtC10YUuINCf0YPQsdC70LjQutGD0LXRgiDQutC+0L3RgtC10L3RgiDRgdGC0YPQtNC10L3RgtCw0Lwg0Lgg0LfQsNC/0YDQsNGI0LjQstCw0LXRgiDRgyDQvdCw0YjQtdC5INGB0LjRgdGC0LXQvNGLINGA0LXRiNC10L3QuNGPINC+INC00L7RgdGC0YPQv9C1LiIgewogICAgICAgICAgICB0YWdzICJFeHRlcm5hbCIKICAgICAgICB9CgogICAgICAgIGFjY2Vzc0NvbnRyb2wgPSBzb2Z0d2FyZVN5c3RlbSAi0KHQuNGB0YLQtdC80LAg0YPQv9GA0LDQstC70LXQvdC40Y8g0L/RgNCw0LLQuNC70LDQvNC4INC00L7RgdGC0YPQv9CwIiAi0JHQsNC30LAg0L/RgNCw0LLQuNC7INCyIE9XTCtTV1JMLCBETC1yZWFzb25pbmcsINCz0YDQsNGE0L7QstCw0Y8g0LLQtdGA0LjRhNC40LrQsNGG0LjRjywgQVBJINC00LvRjyDQuNC90YLQtdCz0YDQsNGG0LjQuCDRgdC+INCy0L3QtdGI0L3QuNC80Lgg0KHQlNCeLiIgewoKICAgICAgICAgICAgd2ViVUkgPSBjb250YWluZXIgIldlYiBVSSIgItCg0LXQtNCw0LrRgtC+0YAg0L/RgNCw0LLQuNC7LCDRgdC40LzRg9C70Y/RgtC+0YAg0YHRhtC10L3QsNGA0LjQtdCyIChVQy03YS9iL2MpLCDQvtGC0YfRkdGC0Ysg0LLQtdGA0LjRhNC40LrQsNGG0LjQuCwg0LjQvdGC0LXRgNGE0LXQudGBINC40LzQv9C+0YDRgtCwLiIgIlZ1ZSAzICsgUHJpbWVWdWUgKFNQQSkiIHsKICAgICAgICAgICAgICAgIHRhZ3MgIldlYiBCcm93c2VyIgogICAgICAgICAgICB9CgogICAgICAgICAgICBhcGlCYWNrZW5kID0gY29udGFpbmVyICJBUEkgQmFja2VuZCIgIlJFU1QgQVBJINC00LvRjyBVQy0x4oCmVUMtMTAuINCe0YDQutC10YHRgtGA0LDRhtC40Y8gcmVhc29uaW5nLCDQs9GA0LDRhNC+0LLRi9C5INCw0L3QsNC70LjQtywg0LDQs9GA0LXQs9Cw0YbQuNGPINC30LDQstC10YDRiNGR0L3QvdC+0YHRgtC4LCBDV0EtZW5mb3JjZW1lbnQsINC40L3QstCw0LvQuNC00LDRhtC40Y8g0LrRjdGI0LAuIiAiUHl0aG9uIDMuMTEgKyBGYXN0QVBJICsgT3dscmVhZHkyICsgTmV0d29ya1giIHsKCiAgICAgICAgICAgICAgICBncm91cCAiQVBJIExheWVyIiB7CiAgICAgICAgICAgICAgICAgICAgcG9saWN5Q29udHJvbGxlciAgICAgICA9IGNvbXBvbmVudCAiUG9saWN5Q29udHJvbGxlciIgICAgICAgIkNSVUQg0L/RgNCw0LLQuNC7INGBINC/0YDQtdC00LLQsNGA0LjRgtC10LvRjNC90L7QuSDQstCw0LvQuNC00LDRhtC40LXQuSAoVUMtMSwgVUMtMiwgVUMtMykuIiAgICAgICAgICAgICAgICAgIkZhc3RBUEkgcm91dGVyICsgUHlkYW50aWMiCiAgICAgICAgICAgICAgICAgICAgYWNjZXNzQ29udHJvbGxlciAgICAgICA9IGNvbXBvbmVudCAiQWNjZXNzQ29udHJvbGxlciIgICAgICAgItCg0LXRiNC10L3QuNC1INC+INC00L7RgdGC0YPQv9C1INC6INGA0LXRgdGD0YDRgdGDINC00LvRjyDRgdGC0YPQtNC10L3RgtCwINGBINC+0LHRitGP0YHQvdC10L3QuNC10LwgKFVDLTQsIFVDLTkpLiIgICAgICAgICAiRmFzdEFQSSByb3V0ZXIiCiAgICAgICAgICAgICAgICAgICAgcHJvZ3Jlc3NDb250cm9sbGVyICAgICA9IGNvbXBvbmVudCAiUHJvZ3Jlc3NDb250cm9sbGVyIiAgICAgItCf0YDQuNGR0Lwg0YHQvtCx0YvRgtC40Lkg0L/RgNC+0LPRgNC10YHRgdCwLCDQt9Cw0L/Rg9GB0Log0LLQvtGB0YXQvtC00Y/RidC10Lkg0LDQs9GA0LXQs9Cw0YbQuNC4IChVQy01LCBVQy04KS4iICAgICAgICAgICAiRmFzdEFQSSByb3V0ZXIiCiAgICAgICAgICAgICAgICAgICAgdmVyaWZpY2F0aW9uQ29udHJvbGxlciA9IGNvbXBvbmVudCAiVmVyaWZpY2F0aW9uQ29udHJvbGxlciIgItCX0LDQv9GD0YHQuiDQv9C+0LvQvdC+0Lkg0LLQtdGA0LjRhNC40LrQsNGG0LjQuCDQutGD0YDRgdCwINC/0L4g0KHQki0xLCDQodCSLTIsINCh0JItMywg0KHQki00LCDQodCSLTUgKFVDLTYpLiIgICAgIkZhc3RBUEkgcm91dGVyIgogICAgICAgICAgICAgICAgICAgIHNhbmRib3hDb250cm9sbGVyICAgICAgPSBjb21wb25lbnQgIlNhbmRib3hDb250cm9sbGVyIiAgICAgICLQn9C10YHQvtGH0L3QuNGG0LA6INCz0LjQv9C+0YLQtdGC0LjRh9C10YHQutC40Lkg0YHRgtGD0LTQtdC90YIsINC40LfQvNC10L3QtdC90LjQtSDRhNCw0LrRgtC+0LIsINC60LDRgNGC0LAg0LTQvtGB0YLRg9C/0LAgKFVDLTcpLiIgICAiRmFzdEFQSSByb3V0ZXIiCiAgICAgICAgICAgICAgICAgICAgaW50ZWdyYXRpb25Db250cm9sbGVyICA9IGNvbXBvbmVudCAiSW50ZWdyYXRpb25Db250cm9sbGVyIiAgItCY0LzQv9C+0YDRgiDRgdGC0YDRg9C60YLRg9GA0Ysg0Lgg0L/RgNCw0LLQuNC7LCB3ZWJob29rLdGB0L7QsdGL0YLQuNGPINC+0YIg0LLQvdC10YjQvdC10Lkg0KHQlNCeIChVQy01LCBVQy0xMCkuIiAgICAgIkZhc3RBUEkgcm91dGVyIgogICAgICAgICAgICAgICAgfQoKICAgICAgICAgICAgICAgIGdyb3VwICJTZXJ2aWNlIExheWVyIiB7CiAgICAgICAgICAgICAgICAgICAgcG9saWN5U2VydmljZSAgICAgICA9IGNvbXBvbmVudCAiUG9saWN5U2VydmljZSIgICAgICAgItCh0L7Qt9C00LDQvdC40LUsINC+0LHQvdC+0LLQu9C10L3QuNC1LCDRg9C00LDQu9C10L3QuNC1INC/0YDQsNCy0LjQuyDRgSDQv9GA0LXQtNC/0YDQvtCy0LXRgNC60L7QuSAo0KTQoi0xLCDQpNCiLTUpLiIgICAgICAgICAgICAgICAgICJQeXRob24gc2VydmljZSIKICAgICAgICAgICAgICAgICAgICBhY2Nlc3NTZXJ2aWNlICAgICAgID0gY29tcG9uZW50ICJBY2Nlc3NTZXJ2aWNlIiAgICAgICAiQ2FjaGUtZmlyc3Qg0YDQtdGI0LXQvdC40LUg0L4g0LTQvtGB0YLRg9C/0LUsIGNhY2hlIG1pc3Mg4oaSIHJlYXNvbmluZywg0L7QsdGA0LDRgtC90LDRjyDRhtC10L/QvtGH0LrQsCAo0KTQoi0yLCDQpNCiLTYpLiIgIlB5dGhvbiBzZXJ2aWNlIgogICAgICAgICAgICAgICAgICAgIHByb2dyZXNzU2VydmljZSAgICAgPSBjb21wb25lbnQgIlByb2dyZXNzU2VydmljZSIgICAgICLQn9GA0LjRkdC8INGB0L7QsdGL0YLQuNGPINC/0YDQvtCz0YDQtdGB0YHQsCwg0LfQsNC/0LjRgdGMINCyIEFCb3gsINC30LDQv9GD0YHQuiByZWFzb25pbmcsINGC0YDQuNCz0LPQtdGAIHJvbGx1cCAoVUMtNSkuIiAgICAiUHl0aG9uIHNlcnZpY2UiCiAgICAgICAgICAgICAgICAgICAgdmVyaWZpY2F0aW9uU2VydmljZSA9IGNvbXBvbmVudCAiVmVyaWZpY2F0aW9uU2VydmljZSIgItCf0L7Qu9C90LDRjyDQstC10YDQuNGE0LjQutCw0YbQuNGPINC60YPRgNGB0LAgKNCk0KItMyk6INCh0JItMSAoY29uc2lzdGVuY3kpINC4INCh0JItNCwg0KHQki01INGH0LXRgNC10LcgUmVhc29uaW5nT3JjaGVzdHJhdG9yOyDQodCSLTIgKGFjeWNsaWNpdHkpLCDQodCSLTMgKHJlYWNoYWJpbGl0eSkg0YfQtdGA0LXQtyBHcmFwaFZhbGlkYXRvci4iICJQeXRob24gc2VydmljZSIKICAgICAgICAgICAgICAgICAgICBzYW5kYm94U2VydmljZSAgICAgID0gY29tcG9uZW50ICJTYW5kYm94U2VydmljZSIgICAgICAi0KHRhtC10L3QsNGA0LjQuCDQv9C10YHQvtGH0L3QuNGG0Ysg0L3QsCDQuNC30L7Qu9C40YDQvtCy0LDQvdC90L7QuSDQutC+0L/QuNC4IEFCb3ggKNCk0KItNykuIiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAiUHl0aG9uIHNlcnZpY2UiCiAgICAgICAgICAgICAgICAgICAgcm9sbHVwU2VydmljZSAgICAgICA9IGNvbXBvbmVudCAiUm9sbHVwU2VydmljZSIgICAgICAgItCS0L7RgdGF0L7QtNGP0YnQsNGPINCw0LPRgNC10LPQsNGG0LjRjyDQt9Cw0LLQtdGA0YjRkdC90L3QvtGB0YLQuCDQkDMgKNCk0KItOCkuIiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAiUHl0aG9uIHNlcnZpY2UiCiAgICAgICAgICAgICAgICAgICAgaW50ZWdyYXRpb25TZXJ2aWNlICA9IGNvbXBvbmVudCAiSW50ZWdyYXRpb25TZXJ2aWNlIiAgItCY0LzQv9C+0YDRgiDQuNC3INCh0JTQniwg0L3QvtGA0LzQsNC70LjQt9Cw0YbQuNGPINGE0L7RgNC80LDRgtC+0LIsINCw0LLRgtC+0LfQsNC/0YPRgdC6INCy0LXRgNC40YTQuNC60LDRhtC40LggKNCk0KItNCkuIiAgICAgICAgICAgICAgICAgIlB5dGhvbiBzZXJ2aWNlIgogICAgICAgICAgICAgICAgfQoKICAgICAgICAgICAgICAgIGdyb3VwICJSdWxlIEhhbmRsZXIgUmVnaXN0cnkiIHsKICAgICAgICAgICAgICAgICAgICBydWxlSGFuZGxlclJlZ2lzdHJ5ID0gY29tcG9uZW50ICJSdWxlSGFuZGxlclJlZ2lzdHJ5IiAiU3RyYXRlZ3kt0YDQtdC10YHRgtGAOiA5INGF0Y3QvdC00LvQtdGA0L7QsiDQv9C+IHJ1bGVfdHlwZSAoNyDQsNGC0L7QvNCw0YDQvdGL0YUgKyAyINGB0L7RgdGC0LDQstC90YvRhSkuINCU0LjRgdC/0LXRgtGH0LXRgCDQtNC70Y8gR3JhcGhWYWxpZGF0b3IsIFBvbGljeVNlcnZpY2Ug0LggVmVyaWZpY2F0aW9uU2VydmljZS4iICJQeXRob24gcGFja2FnZTogcnVsZV9oYW5kbGVycyIKICAgICAgICAgICAgICAgIH0KCiAgICAgICAgICAgICAgICBncm91cCAiQ29yZSBMYXllciIgewogICAgICAgICAgICAgICAgICAgIG9udG9sb2d5Q29yZSAgICAgICAgICA9IGNvbXBvbmVudCAiT250b2xvZ3lDb3JlIiAgICAgICAgICAi0J7QsdGR0YDRgtC60LAgT3dscmVhZHkyOiBsb2FkL3NhdmUsINC+0L/QtdGA0LDRhtC40LggVEJveC9BQm94LCDRgtGA0LDQvdC30LDQutGG0LjQuC4iICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIk93bHJlYWR5MiIKICAgICAgICAgICAgICAgICAgICByZWFzb25pbmdPcmNoZXN0cmF0b3IgPSBjb21wb25lbnQgIlJlYXNvbmluZ09yY2hlc3RyYXRvciIgIlBpcGVsaW5lINCQMjogZW5yaWNoZXIgKG5vdygpLCByb2xsLXVwKSDihpIgUGVsbGV0IOKGkiBDV0EtZW5mb3JjZW1lbnQg4oaSINGC0LDQudC80LDRg9GCICsgZmFsbGJhY2suIFBlbGxldCDQstGB0YLRgNC+0LXQvSDQutCw0LogZW1iZWRkZWQgSlZNINGH0LXRgNC10LcgSlB5cGUsINC+0YLQtNC10LvRjNC90YvQvCDQv9GA0L7RhtC10YHRgdC+0Lwg0L3QtSDQtNC10L/Qu9C+0LjRgtGB0Y8uIiAiUHl0aG9uICsgSlB5cGUgKyBQZWxsZXQgMi54IChlbWJlZGRlZCBKVk0pIgogICAgICAgICAgICAgICAgICAgIGdyYXBoVmFsaWRhdG9yICAgICAgICA9IGNvbXBvbmVudCAiR3JhcGhWYWxpZGF0b3IiICAgICAgICAiU3BsaXQtbm9kZSBEaUdyYXBoINCQMSwgREZTIGN5Y2xlIGRldGVjdGlvbiwgcmVhY2hhYmlsaXR5INCQNC4g0JTRg9Cz0Lgg0YHRgtGA0L7Rj9GC0YHRjyDRh9C10YDQtdC3IFJ1bGVIYW5kbGVyUmVnaXN0cnkuIiAgIk5ldHdvcmtYIgogICAgICAgICAgICAgICAgICAgIGNhY2hlTWFuYWdlciAgICAgICAgICA9IGNvbXBvbmVudCAiQ2FjaGVNYW5hZ2VyIiAgICAgICAgICAiR0VUL1NFVC9ERUwg0YDQtdGI0LXQvdC40LksINC40L3QstCw0LvQuNC00LDRhtC40Y8g0LfQsNGC0YDQvtC90YPRgtGL0YUg0LrQu9GO0YfQtdC5ICjQkDUpLiIgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICJyZWRpcy1weSIKICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgfQoKICAgICAgICAgICAgb250b2xvZ3lTdG9yZSA9IGNvbnRhaW5lciAiT250b2xvZ3kgU3RvcmUiICJPV0wgMiBETCDQvtC90YLQvtC70L7Qs9C40Y86IFRCb3ggKNC60LvQsNGB0YHRiywg0LDQutGB0LjQvtC80YssIFNXUkwt0YjQsNCx0LvQvtC90YspICsgQUJveCAo0YTQsNC60YLRiyDQutGD0YDRgdCwKS4iICIub3dsINGE0LDQudC7IChSREYvWE1MKSIgewogICAgICAgICAgICAgICAgdGFncyAiU3RvcmFnZSIKICAgICAgICAgICAgfQoKICAgICAgICAgICAgY2FjaGUgPSBjb250YWluZXIgIkNhY2hlIiAi0JrRjdGIINGA0LXRiNC10L3QuNC5INC+INC00L7RgdGC0YPQv9C1LiBGYWxsYmFjayDQv9GA0Lgg0YLQsNC50LzQsNGD0YLQtSByZWFzb25pbmcgKNCd0KTQoi0zKS4iICJSZWRpcyA3IiB7CiAgICAgICAgICAgICAgICB0YWdzICJDYWNoZSIKICAgICAgICAgICAgfQogICAgICAgIH0KCiAgICAgICAgLy8g4pSA4pSAIENvbnRleHQgbGV2ZWwg4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSACiAgICAgICAgbWV0aG9kaXN0IC0+IGFjY2Vzc0NvbnRyb2wgItCh0L7Qt9C00LDRkdGCINC/0YDQsNCy0LjQu9CwLCDQt9Cw0L/Rg9GB0LrQsNC10YIg0LLQtdGA0LjRhNC40LrQsNGG0LjRjiwg0YDQsNCx0L7RgtCw0LXRgiDRgSDRgdC40LzRg9C70Y/RgtC+0YDQvtC8IiAiSFRUUFMiCiAgICAgICAgYWRtaW4gICAgIC0+IGFjY2Vzc0NvbnRyb2wgItCY0LzQv9C+0YDRgtC40YDRg9C10YIg0LrRg9GA0YHRiywg0LLQtdC00ZHRgiDQsNGD0LTQuNGCINC/0YDQsNCy0LjQuyIgICAgICAgICAgICAgICAgICAgICAgICAgICJIVFRQUyIKICAgICAgICBsbXMgICAgICAgICAgIC0+IGFjY2Vzc0NvbnRyb2wgItCX0LDQv9GA0L7RgdGLINC00L7RgdGC0YPQv9CwLCDRgdC+0LHRi9GC0LjRjyDQv9GA0L7Qs9GA0LXRgdGB0LAsINC40LzQv9C+0YDRgiIgIkhUVFBTL1JFU1QiCiAgICAgICAgYWNjZXNzQ29udHJvbCAtPiBsbXMgICAgICAgICAgICLQoNC10YjQtdC90LjRjyDQviDQtNC+0YHRgtGD0L/QtSwg0L7QsdGK0Y/RgdC90LXQvdC40Y8g0LHQu9C+0LrQuNGA0L7QstC+0LoiICAgIkhUVFBTL1JFU1QiCgogICAgICAgIC8vIOKUgOKUgCBDb250YWluZXIgbGV2ZWwg4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSACiAgICAgICAgbWV0aG9kaXN0IC0+IGFjY2Vzc0NvbnRyb2wud2ViVUkgItCj0L/RgNCw0LLQu9GP0LXRgiDQv9GA0LDQstC40LvQsNC80LgsINGB0YbQtdC90LDRgNC40Lgg0YHQuNC80YPQu9GP0YLQvtGA0LAiICJIVFRQUyIKICAgICAgICBhZG1pbiAgICAgLT4gYWNjZXNzQ29udHJvbC53ZWJVSSAi0JjQvNC/0L7RgNGC0LjRgNGD0LXRgiDQuCDQsNC00LzQuNC90LjRgdGC0YDQuNGA0YPQtdGCIiAgICAgICAgICAgICAiSFRUUFMiCgogICAgICAgIGFjY2Vzc0NvbnRyb2wud2ViVUkgICAgICAtPiBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQgItCS0YvQt9C+0LLRiyBVQy0x4oCmVUMtMTAiICAgICAgICAiSFRUUFMvSlNPTiIKICAgICAgICBsbXMgICAgICAgICAgICAgICAgICAgICAgLT4gYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kICLQl9Cw0L/RgNC+0YHRiyDQtNC+0YHRgtGD0L/QsCwgd2ViaG9va3MiICJIVFRQUy9SRVNUIgogICAgICAgIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZCAtPiBsbXMgICAgICAgICAgICAgICAgICAgICAgItCe0LHRitGP0YHQvdC10L3QuNGPINCx0LvQvtC60LjRgNC+0LLQvtC6IiAgICAiSFRUUFMvUkVTVCIKCiAgICAgICAgYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kIC0+IGFjY2Vzc0NvbnRyb2wub250b2xvZ3lTdG9yZSAi0KfRgtC10L3QuNC1INC4INC30LDQv9C40YHRjCDQvtC90YLQvtC70L7Qs9C40LgiICJPd2xyZWFkeTIgSS9PIgogICAgICAgIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZCAtPiBhY2Nlc3NDb250cm9sLmNhY2hlICAgICAgICAgItCn0YLQtdC90LjQtSDQuCDQt9Cw0L/QuNGB0Ywg0LrRjdGI0LAiICAgICAgICJSZWRpcyBwcm90b2NvbCIKCiAgICAgICAgLy8g4pSA4pSAIENvbXBvbmVudCBsZXZlbDogQ29udHJvbGxlcnMg4oaQINCy0L3QtdGI0L3QuNC1INC60LvQuNC10L3RgtGLIOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgOKUgAogICAgICAgIGFjY2Vzc0NvbnRyb2wud2ViVUkgLT4gYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLnBvbGljeUNvbnRyb2xsZXIgICAgICAgItCj0L/RgNCw0LLQu9C10L3QuNC1INC/0YDQsNCy0LjQu9Cw0LzQuCIgICAgICAgICAgIkhUVFBTL0pTT04iCiAgICAgICAgYWNjZXNzQ29udHJvbC53ZWJVSSAtPiBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQuYWNjZXNzQ29udHJvbGxlciAgICAgICAi0J/RgNC+0LLQtdGA0LrQsCDQtNC+0YHRgtGD0L/QsCDQsiDRgdC40LzRg9C70Y/RgtC+0YDQtSIgIkhUVFBTL0pTT04iCiAgICAgICAgYWNjZXNzQ29udHJvbC53ZWJVSSAtPiBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQudmVyaWZpY2F0aW9uQ29udHJvbGxlciAi0JfQsNC/0YPRgdC6INCy0LXRgNC40YTQuNC60LDRhtC40LgiICAgICAgICAgICAgIkhUVFBTL0pTT04iCiAgICAgICAgYWNjZXNzQ29udHJvbC53ZWJVSSAtPiBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQuc2FuZGJveENvbnRyb2xsZXIgICAgICAi0KHRhtC10L3QsNGA0LjQuCDRgdC40LzRg9C70Y/RgtC+0YDQsCIgICAgICAgICAgICJIVFRQUy9KU09OIgogICAgICAgIGFjY2Vzc0NvbnRyb2wud2ViVUkgLT4gYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLmludGVncmF0aW9uQ29udHJvbGxlciAgItCX0LDQv9GD0YHQuiDQuNC80L/QvtGA0YLQsCIgICAgICAgICAgICAgICAgIkhUVFBTL0pTT04iCgogICAgICAgIGxtcyAtPiBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQuYWNjZXNzQ29udHJvbGxlciAgICAgICLQl9Cw0L/RgNC+0YHRiyDQtNC+0YHRgtGD0L/QsCIgICAgICAgICJIVFRQUy9SRVNUIgogICAgICAgIGxtcyAtPiBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQucHJvZ3Jlc3NDb250cm9sbGVyICAgICLQodC+0LHRi9GC0LjRjyDQv9GA0L7Qs9GA0LXRgdGB0LAiICAgICAgIkhUVFBTL1JFU1QgKHdlYmhvb2spIgogICAgICAgIGxtcyAtPiBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQuaW50ZWdyYXRpb25Db250cm9sbGVyICLQmNC80L/QvtGA0YIg0Lgg0YHQuNC90YXRgNC+0L3QuNC30LDRhtC40Y8iICJIVFRQUy9SRVNUIgoKICAgICAgICAvLyDilIDilIAgQ29tcG9uZW50IGxldmVsOiBDb250cm9sbGVycyDihpIgU2VydmljZXMg4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSACiAgICAgICAgYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLnBvbGljeUNvbnRyb2xsZXIgICAgICAgLT4gYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLnBvbGljeVNlcnZpY2UgICAgICAgItCU0LXQu9C10LPQuNGA0YPQtdGCIiAiUHl0aG9uIGNhbGwiCiAgICAgICAgYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLmFjY2Vzc0NvbnRyb2xsZXIgICAgICAgLT4gYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLmFjY2Vzc1NlcnZpY2UgICAgICAgItCU0LXQu9C10LPQuNGA0YPQtdGCIiAiUHl0aG9uIGNhbGwiCiAgICAgICAgYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLnByb2dyZXNzQ29udHJvbGxlciAgICAgLT4gYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLnByb2dyZXNzU2VydmljZSAgICAgItCU0LXQu9C10LPQuNGA0YPQtdGCIiAiUHl0aG9uIGNhbGwiCiAgICAgICAgYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLnZlcmlmaWNhdGlvbkNvbnRyb2xsZXIgLT4gYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLnZlcmlmaWNhdGlvblNlcnZpY2UgItCU0LXQu9C10LPQuNGA0YPQtdGCIiAiUHl0aG9uIGNhbGwiCiAgICAgICAgYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLnNhbmRib3hDb250cm9sbGVyICAgICAgLT4gYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLnNhbmRib3hTZXJ2aWNlICAgICAgItCU0LXQu9C10LPQuNGA0YPQtdGCIiAiUHl0aG9uIGNhbGwiCiAgICAgICAgYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLmludGVncmF0aW9uQ29udHJvbGxlciAgLT4gYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLmludGVncmF0aW9uU2VydmljZSAgItCU0LXQu9C10LPQuNGA0YPQtdGCIiAiUHl0aG9uIGNhbGwiCgogICAgICAgIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5wcm9ncmVzc1NlcnZpY2UgLT4gYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLm9udG9sb2d5Q29yZSAgICAgICAgICAi0JfQsNC/0LjRgdGMINC/0YDQvtCz0YDQtdGB0YHQsCDQsiBBQm94IiAgICAgICJQeXRob24gY2FsbCIKICAgICAgICBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQucHJvZ3Jlc3NTZXJ2aWNlIC0+IGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5yZWFzb25pbmdPcmNoZXN0cmF0b3IgItCf0LXRgNC10YDQsNGB0YfRkdGCINC/0L7RgdC70LUg0YHQvtCx0YvRgtC40Y8iICAgICAiUHl0aG9uIGNhbGwiCiAgICAgICAgYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLnByb2dyZXNzU2VydmljZSAtPiBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQucm9sbHVwU2VydmljZSAgICAgICAgICLQmtCw0YHQutCw0LTQvdCw0Y8g0LDQs9GA0LXQs9Cw0YbQuNGPIChVQy04KSIgICAiUHl0aG9uIGNhbGwiCiAgICAgICAgYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLnByb2dyZXNzU2VydmljZSAtPiBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQuYWNjZXNzU2VydmljZSAgICAgICAgICLQmNC90LLQsNC70LjQtNCw0YbQuNGPINC60Y3RiNCwINGB0YLRg9C00LXQvdGC0LAiICAgICJQeXRob24gY2FsbCIKCiAgICAgICAgLy8g4pSA4pSAIENvbXBvbmVudCBsZXZlbDogU2VydmljZXMg4oaSIFJ1bGVIYW5kbGVyUmVnaXN0cnkg4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSACiAgICAgICAgYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLnBvbGljeVNlcnZpY2UgICAgICAgLT4gYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLnJ1bGVIYW5kbGVyUmVnaXN0cnkgImFwcGx5X2Fib3hfZmllbGRzIOKAlCDQt9Cw0L/QuNGB0Ywg0YLQuNC/0L4t0YHQv9C10YbQuNGE0LjRh9C90YvRhSDQv9C+0LvQtdC5INCyIEFCb3giICAgICAgICAgICAgICAgICJQeXRob24gY2FsbCIKICAgICAgICBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQudmVyaWZpY2F0aW9uU2VydmljZSAtPiBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQucnVsZUhhbmRsZXJSZWdpc3RyeSAiYXRvbWljX3Vuc2F0X3JlYXNvbiwgY2FuX2dyYW50IOKAlCDQv9GA0L7QstC10YDQutCwINCh0JItNCAo0L3QtdCy0YvQv9C+0LvQvdC40LzQvtGB0YLRjCksINCh0JItNSAo0LTQvtGB0YLQuNC20LjQvNC+0YHRgtGMKSIgIlB5dGhvbiBjYWxsIgogICAgICAgIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5ncmFwaFZhbGlkYXRvciAgICAgIC0+IGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5ydWxlSGFuZGxlclJlZ2lzdHJ5ICJhZGRfZGVwZW5kZW5jeV9lZGdlcywgYWRkX3Byb2JlX2VkZ2VzIOKAlCDQv9C+0YHRgtGA0L7QtdC90LjQtSDQtNGD0LMg0L/QviDRgtC40L/RgyDQv9GA0LDQstC40LvQsCIgICJQeXRob24gY2FsbCIKCiAgICAgICAgLy8g4pSA4pSAIENvbXBvbmVudCBsZXZlbDogU2VydmljZXMg4oaSIENvcmUg4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSA4pSACiAgICAgICAgYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLnBvbGljeVNlcnZpY2UgLT4gYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLmdyYXBoVmFsaWRhdG9yICAgICAgICAi0J/RgNC+0LLQtdGA0LrQsCDQsNGG0LjQutC70LjRh9C90L7RgdGC0LgiICAgICAgICAgIlB5dGhvbiBjYWxsIgogICAgICAgIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5wb2xpY3lTZXJ2aWNlIC0+IGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5yZWFzb25pbmdPcmNoZXN0cmF0b3IgItCf0YDQvtCy0LXRgNC60LAg0LrQvtC90YHQuNGB0YLQtdC90YLQvdC+0YHRgtC4IiAgICAgICJQeXRob24gY2FsbCIKICAgICAgICBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQucG9saWN5U2VydmljZSAtPiBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQub250b2xvZ3lDb3JlICAgICAgICAgICLQmNC30LzQtdC90LXQvdC40LUgVEJveC9BQm94IiAgICAgICAgICAgIlB5dGhvbiBjYWxsIgogICAgICAgIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5wb2xpY3lTZXJ2aWNlIC0+IGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5jYWNoZU1hbmFnZXIgICAgICAgICAgItCY0L3QstCw0LvQuNC00LDRhtC40Y8g0LfQsNGC0YDQvtC90YPRgtGL0YUg0LrQu9GO0YfQtdC5IiAiUHl0aG9uIGNhbGwiCgogICAgICAgIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5hY2Nlc3NTZXJ2aWNlIC0+IGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5jYWNoZU1hbmFnZXIgICAgICAgICAgIkNhY2hlIGxvb2t1cCAvIHN0b3JlIiAgIlB5dGhvbiBjYWxsIgogICAgICAgIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5hY2Nlc3NTZXJ2aWNlIC0+IGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5yZWFzb25pbmdPcmNoZXN0cmF0b3IgIkNhY2hlIG1pc3Mg4oaSIHJlYXNvbmluZyIgIlB5dGhvbiBjYWxsIgogICAgICAgIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5hY2Nlc3NTZXJ2aWNlIC0+IGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5vbnRvbG9neUNvcmUgICAgICAgICAgItCn0YLQtdC90LjQtSBBQm94IiAgICAgICAgICAgICJQeXRob24gY2FsbCIKCiAgICAgICAgYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLnZlcmlmaWNhdGlvblNlcnZpY2UgLT4gYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLmdyYXBoVmFsaWRhdG9yICAgICAgICAi0KHQki0yLCDQodCSLTMiICAgICAgICAgIlB5dGhvbiBjYWxsIgogICAgICAgIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC52ZXJpZmljYXRpb25TZXJ2aWNlIC0+IGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5yZWFzb25pbmdPcmNoZXN0cmF0b3IgItCh0JItMSwg0KHQki00LCDQodCSLTUiICAgIlB5dGhvbiBjYWxsIgogICAgICAgIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC52ZXJpZmljYXRpb25TZXJ2aWNlIC0+IGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5vbnRvbG9neUNvcmUgICAgICAgICAgItCn0YLQtdC90LjQtSBUQm94ICsgQUJveCIgIlB5dGhvbiBjYWxsIgoKICAgICAgICBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQuc2FuZGJveFNlcnZpY2UgLT4gYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLm9udG9sb2d5Q29yZSAgItCg0LDQsdC+0YLQsCDRgSDQutC+0L/QuNC10LkgQUJveCIgICAgICAgICAgICAgICAgICAgICJQeXRob24gY2FsbCIKICAgICAgICBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQuc2FuZGJveFNlcnZpY2UgLT4gYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLmFjY2Vzc1NlcnZpY2UgItCX0LDQv9GA0L7RgSDRgNC10YjQtdC90LjQuSAo0YDQsNC30YDQtdGI0ZHQvdC90L7QtSDQuNGB0LrQu9GO0YfQtdC90LjQtSkiICJQeXRob24gY2FsbCIKCiAgICAgICAgYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLnJvbGx1cFNlcnZpY2UgLT4gYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLm9udG9sb2d5Q29yZSAi0KfRgtC10L3QuNC1INGB0YLRgNGD0LrRgtGD0YDRiywg0LfQsNC/0LjRgdGMINGB0L7RgdGC0L7Rj9C90LjQuSIgIlB5dGhvbiBjYWxsIgogICAgICAgIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5yb2xsdXBTZXJ2aWNlIC0+IGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5jYWNoZU1hbmFnZXIgItCY0L3QstCw0LvQuNC00LDRhtC40Y8g0L/QvtGB0LvQtSDQv9GA0L7Qs9GA0LXRgdGB0LAiICAgICAgICAiUHl0aG9uIGNhbGwiCgogICAgICAgIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5pbnRlZ3JhdGlvblNlcnZpY2UgLT4gYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLm9udG9sb2d5Q29yZSAgICAgICAgICLQl9Cw0L/QuNGB0Ywg0YHRgtGA0YPQutGC0YPRgNGLINC4INC/0YDQsNCy0LjQuyIgICAgICAgICAgICAgICAgICAiUHl0aG9uIGNhbGwiCiAgICAgICAgYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLmludGVncmF0aW9uU2VydmljZSAtPiBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQucm9sbHVwU2VydmljZSAgICAgICAgItCf0LXRgNCy0LjRh9C90LDRjyDQsNCz0YDQtdCz0LDRhtC40Y8g0L/QvtGB0LvQtSDQuNC80L/QvtGA0YLQsCIgICAgICAgICAgIlB5dGhvbiBjYWxsIgogICAgICAgIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5pbnRlZ3JhdGlvblNlcnZpY2UgLT4gYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLnZlcmlmaWNhdGlvblNlcnZpY2UgICLQkNCy0YLQvtCy0LXRgNC40YTQuNC60LDRhtC40Y8gKNGA0LDQt9GA0LXRiNGR0L3QvdC+0LUg0LjRgdC60LvRjtGH0LXQvdC40LUpIiAgICJQeXRob24gY2FsbCIKCiAgICAgICAgLy8g4pSA4pSAIENvbXBvbmVudCBsZXZlbDogQ29yZSDihpIg0YHQvtGB0LXQtNC90LjQtSDQutC+0L3RgtC10LnQvdC10YDRiyDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIDilIAKICAgICAgICBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQub250b2xvZ3lDb3JlICAgICAgICAgIC0+IGFjY2Vzc0NvbnRyb2wub250b2xvZ3lTdG9yZSAgICAgICAgICAgICAgICAgICAgItCX0LDQs9GA0YPQt9C60LAg0Lgg0YHQvtGF0YDQsNC90LXQvdC40LUgLm93bCIgIk93bHJlYWR5MiBJL08iCiAgICAgICAgYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLnJlYXNvbmluZ09yY2hlc3RyYXRvciAtPiBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQub250b2xvZ3lDb3JlICAgICAgICAgICLQmNC90LbQtdC60YbQuNGPINC4IENXQS1lbmZvcmNlbWVudCIgIlB5dGhvbiBjYWxsIgogICAgICAgIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5jYWNoZU1hbmFnZXIgICAgICAgICAgLT4gYWNjZXNzQ29udHJvbC5jYWNoZSAgICAgICAgICAgICAgICAgICAgICAgICAgICAiR0VUL1NFVC9ERUwiICAgICAgICAgICAgICAgICJSZWRpcyBwcm90b2NvbCIKICAgIH0KCiAgICB2aWV3cyB7CgogICAgICAgIHN5c3RlbUNvbnRleHQgYWNjZXNzQ29udHJvbCAiQ29udGV4dCIgItCj0YDQvtCy0LXQvdGMIDEgQzQg4oCUINGB0LjRgdGC0LXQvNC90YvQuSDQutC+0L3RgtC10LrRgdGCOiDRg9GH0LDRgdGC0L3QuNC60Lgg0L/RgNC+0YbQtdGB0YHQsCDQuCDQstC90LXRiNC90Y/RjyDQodCU0J4uIiB7CiAgICAgICAgICAgIGluY2x1ZGUgKgogICAgICAgICAgICBhdXRvbGF5b3V0IGxyIDMwMCAyMDAKICAgICAgICB9CgogICAgICAgIGNvbnRhaW5lciBhY2Nlc3NDb250cm9sICJDb250YWluZXJzIiAi0KPRgNC+0LLQtdC90YwgMiBDNCDigJQg0LrQvtC90YLQtdC50L3QtdGA0Ysg0YHQuNGB0YLQtdC80YsuIFJlYXNvbmluZyDQstGB0YLRgNC+0LXQvSDQsiBBUEkgQmFja2VuZCAoUGVsbGV0ICsgSlB5cGUsINC90LUg0L7RgtC00LXQu9GM0L3Ri9C5INC/0YDQvtGG0LXRgdGBKS4iIHsKICAgICAgICAgICAgaW5jbHVkZSAqCiAgICAgICAgICAgIGF1dG9sYXlvdXQgbHIgMzAwIDIwMAogICAgICAgIH0KCiAgICAgICAgY29tcG9uZW50IGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZCAiT3ZlcnZpZXciICLQo9GA0L7QstC10L3RjCAzIEM0IOKAlCDQvtCx0LfQvtGAINC60L7QvNC/0L7QvdC10L3RgtC+0LIgQVBJIEJhY2tlbmQuINCn0LXRgtGL0YDQtSDQs9GA0YPQv9C/0Ys6IEFQSSwgU2VydmljZSwgUnVsZSBIYW5kbGVyIFJlZ2lzdHJ5LCBDb3JlLiDQkdC10Lcg0LLQvdC10YjQvdC40YUg0LrQvtC90YLQtdC50L3QtdGA0L7QsiAo0LTQu9GPINC/0YDQuNC70L7QttC10L3QuNGPINCf0JcpLiIgewogICAgICAgICAgICBpbmNsdWRlIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5wb2xpY3lDb250cm9sbGVyIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5hY2Nlc3NDb250cm9sbGVyIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5wcm9ncmVzc0NvbnRyb2xsZXIgYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLnZlcmlmaWNhdGlvbkNvbnRyb2xsZXIgYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLnNhbmRib3hDb250cm9sbGVyIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5pbnRlZ3JhdGlvbkNvbnRyb2xsZXIKICAgICAgICAgICAgaW5jbHVkZSBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQucG9saWN5U2VydmljZSBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQuYWNjZXNzU2VydmljZSBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQucHJvZ3Jlc3NTZXJ2aWNlIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC52ZXJpZmljYXRpb25TZXJ2aWNlIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5zYW5kYm94U2VydmljZSBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQucm9sbHVwU2VydmljZSBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQuaW50ZWdyYXRpb25TZXJ2aWNlCiAgICAgICAgICAgIGluY2x1ZGUgYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLnJ1bGVIYW5kbGVyUmVnaXN0cnkKICAgICAgICAgICAgaW5jbHVkZSBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQub250b2xvZ3lDb3JlIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5yZWFzb25pbmdPcmNoZXN0cmF0b3IgYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLmdyYXBoVmFsaWRhdG9yIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5jYWNoZU1hbmFnZXIKICAgICAgICAgICAgYXV0b2xheW91dCB0YiAyNTAgMTgwCiAgICAgICAgfQoKICAgICAgICBjb21wb25lbnQgYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kICJQb2xpY3lGbG93IiAi0KPRgNC+0LLQtdC90YwgMyBDNCDigJQg0L/QvtGC0L7QuiDRg9C/0YDQsNCy0LvQtdC90LjRjyDQv9GA0LDQstC40LvQsNC80LggKFVDLTEsIFVDLTIsIFVDLTMpLiDQodC+0LfQtNCw0L3QuNC1L9C+0LHQvdC+0LLQu9C10L3QuNC1INC/0YDQsNCy0LjQu9CwOiBQb2xpY3lTZXJ2aWNlINC30LDQv9C40YHRi9Cy0LDQtdGCINGC0LjQv9C+LdGB0L/QtdGG0LjRhNC40YfQvdGL0LUg0L/QvtC70Y8g0YfQtdGA0LXQtyBSdWxlSGFuZGxlclJlZ2lzdHJ5LCDQt9Cw0YLQtdC8INC/0YDQvtCy0LXRgNGP0LXRgiDQsNGG0LjQutC70LjRh9C90L7RgdGC0YwgKEdyYXBoVmFsaWRhdG9yINGC0L7QttC1INGH0LXRgNC10LcgUmVnaXN0cnkpINC4INC60L7QvdGB0LjRgdGC0LXQvdGC0L3QvtGB0YLRjC4gQVBJIExheWVyINGB0LrRgNGL0YIg4oCUINGB0LwuIE92ZXJ2aWV3LiIgewogICAgICAgICAgICBpbmNsdWRlIGFjY2Vzc0NvbnRyb2wud2ViVUkKICAgICAgICAgICAgaW5jbHVkZSBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQucG9saWN5U2VydmljZQogICAgICAgICAgICBpbmNsdWRlIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5ydWxlSGFuZGxlclJlZ2lzdHJ5CiAgICAgICAgICAgIGluY2x1ZGUgYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLmdyYXBoVmFsaWRhdG9yIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5yZWFzb25pbmdPcmNoZXN0cmF0b3IgYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLm9udG9sb2d5Q29yZSBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQuY2FjaGVNYW5hZ2VyCiAgICAgICAgICAgIGluY2x1ZGUgYWNjZXNzQ29udHJvbC5vbnRvbG9neVN0b3JlIGFjY2Vzc0NvbnRyb2wuY2FjaGUKICAgICAgICAgICAgYXV0b2xheW91dCBsciAyMDAgMTUwCiAgICAgICAgfQoKICAgICAgICBjb21wb25lbnQgYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kICJBY2Nlc3NFdmFsdWF0aW9uIiAi0KPRgNC+0LLQtdC90YwgMyBDNCDigJQg0L7RhtC10L3QutCwINC00L7RgdGC0YPQv9CwINC4INGB0LjQvNGD0LvRj9GC0L7RgCAoVUMtNCwgVUMtNywgVUMtOSkuIENhY2hlLWZpcnN0INGA0LXRiNC10L3QuNC1LCBjYWNoZSBtaXNzIOKGkiByZWFzb25pbmcuINCh0LjQvNGD0LvRj9GC0L7RgCDQv9C10YDQtdC40YHQv9C+0LvRjNC30YPQtdGCIEFjY2Vzc1NlcnZpY2UuIEFQSSBMYXllciDRgdC60YDRi9GCIOKAlCDRgdC8LiBPdmVydmlldy4iIHsKICAgICAgICAgICAgaW5jbHVkZSBhY2Nlc3NDb250cm9sLndlYlVJIGxtcwogICAgICAgICAgICBpbmNsdWRlIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5hY2Nlc3NTZXJ2aWNlIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5zYW5kYm94U2VydmljZQogICAgICAgICAgICBpbmNsdWRlIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5jYWNoZU1hbmFnZXIgYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLnJlYXNvbmluZ09yY2hlc3RyYXRvciBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQub250b2xvZ3lDb3JlCiAgICAgICAgICAgIGluY2x1ZGUgYWNjZXNzQ29udHJvbC5jYWNoZSBhY2Nlc3NDb250cm9sLm9udG9sb2d5U3RvcmUKICAgICAgICAgICAgYXV0b2xheW91dCBsciAyMDAgMTUwCiAgICAgICAgfQoKICAgICAgICBjb21wb25lbnQgYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kICJWZXJpZmljYXRpb24iICLQo9GA0L7QstC10L3RjCAzIEM0IOKAlCDQv9C+0LvQvdCw0Y8g0LLQtdGA0LjRhNC40LrQsNGG0LjRjyDQutGD0YDRgdCwIChVQy02KS4gVmVyaWZpY2F0aW9uU2VydmljZSDQv9GA0L7QstC10YDRj9C10YIg0L/Rj9GC0Ywg0YHQstC+0LnRgdGC0LIg0KHQki0x4oCm0KHQki01OiDQodCSLTIvMyDRh9C10YDQtdC3IEdyYXBoVmFsaWRhdG9yICjRgtC+0YIg0YHRgtGA0L7QuNGCINCz0YDQsNGEINGH0LXRgNC10LcgUnVsZUhhbmRsZXJSZWdpc3RyeSksINCh0JItNC81INGH0LXRgNC10LcgUnVsZUhhbmRsZXJSZWdpc3RyeSDQvdCw0L/RgNGP0LzRg9GOLiBBUEkgTGF5ZXIg0YHQutGA0YvRgiDigJQg0YHQvC4gT3ZlcnZpZXcuIiB7CiAgICAgICAgICAgIGluY2x1ZGUgYWNjZXNzQ29udHJvbC53ZWJVSQogICAgICAgICAgICBpbmNsdWRlIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC52ZXJpZmljYXRpb25TZXJ2aWNlCiAgICAgICAgICAgIGluY2x1ZGUgYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLnJ1bGVIYW5kbGVyUmVnaXN0cnkKICAgICAgICAgICAgaW5jbHVkZSBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQuZ3JhcGhWYWxpZGF0b3IgYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLnJlYXNvbmluZ09yY2hlc3RyYXRvciBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQub250b2xvZ3lDb3JlCiAgICAgICAgICAgIGluY2x1ZGUgYWNjZXNzQ29udHJvbC5vbnRvbG9neVN0b3JlCiAgICAgICAgICAgIGF1dG9sYXlvdXQgbHIgMjAwIDE1MAogICAgICAgIH0KCiAgICAgICAgY29tcG9uZW50IGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZCAiSW50ZWdyYXRpb25Sb2xsdXAiICLQo9GA0L7QstC10L3RjCAzIEM0IOKAlCDQuNC80L/QvtGA0YIg0LrRg9GA0YHQsCDQuCDQsNCz0YDQtdCz0LDRhtC40Y8g0L/RgNC+0LPRgNC10YHRgdCwIChVQy01LCBVQy04LCBVQy0xMCkuINCf0L7RgdC70LUg0LjQvNC/0L7RgNGC0LAg4oCUINCw0LLRgtC+0LLQtdGA0LjRhNC40LrQsNGG0LjRjzsg0L/RgNC4INGB0L7QsdGL0YLQuNC4INC/0YDQvtCz0YDQtdGB0YHQsCDigJQg0LrQsNGB0LrQsNC00L3QvtC1IHJvbGwtdXAg0Lgg0LjQvdCy0LDQu9C40LTQsNGG0LjRjyDQutGN0YjQsC4gQVBJIExheWVyINGB0LrRgNGL0YIg4oCUINGB0LwuIE92ZXJ2aWV3LiIgewogICAgICAgICAgICBpbmNsdWRlIGFjY2Vzc0NvbnRyb2wud2ViVUkgbG1zCiAgICAgICAgICAgIGluY2x1ZGUgYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLmludGVncmF0aW9uU2VydmljZSBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQucHJvZ3Jlc3NTZXJ2aWNlIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5yb2xsdXBTZXJ2aWNlIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC52ZXJpZmljYXRpb25TZXJ2aWNlIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5hY2Nlc3NTZXJ2aWNlCiAgICAgICAgICAgIGluY2x1ZGUgYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLm9udG9sb2d5Q29yZSBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQucmVhc29uaW5nT3JjaGVzdHJhdG9yIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC5jYWNoZU1hbmFnZXIKICAgICAgICAgICAgaW5jbHVkZSBhY2Nlc3NDb250cm9sLm9udG9sb2d5U3RvcmUgYWNjZXNzQ29udHJvbC5jYWNoZQogICAgICAgICAgICBhdXRvbGF5b3V0IGxyIDIwMCAxNTAKICAgICAgICB9CgogICAgICAgIGNvbXBvbmVudCBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQgIlJ1bGVIYW5kbGVyRGlzcGF0Y2giICLQo9GA0L7QstC10L3RjCAzIEM0IOKAlCDQtNC40YHQv9C10YLRh9C10YDQuNC30LDRhtC40Y8g0L/QviDRgtC40L/QsNC8INC/0YDQsNCy0LjQuyAoU3RyYXRlZ3kt0YDQtdC10YHRgtGAKS4gUnVsZUhhbmRsZXJSZWdpc3RyeSDQstGL0LfRi9Cy0LDRjtGCINGC0YDQuCDQutC+0LzQv9C+0L3QtdC90YLQsDogUG9saWN5U2VydmljZSAoQUJveCB3cml0ZSksIFZlcmlmaWNhdGlvblNlcnZpY2UgKNCw0YLQvtC80LDRgNC90LDRjyDQvdC10LLRi9C/0L7Qu9C90LjQvNC+0YHRgtGMINC4INGB0YLRgNGD0LrRgtGD0YDQvdCw0Y8g0LTQvtGB0YLQuNC20LjQvNC+0YHRgtGMKSDQuCBHcmFwaFZhbGlkYXRvciAo0L/QvtGB0YLRgNC+0LXQvdC40LUg0LTRg9CzINC30LDQstC40YHQuNC80L7RgdGC0LXQuSkuINCf0L7QutCw0LfRi9Cy0LDQtdGCLCDQutCw0LogOSDRhdGN0L3QtNC70LXRgNC+0LIg0LjQt9C+0LvQuNGA0YPRjtGCINC/0L7QstC10LTQtdC90LjQtSDQutCw0LbQtNC+0LPQviDRgtC40L/QsCDQv9GA0LDQstC40LvQsC4iIHsKICAgICAgICAgICAgaW5jbHVkZSBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQucG9saWN5U2VydmljZQogICAgICAgICAgICBpbmNsdWRlIGFjY2Vzc0NvbnRyb2wuYXBpQmFja2VuZC52ZXJpZmljYXRpb25TZXJ2aWNlCiAgICAgICAgICAgIGluY2x1ZGUgYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLmdyYXBoVmFsaWRhdG9yCiAgICAgICAgICAgIGluY2x1ZGUgYWNjZXNzQ29udHJvbC5hcGlCYWNrZW5kLnJ1bGVIYW5kbGVyUmVnaXN0cnkKICAgICAgICAgICAgaW5jbHVkZSBhY2Nlc3NDb250cm9sLmFwaUJhY2tlbmQub250b2xvZ3lDb3JlCiAgICAgICAgICAgIGF1dG9sYXlvdXQgdGIgMjAwIDE1MAogICAgICAgIH0KCiAgICAgICAgc3R5bGVzIHsKICAgICAgICAgICAgZWxlbWVudCAiUGVyc29uIiB7CiAgICAgICAgICAgICAgICBzaGFwZSBwZXJzb24KICAgICAgICAgICAgICAgIGJhY2tncm91bmQgIzExNjhiZAogICAgICAgICAgICAgICAgY29sb3IgI2ZmZmZmZgogICAgICAgICAgICB9CiAgICAgICAgICAgIGVsZW1lbnQgIlNvZnR3YXJlIFN5c3RlbSIgewogICAgICAgICAgICAgICAgYmFja2dyb3VuZCAjMTE2OGJkCiAgICAgICAgICAgICAgICBjb2xvciAjZmZmZmZmCiAgICAgICAgICAgIH0KICAgICAgICAgICAgZWxlbWVudCAiQ29udGFpbmVyIiB7CiAgICAgICAgICAgICAgICBiYWNrZ3JvdW5kICM0MzhkZDUKICAgICAgICAgICAgICAgIGNvbG9yICNmZmZmZmYKICAgICAgICAgICAgfQogICAgICAgICAgICBlbGVtZW50ICJDb21wb25lbnQiIHsKICAgICAgICAgICAgICAgIGJhY2tncm91bmQgIzg1YmJmMAogICAgICAgICAgICAgICAgY29sb3IgIzAwMDAwMAogICAgICAgICAgICB9CiAgICAgICAgICAgIGVsZW1lbnQgIkV4dGVybmFsIiB7CiAgICAgICAgICAgICAgICBiYWNrZ3JvdW5kICM4YjhiOGIKICAgICAgICAgICAgICAgIGNvbG9yICNmZmZmZmYKICAgICAgICAgICAgfQogICAgICAgICAgICBlbGVtZW50ICJXZWIgQnJvd3NlciIgewogICAgICAgICAgICAgICAgc2hhcGUgV2ViQnJvd3NlcgogICAgICAgICAgICB9CiAgICAgICAgICAgIGVsZW1lbnQgIlN0b3JhZ2UiIHsKICAgICAgICAgICAgICAgIHNoYXBlIGN5bGluZGVyCiAgICAgICAgICAgIH0KICAgICAgICAgICAgZWxlbWVudCAiQ2FjaGUiIHsKICAgICAgICAgICAgICAgIHNoYXBlIGN5bGluZGVyCiAgICAgICAgICAgICAgICBiYWNrZ3JvdW5kICNkOTRhM2QKICAgICAgICAgICAgICAgIGNvbG9yICNmZmZmZmYKICAgICAgICAgICAgfQoKICAgICAgICB9CiAgICB9Cn0=",
+    "structurizr.inspection.info" : "0",
+    "structurizr.inspection.ignore" : "0",
+    "structurizr.inspection.warning" : "0"
+  },
+  "views" : {
+    "componentViews" : [ {
+      "automaticLayout" : {
+        "edgeSeparation" : 50,
+        "nodeSeparation" : 180,
+        "rankDirection" : "TopBottom",
+        "rankSeparation" : 250,
+        "vertices" : true
+      },
+      "containerId" : "6",
+      "description" : "Уровень 3 C4 — обзор компонентов API Backend. Четыре группы: API, Service, Rule Handler Registry, Core. Без внешних контейнеров (для приложения ПЗ).",
+      "elements" : [ {
+        "id" : "7",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "8",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "9",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "10",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "11",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "12",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "13",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "14",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "15",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "16",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "17",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "18",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "19",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "20",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "21",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "22",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "23",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "24",
+        "x" : 0,
+        "y" : 0
+      } ],
+      "externalContainerBoundariesVisible" : false,
+      "key" : "Overview",
+      "name" : "Component View: Система управления правилами доступа - API Backend",
+      "order" : 3,
+      "relationships" : [ {
+        "id" : "46"
+      }, {
+        "id" : "47"
+      }, {
+        "id" : "48"
+      }, {
+        "id" : "49"
+      }, {
+        "id" : "50"
+      }, {
+        "id" : "51"
+      }, {
+        "id" : "52"
+      }, {
+        "id" : "53"
+      }, {
+        "id" : "54"
+      }, {
+        "id" : "55"
+      }, {
+        "id" : "56"
+      }, {
+        "id" : "57"
+      }, {
+        "id" : "58"
+      }, {
+        "id" : "59"
+      }, {
+        "id" : "60"
+      }, {
+        "id" : "61"
+      }, {
+        "id" : "62"
+      }, {
+        "id" : "63"
+      }, {
+        "id" : "64"
+      }, {
+        "id" : "65"
+      }, {
+        "id" : "66"
+      }, {
+        "id" : "67"
+      }, {
+        "id" : "68"
+      }, {
+        "id" : "69"
+      }, {
+        "id" : "70"
+      }, {
+        "id" : "71"
+      }, {
+        "id" : "72"
+      }, {
+        "id" : "73"
+      }, {
+        "id" : "74"
+      }, {
+        "id" : "75"
+      }, {
+        "id" : "77"
+      } ]
+    }, {
+      "automaticLayout" : {
+        "edgeSeparation" : 50,
+        "nodeSeparation" : 150,
+        "rankDirection" : "LeftRight",
+        "rankSeparation" : 200,
+        "vertices" : true
+      },
+      "containerId" : "6",
+      "description" : "Уровень 3 C4 — поток управления правилами (UC-1, UC-2, UC-3). Создание/обновление правила: PolicyService записывает типо-специфичные поля через RuleHandlerRegistry, затем проверяет ацикличность (GraphValidator тоже через Registry) и консистентность. API Layer скрыт — см. Overview.",
+      "elements" : [ {
+        "id" : "5",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "13",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "20",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "21",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "22",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "23",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "24",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "25",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "26",
+        "x" : 0,
+        "y" : 0
+      } ],
+      "externalContainerBoundariesVisible" : false,
+      "key" : "PolicyFlow",
+      "name" : "Component View: Система управления правилами доступа - API Backend",
+      "order" : 4,
+      "relationships" : [ {
+        "id" : "56"
+      }, {
+        "id" : "58"
+      }, {
+        "id" : "59"
+      }, {
+        "id" : "60"
+      }, {
+        "id" : "61"
+      }, {
+        "id" : "62"
+      }, {
+        "id" : "76"
+      }, {
+        "id" : "77"
+      }, {
+        "id" : "78"
+      } ]
+    }, {
+      "automaticLayout" : {
+        "edgeSeparation" : 50,
+        "nodeSeparation" : 150,
+        "rankDirection" : "LeftRight",
+        "rankSeparation" : 200,
+        "vertices" : true
+      },
+      "containerId" : "6",
+      "description" : "Уровень 3 C4 — оценка доступа и симулятор (UC-4, UC-7, UC-9). Cache-first решение, cache miss → reasoning. Симулятор переиспользует AccessService. API Layer скрыт — см. Overview.",
+      "elements" : [ {
+        "id" : "3",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "5",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "14",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "17",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "21",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "22",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "24",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "25",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "26",
+        "x" : 0,
+        "y" : 0
+      } ],
+      "externalContainerBoundariesVisible" : false,
+      "key" : "AccessEvaluation",
+      "name" : "Component View: Система управления правилами доступа - API Backend",
+      "order" : 5,
+      "relationships" : [ {
+        "id" : "63"
+      }, {
+        "id" : "64"
+      }, {
+        "id" : "65"
+      }, {
+        "id" : "69"
+      }, {
+        "id" : "70"
+      }, {
+        "id" : "76"
+      }, {
+        "id" : "77"
+      }, {
+        "id" : "78"
+      } ]
+    }, {
+      "automaticLayout" : {
+        "edgeSeparation" : 50,
+        "nodeSeparation" : 150,
+        "rankDirection" : "LeftRight",
+        "rankSeparation" : 200,
+        "vertices" : true
+      },
+      "containerId" : "6",
+      "description" : "Уровень 3 C4 — полная верификация курса (UC-6). VerificationService проверяет пять свойств СВ-1…СВ-5: СВ-2/3 через GraphValidator (тот строит граф через RuleHandlerRegistry), СВ-4/5 через RuleHandlerRegistry напрямую. API Layer скрыт — см. Overview.",
+      "elements" : [ {
+        "id" : "5",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "16",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "20",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "21",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "22",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "23",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "25",
+        "x" : 0,
+        "y" : 0
+      } ],
+      "externalContainerBoundariesVisible" : false,
+      "key" : "Verification",
+      "name" : "Component View: Система управления правилами доступа - API Backend",
+      "order" : 6,
+      "relationships" : [ {
+        "id" : "57"
+      }, {
+        "id" : "58"
+      }, {
+        "id" : "66"
+      }, {
+        "id" : "67"
+      }, {
+        "id" : "68"
+      }, {
+        "id" : "76"
+      }, {
+        "id" : "77"
+      } ]
+    }, {
+      "automaticLayout" : {
+        "edgeSeparation" : 50,
+        "nodeSeparation" : 150,
+        "rankDirection" : "LeftRight",
+        "rankSeparation" : 200,
+        "vertices" : true
+      },
+      "containerId" : "6",
+      "description" : "Уровень 3 C4 — импорт курса и агрегация прогресса (UC-5, UC-8, UC-10). После импорта — автоверификация; при событии прогресса — каскадное roll-up и инвалидация кэша. API Layer скрыт — см. Overview.",
+      "elements" : [ {
+        "id" : "3",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "5",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "14",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "15",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "16",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "18",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "19",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "21",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "22",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "24",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "25",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "26",
+        "x" : 0,
+        "y" : 0
+      } ],
+      "externalContainerBoundariesVisible" : false,
+      "key" : "IntegrationRollup",
+      "name" : "Component View: Система управления правилами доступа - API Backend",
+      "order" : 7,
+      "relationships" : [ {
+        "id" : "52"
+      }, {
+        "id" : "53"
+      }, {
+        "id" : "54"
+      }, {
+        "id" : "55"
+      }, {
+        "id" : "63"
+      }, {
+        "id" : "64"
+      }, {
+        "id" : "65"
+      }, {
+        "id" : "67"
+      }, {
+        "id" : "68"
+      }, {
+        "id" : "71"
+      }, {
+        "id" : "72"
+      }, {
+        "id" : "73"
+      }, {
+        "id" : "74"
+      }, {
+        "id" : "75"
+      }, {
+        "id" : "76"
+      }, {
+        "id" : "77"
+      }, {
+        "id" : "78"
+      } ]
+    }, {
+      "automaticLayout" : {
+        "edgeSeparation" : 50,
+        "nodeSeparation" : 150,
+        "rankDirection" : "TopBottom",
+        "rankSeparation" : 200,
+        "vertices" : true
+      },
+      "containerId" : "6",
+      "description" : "Уровень 3 C4 — диспетчеризация по типам правил (Strategy-реестр). RuleHandlerRegistry вызывают три компонента: PolicyService (ABox write), VerificationService (атомарная невыполнимость и структурная достижимость) и GraphValidator (построение дуг зависимостей). Показывает, как 9 хэндлеров изолируют поведение каждого типа правила.",
+      "elements" : [ {
+        "id" : "13",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "16",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "20",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "21",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "23",
+        "x" : 0,
+        "y" : 0
+      } ],
+      "externalContainerBoundariesVisible" : false,
+      "key" : "RuleHandlerDispatch",
+      "name" : "Component View: Система управления правилами доступа - API Backend",
+      "order" : 8,
+      "relationships" : [ {
+        "id" : "56"
+      }, {
+        "id" : "57"
+      }, {
+        "id" : "58"
+      }, {
+        "id" : "59"
+      }, {
+        "id" : "61"
+      }, {
+        "id" : "66"
+      }, {
+        "id" : "68"
+      } ]
+    } ],
+    "configuration" : {
+      "styles" : {
+        "elements" : [ {
+          "background" : "#d94a3d",
+          "color" : "#ffffff",
+          "shape" : "Cylinder",
+          "tag" : "Cache"
+        }, {
+          "background" : "#85bbf0",
+          "color" : "#000000",
+          "tag" : "Component"
+        }, {
+          "background" : "#438dd5",
+          "color" : "#ffffff",
+          "tag" : "Container"
+        }, {
+          "background" : "#8b8b8b",
+          "color" : "#ffffff",
+          "tag" : "External"
+        }, {
+          "background" : "#1168bd",
+          "color" : "#ffffff",
+          "shape" : "Person",
+          "tag" : "Person"
+        }, {
+          "background" : "#1168bd",
+          "color" : "#ffffff",
+          "tag" : "Software System"
+        }, {
+          "shape" : "Cylinder",
+          "tag" : "Storage"
+        }, {
+          "shape" : "WebBrowser",
+          "tag" : "Web Browser"
+        } ]
+      },
+      "terminology" : { }
+    },
+    "containerViews" : [ {
+      "automaticLayout" : {
+        "edgeSeparation" : 50,
+        "nodeSeparation" : 200,
+        "rankDirection" : "LeftRight",
+        "rankSeparation" : 300,
+        "vertices" : true
+      },
+      "description" : "Уровень 2 C4 — контейнеры системы. Reasoning встроен в API Backend (Pellet + JPype, не отдельный процесс).",
+      "elements" : [ {
+        "id" : "1",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "2",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "3",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "5",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "6",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "25",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "26",
+        "x" : 0,
+        "y" : 0
+      } ],
+      "externalSoftwareSystemBoundariesVisible" : false,
+      "key" : "Containers",
+      "name" : "Container View: Система управления правилами доступа",
+      "order" : 2,
+      "relationships" : [ {
+        "id" : "31"
+      }, {
+        "id" : "32"
+      }, {
+        "id" : "33"
+      }, {
+        "id" : "34"
+      }, {
+        "id" : "35"
+      }, {
+        "id" : "36"
+      }, {
+        "id" : "37"
+      } ],
+      "softwareSystemId" : "4"
+    } ],
+    "systemContextViews" : [ {
+      "automaticLayout" : {
+        "edgeSeparation" : 50,
+        "nodeSeparation" : 200,
+        "rankDirection" : "LeftRight",
+        "rankSeparation" : 300,
+        "vertices" : true
+      },
+      "description" : "Уровень 1 C4 — системный контекст: участники процесса и внешняя СДО.",
+      "elements" : [ {
+        "id" : "1",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "2",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "3",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "4",
+        "x" : 0,
+        "y" : 0
+      } ],
+      "enterpriseBoundaryVisible" : true,
+      "key" : "Context",
+      "name" : "System Context View: Система управления правилами доступа",
+      "order" : 1,
+      "relationships" : [ {
+        "id" : "27"
+      }, {
+        "id" : "28"
+      }, {
+        "id" : "29"
+      }, {
+        "id" : "30"
+      } ],
+      "softwareSystemId" : "4"
+    } ]
+  }
+}

@@ -18,9 +18,8 @@ INTERNAL_ERROR_DETAIL = "Внутренняя ошибка сервера"
 async def get_policies(
     course_id: Optional[str] = Query(None, description="Фильтр по ID курса"),
     element_id: Optional[str] = Query(None, description="Фильтр по ID элемента"),
-    service: PolicyService = Depends(get_policy_service)
+    service: PolicyService = Depends(get_policy_service),
 ) -> List[Policy]:
-    """Все политики доступа с опциональной фильтрацией"""
     return service.get_policies(course_id=course_id, element_id=element_id)
 
 
@@ -32,9 +31,8 @@ async def get_policies(
 )
 async def create_policy(
     policy: PolicyCreate,
-    service: PolicyService = Depends(get_policy_service)
+    service: PolicyService = Depends(get_policy_service),
 ) -> Policy:
-    """Создать новый индивид AccessPolicy в графе онтологии"""
     try:
         return service.create_policy(policy)
     except PolicyConflictError as exc:
@@ -56,9 +54,8 @@ async def create_policy(
 )
 async def delete_policy(
     policy_id: str = Path(..., description="ID удаляемой политики"),
-    service: PolicyService = Depends(get_policy_service)
+    service: PolicyService = Depends(get_policy_service),
 ) -> dict:
-    """Удалить индивид AccessPolicy из графа, отсоединив от всех источников"""
     try:
         deleted = service.delete_policy(policy_id)
     except PolicyConflictError as exc:
@@ -76,9 +73,8 @@ async def delete_policy(
 async def update_policy(
     data: PolicyCreate,
     policy_id: str = Path(..., description="ID обновляемой политики"),
-    service: PolicyService = Depends(get_policy_service)
+    service: PolicyService = Depends(get_policy_service),
 ) -> dict:
-    """Обновить существующую политику доступа"""
     try:
         return service.update_policy(policy_id, data)
     except PolicyConflictError as exc:
@@ -97,12 +93,15 @@ async def update_policy(
 async def toggle_policy(
     toggle_data: TogglePolicy,
     policy_id: str = Path(..., description="ID политики"),
-    service: PolicyService = Depends(get_policy_service)
+    service: PolicyService = Depends(get_policy_service),
 ) -> dict:
-    """Включить или отключить политику без её удаления"""
     try:
         service.toggle_policy(policy_id, toggle_data.is_active)
-        return {"message": "Статус успешно изменён", "policy_id": policy_id, "is_active": toggle_data.is_active}
+        return {
+            "message": "Статус успешно изменён",
+            "policy_id": policy_id,
+            "is_active": toggle_data.is_active,
+        }
     except PolicyConflictError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.explanation)
     except ValueError as exc:

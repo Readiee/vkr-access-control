@@ -8,8 +8,8 @@
 
 ## Статистика (обновлять при добавлении источников)
 
-- **Всего уникальных источников:** ~53 (Z: 10, P: 31 минус 3 дубликата, N: 11, D: 5, минус P20 = 2 источника)
-- **Не старше 5 лет (2021–2026):** ~19 → нужно добить до ≥30
+- **Всего уникальных источников:** ~56 (Z: 10, P: 31 минус 3 дубликата, N: 11, D: 5, E: 3, минус P20 = 2 источника)
+- **Не старше 5 лет (2021–2026):** ~20 (N18 2019 — вне окна; N17 2008, N19 2017 — фундаментальные) → нужно добить до ≥30
 - **ВАК/РИНЦ:** 0 → **осознанно не добираем**, см. ниже
 - **Scopus/WoS:** ~12–14 → нужно ≥20 %
 - **Фундаментальные (до 2020):** допустимы как основы области
@@ -102,6 +102,14 @@
 | N14 | Mohamed A.K.Y.S. et al. — Systematic literature review for authorization and access control | 2022 | Scopus (Int. J. Web Inf. Syst.) | Абстракт | L3/L4: систематический обзор AC — образование не фигурирует как домен OBAC | Высокое |
 | N15 | Farhadighalati N. et al. — A Systematic Review of Access Control Models | 2025 | Scopus (IEEE Access) | Абстракт | L3/L4: систематический обзор ACM — образование не фигурирует | Высокое |
 | N16 | Can Ö., Unalir M.-O. — Revisiting OBAC: The Case for OBDA (ICISSP 2022) | 2022 | Scopus | Абстракт | L3: OBAC+OBDA, **не образование** — подтверждает gap | Среднее |
+
+## E. Источники, добавленные при фазе 4 — подкрепление §1.5 (N17–N19)
+
+| # | Источник | Год | Scopus/WoS | Прочитан | Роль в ВКР | Качество |
+|---|---------|-----|-----------|----------|-----------|----------|
+| N17 | Zacharias V. — Development and Verification of Rule Based Systems: A Survey of Developers. RuleML 2008, LNCS 5321, pp. 30–44. DOI 10.1007/978-3-540-88808-6_4 | 2008 | Scopus (Springer LNCS) | Абстракт | L5/§1.5: обзор практик разработчиков rule-based систем — V&V и отладка названы главными болями. Обосновывает §1.5 тезис об отсутствии V&V-инструментов в BRMS. Ключ: `@ZachariasRuleDev2008` | Среднее |
+| N18 | Jabal A.A., Davari M., Bertino E. et al. — Methods and Tools for Policy Analysis. ACM Computing Surveys, 51(6), Art. 121, pp. 121:1–121:35. DOI 10.1145/3295749 | 2019 | Scopus + WoS (ACM) | Абстракт | L4/§1.5: систематический обзор методов анализа политик (формальная верификация, тестирование и др.) — подтверждает, что встроенная формальная верификация в production policy engines (OPA и др.) редкость. Ключ: `@JabalPolicyAnalysis2019` | Высокое |
+| N19 | Hu V.C., Kuhn D.R., Yaga D.J. — Verification and Test Methods for Access Control Policies/Models. NIST SP 800-192. DOI 10.6028/NIST.SP.800-192 | 2017 | — (NIST) | Абстракт | §1.5: NIST-классификация методов верификации политик доступа (black-box testing, white-box model checking) — прямая основа для таблицы 1.5. Ключ: `@HuNIST800192` | Высокое |
 
 ---
 

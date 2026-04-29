@@ -1,10 +1,4 @@
-"""Приём событий прогресса от внешней СДО
-
-Webhook: СДО отправляет событие (`viewed`, `completed`, `graded`,
-`competency_acquired`); ProgressService записывает факт в ABox, запускает
-резонер в фоне, каскадно обновляет завершённость родителя и пересобирает
-Redis-кэш доступов студента через AccessService
-"""
+"""Webhook СДО: приём событий прогресса."""
 import logging
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
@@ -21,14 +15,13 @@ router = APIRouter(prefix="/api/v1/events", tags=["Progress"])
 @router.post(
     "/progress",
     status_code=status.HTTP_202_ACCEPTED,
-    summary="Регистрация события успеваемости (UC-5)",
+    summary="Регистрация события успеваемости",
 )
 async def register_progress(
     data: ProgressEvent,
     background_tasks: BackgroundTasks,
     service: ProgressService = Depends(get_progress_service),
 ) -> dict:
-    """Webhook СДО: записать прогресс и запустить резонер в фоне"""
     try:
         service.update_progress(
             student_id=data.student_id,

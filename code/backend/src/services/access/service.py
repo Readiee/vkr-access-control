@@ -1,11 +1,7 @@
-"""Чтение доступа студента к элементам курса
+"""Чтение доступа студента к элементам курса с default-deny и каскадной блокировкой.
 
-Default-deny для элементов с политиками, у которых не выведен is_available_for,
-плюс каскадная блокировка по иерархии. На вход — результат последнего прогона
-резонера из ABox (is_available_for), на выход — Redis-кэш и матрица HTTP-ответа
-
-date_restricted не фильтруется здесь: окно целиком обсчитывается SWRL-шаблоном
-через CurrentTime — элемент за пределами окна не получит is_available_for
+date_restricted здесь не фильтруется: окно целиком обсчитывает SWRL-шаблон через
+CurrentTime, и за пределами окна элемент не получит is_available_for.
 """
 from __future__ import annotations
 
@@ -24,12 +20,6 @@ logger = logging.getLogger(__name__)
 
 
 class AccessService:
-    """Сборка матрицы доступа и объяснений блокировки для студента
-
-    Зависит от OntologyCore (ABox), CacheManager (чтение через кэш) и
-    ReasoningOrchestrator (на cache miss). Зависимости инжектятся явно
-    """
-
     def __init__(
         self,
         core: OntologyCore,
@@ -43,7 +33,6 @@ class AccessService:
         self.explainer = AccessExplainer(core)
 
     def rebuild_student_access(self, student_id: str) -> Dict[str, Any]:
-        """Пройти default-deny по всем элементам и записать в Redis"""
         student = self._resolve_student(student_id)
         if student is None:
             return {"status": "error", "message": f"Студент {student_id} не найден."}
@@ -57,11 +46,9 @@ class AccessService:
         }
 
     def get_course_access(self, student_id: str, course_id: str) -> Dict[str, List[str]]:
-        """Вернуть доступные элементы курса с учётом каскадной блокировки"""
         cached = self.cache.get_student_access(student_id)
         if cached is None:
-            # Redis может быть недоступен — CacheManager тогда no-op,
-            # берём результат rebuild напрямую, не полагаясь на cache.get
+            # Redis недоступен — CacheManager — no-op; берём результат rebuild напрямую.
             rebuild = self.rebuild_student_access(student_id)
             cached = rebuild.get("inferred_access", {})
 
@@ -74,7 +61,6 @@ class AccessService:
         return {"available_elements": list(visible)}
 
     def explain_blocking(self, student_id: str, element_id: str) -> Dict[str, Any]:
-        """Собрать объяснение, почему конкретный элемент (не)доступен студенту"""
         student = self._resolve_student(student_id)
         element = self.core.courses.find_by_id(element_id)
         if student is None or element is None:
@@ -113,12 +99,6 @@ class AccessService:
     def _collect_justification(
         self, student: Any, element: Any, applicable: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
-        """Trace вывода is_available_for по мета-правилу SWRL
-
-        Для satisfied-политик возвращает binding тела, для unsatisfied — те же
-        биндинги с недостающим атомом. У элемента без активных политик — тривиальный
-        default-allow-узел
-        """
         if not applicable:
             return {
                 "status": "available",
@@ -129,8 +109,8 @@ class AccessService:
         return _justification_to_dict(tree)
 
     def _compute_inferred_access(self, student: Any) -> Dict[str, Dict[str, Any]]:
-        """Default-deny: элемент доступен, если (нет политик) ИЛИ (is_available_for),
-        причём родительские элементы тоже доступны
+        """Default-deny: элемент доступен, если (политик нет) ∨ (выведен is_available_for),
+        и все его родители тоже доступны.
         """
         parent_index = self.core.courses.parent_index()
         inferred: Dict[str, Dict[str, Any]] = {}
@@ -301,8 +281,8 @@ class AccessService:
     }
 
     def _resolve_student(self, student_id: str) -> Optional[Any]:
-        # Sandbox-студент живёт под id "student_sandbox" — сначала ищем по
-        # исходному id, чтобы не создавать фантомного Student с префиксом
+        # Сначала ищем по исходному id, чтобы sandbox-студент (student_sandbox)
+        # не дублировался под student_student_sandbox.
         found = self.core.onto.search_one(type=self.core.onto.Student, iri=f"*{student_id}")
         if found is not None:
             return found

@@ -1,9 +1,8 @@
-"""Split-node DiGraph над структурой курса и политиками доступа
+"""Split-node DiGraph над структурой курса и политиками доступа.
 
-Дуги: интра-элементные, иерархические и политические. Политические строятся
-по rule_type: completion/grade/aggregate/competency → tgt.complete → src.access,
-viewed_required → tgt.access → src.access, date/group дуг не добавляют,
-and/or раскрываются рекурсией по has_subpolicy
+Дуги бывают трёх типов: интра-элементные (access -> complete), иерархические
+(parent.access -> child.access, child.complete -> parent.complete) и политические
+(зависят от rule_type, см. rule_handlers).
 """
 from __future__ import annotations
 
@@ -15,15 +14,16 @@ import networkx as nx
 from core.enums import RuleType
 from utils.owl_utils import get_owl_prop
 
-# импорт откладывается до первого вызова: избегает кругового импорта при старте
+
 def _registry():
+    # Импорт откладываем до первого вызова — иначе циклический импорт при старте.
     from services.rule_handlers import REGISTRY
     return REGISTRY
 
 
 @dataclass
 class ProbePolicy:
-    """Описание пробной политики для детектора циклов при создании правила"""
+    """Описание пробной политики для детектора циклов на этапе создания правила."""
     rule_type: str
     source_id: str
     target_element_id: Optional[str] = None
@@ -33,8 +33,6 @@ class ProbePolicy:
 
 
 class GraphValidator:
-    """Детектор циклов по split-node графу зависимостей"""
-
     _MAX_RECURSION_DEPTH = 32  # защита от циклической композиции has_subpolicy
 
     @classmethod
@@ -46,7 +44,7 @@ class GraphValidator:
         rule_type: str = RuleType.COMPLETION.value,
         probe: Optional[ProbePolicy] = None,
     ) -> List[str]:
-        """Проверить, порождает ли пробная политика цикл; вернуть путь или []"""
+        """Путь цикла, индуцированный пробной политикой, или []."""
         if probe is None:
             probe = ProbePolicy(
                 rule_type=rule_type,
@@ -59,7 +57,6 @@ class GraphValidator:
 
     @classmethod
     def find_all_cycles(cls, onto: Any) -> List[List[str]]:
-        """Вернуть все циклы в графе зависимостей онтологии"""
         graph = cls.build_dependency_graph(onto)
         cycles: List[List[str]] = []
         for component in nx.strongly_connected_components(graph):
@@ -78,7 +75,6 @@ class GraphValidator:
 
     @classmethod
     def build_dependency_graph(cls, onto: Any) -> nx.DiGraph:
-        """Собрать split-node граф по всей онтологии"""
         graph = nx.DiGraph()
 
         for elem in onto.CourseStructure.instances():
@@ -95,8 +91,7 @@ class GraphValidator:
         for policy in onto.AccessPolicy.instances():
             if get_owl_prop(policy, "is_active", True) is False:
                 continue
-            sources = onto.search(has_access_policy=policy) or []
-            for source in sources:
+            for source in onto.search(has_access_policy=policy) or []:
                 cls._add_policy_edges(graph, onto, policy, source.name, depth=0)
 
         return graph
@@ -137,8 +132,7 @@ class GraphValidator:
     def _reconstruct_path(edges: Any) -> List[str]:
         path: List[str] = []
         for edge in edges:
-            u = edge[0]
-            base = GraphValidator._strip_suffix(u)
+            base = GraphValidator._strip_suffix(edge[0])
             if not path or path[-1] != base:
                 path.append(base)
         return path
@@ -153,7 +147,6 @@ class GraphValidator:
 
     @staticmethod
     def get_parent_of(onto: Any, element_id: str) -> Any:
-        """Родитель элемента по has_module/contains_activity; None при отсутствии"""
         for candidate in onto.CourseStructure.instances():
             children = list(getattr(candidate, "has_module", []) or []) + list(
                 getattr(candidate, "contains_activity", []) or []

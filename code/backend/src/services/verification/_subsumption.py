@@ -1,11 +1,9 @@
-"""Обнаружение избыточных и поглощённых политик доступа.
+"""Поиск избыточных и поглощённых политик доступа.
 
-Синтаксическая процедура для атомарных типов: GRADE (threshold), DATE (window),
-GROUP (subgroup), COMPLETION/VIEWED (equality), AND-composite (subpolicy match).
-Для атомарных типов синтаксика эквивалентна DL-subsumption; для AND-composite
-даёт soundness без полноты.
-
-Работает без запуска резонера: GROUP-ветка — O(|members|), остальные — O(1).
+Синтаксическая процедура без запуска резонера: для атомарных типов синтаксика
+эквивалентна DL-subsumption (одинаковый rule_type + сравнимые атрибуты);
+для AND-композита даёт soundness без полноты. GROUP-ветка O(|members|),
+остальные O(1).
 """
 from __future__ import annotations
 
@@ -20,7 +18,6 @@ logger = logging.getLogger(__name__)
 
 
 def _label(obj: Any) -> str:
-    """label_or_name с заменой пустой строки на «?» для witness-сообщений"""
     return label_or_name(obj) or "?"
 
 
@@ -29,22 +26,15 @@ class SubsumptionPair:
     dominant: str
     dominated: str
     element: Optional[str]
-    kind: str           # "redundancy" (СВ-4) | "subject_subsumption" (СВ-5)
+    kind: str           # "redundancy" | "subject_subsumption"
     witness: str
 
 
 class SubsumptionChecker:
-    """Проверка всех пар активных политик на поглощение.
-
-    Резонер на парах не запускается — для атомарных типов синтаксика эквивалентна
-    DL-subsumption, для AND-composite даёт soundness.
-    """
-
     def __init__(self, onto: Any) -> None:
         self.onto = onto
 
     def find_all(self) -> List[SubsumptionPair]:
-        """Вернуть все пары, где P1 subsumes P2 по синтаксическим правилам"""
         active = self._active_policies()
         reports: List[SubsumptionPair] = []
         seen: set[tuple[str, str]] = set()
@@ -73,7 +63,7 @@ class SubsumptionChecker:
         rt2 = get_owl_prop(p2, "rule_type", "")
         element = self._common_element(p1, p2)
 
-        # СВ-4 Redundancy: одинаковый тип + одинаковый target + более слабое условие поглощает более сильное
+        # Одинаковый тип + общий target + более слабое условие поглощает более строгое.
         if rt1 == rt2 and rt1 == RuleType.GRADE.value and element is not None:
             t1 = get_owl_prop(p1, "targets_element")
             t2 = get_owl_prop(p2, "targets_element")
@@ -99,20 +89,19 @@ class SubsumptionChecker:
             until2 = get_owl_prop(p2, "valid_until")
             if None not in (from1, until1, from2, until2):
                 if from1 <= from2 and until1 >= until2 and (from1 != from2 or until1 != until2):
-                    def _fmt(d):
-                        return d.strftime("%d.%m.%Y")
+                    fmt = lambda d: d.strftime("%d.%m.%Y")
                     return SubsumptionPair(
                         dominant=p1.name,
                         dominated=p2.name,
                         element=element,
                         kind="redundancy",
                         witness=(
-                            f"окно {_fmt(from2)}–{_fmt(until2)} уже покрыто "
-                            f"{_fmt(from1)}–{_fmt(until1)}"
+                            f"окно {fmt(from2)}–{fmt(until2)} уже покрыто "
+                            f"{fmt(from1)}–{fmt(until1)}"
                         ),
                     )
 
-        # СВ-5 Subject Subsumption: group_restricted с вложенной группой поглощается более широкой политикой
+        # Group: вложенная группа поглощается более широкой.
         if rt1 == rt2 and rt1 == RuleType.GROUP.value and element is not None:
             g1 = get_owl_prop(p1, "restricted_to_group")
             g2 = get_owl_prop(p2, "restricted_to_group")
@@ -126,7 +115,7 @@ class SubsumptionChecker:
                         witness=f"группа «{_label(g2)}» входит в группу «{_label(g1)}»",
                     )
 
-        # completion/viewed с одинаковым target — полное равенство → redundancy
+        # completion/viewed с одинаковым target — равенство, redundancy.
         if rt1 == rt2 and rt1 in {RuleType.COMPLETION.value, RuleType.VIEWED.value} and element is not None:
             t1 = get_owl_prop(p1, "targets_element")
             t2 = get_owl_prop(p2, "targets_element")
@@ -140,8 +129,8 @@ class SubsumptionChecker:
                     witness=f"оба правила требуют {verb} «{_label(t1)}»",
                 )
 
-        # СВ-5 AND-composite: atomic p1, AND p2 с подполитикой, синтаксически равной p1
-        # — все subjects p2 удовлетворяют p1 через ту же подполитику; p1 поглощает p2.
+        # AND-composite p2 содержит подполитику, синтаксически равную атомарной p1:
+        # все subjects p2 удовлетворяют p1 через ту же подполитику.
         if rt2 == RuleType.AND.value and element is not None:
             sub_match = self._find_equivalent_subpolicy(p1, p2)
             if sub_match is not None:
@@ -159,12 +148,8 @@ class SubsumptionChecker:
         return None
 
     def _find_equivalent_subpolicy(self, atomic: Any, composite: Any) -> Optional[Any]:
-        """Найти в подполитиках composite ту, что синтаксически эквивалентна atomic
-
-        Эквивалентность — совпадение rule_type и всех ключевых атрибутов (target,
-        threshold, окно, группа, компетенция). Композитные подполитики не учитываем,
-        чтобы не подменять глубокий DL-subsumption
-        """
+        # Композитные подполитики не учитываем, чтобы синтаксическая ветка
+        # не подменяла глубокий DL-subsumption.
         for sub in list(getattr(composite, "has_subpolicy", []) or []):
             if self._atomic_equivalent(atomic, sub):
                 return sub
@@ -201,7 +186,7 @@ class SubsumptionChecker:
         return next(iter(shared)) if shared else None
 
     def _subgroup(self, narrow: Any, wide: Any) -> bool:
-        """True, если narrow ⊆ wide через belongs_to_group студентов"""
+        """True, если narrow ⊆ wide через belongs_to_group студентов."""
         if narrow is wide:
             return False
         members_narrow = self._members(narrow)

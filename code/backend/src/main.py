@@ -1,11 +1,12 @@
 """FastAPI-приложение Semantic Rules API."""
 import logging
+
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.dependencies import get_cache_manager
-from api.routers import access, policies, integration, progress, sandbox, verification
+from api.routers import access, integration, policies, progress, sandbox, verification
 
 APP_TITLE = "OntoRule API"
 APP_DESCRIPTION = (
@@ -19,15 +20,9 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(na
 
 app = FastAPI(title=APP_TITLE, description=APP_DESCRIPTION, version=APP_VERSION)
 
-# Настройка CORS 
-origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -43,7 +38,7 @@ app.include_router(sandbox.router)
 
 @app.on_event("startup")
 async def _sync_cache_with_ontology_version() -> None:
-    # Файл онтологии мог измениться между перезапусками — пустой кэш безопаснее устаревшего
+    # Файл онтологии мог измениться между перезапусками; пустой кэш безопаснее устаревшего.
     cache = get_cache_manager()
     cache.ensure_version_consistency()
     cache.publish_ontology_version()

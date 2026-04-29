@@ -1,18 +1,10 @@
-"""Хэндлеры составных (AND/OR) типов правил доступа"""
+"""Хэндлеры составных (AND/OR) типов правил доступа."""
 from __future__ import annotations
-
-from typing import TYPE_CHECKING, Any, Callable, Dict
 
 from owlready2 import AllDifferent
 
 from core.enums import RuleType
 from services.rule_handlers._base import RuleHandler
-from utils.owl_utils import get_owl_prop
-
-if TYPE_CHECKING:
-    from schemas.schemas import PolicyCreate
-    from services.graph_validator import ProbePolicy
-    from services.ontology_core import OntologyCore
 
 
 class AndHandler(RuleHandler):
@@ -28,7 +20,7 @@ class AndHandler(RuleHandler):
             if sub is not None:
                 recurse_policy(graph, onto, sub, probe.source_id, depth=0)
 
-    def can_grant(self, onto, policy, can_grant_element, can_grant_policy, visited, cache, unsat_policies):
+    def can_grant(self, _onto, policy, _can_grant_element, can_grant_policy, visited, cache, unsat_policies):
         subs = list(getattr(policy, "has_subpolicy", []) or [])
         if not subs:
             return False
@@ -55,8 +47,8 @@ class AndHandler(RuleHandler):
                 raise ValueError(f"Подполитика {sub_id} не найдена.")
             subs.append(sub)
         policy.has_subpolicy = subs
-        # OWL не предполагает уникальности имён (нет UNA); без AllDifferent
-        # SWRL может унифицировать переменные sub1=sub2, вырождая AND в OR
+        # OWL не делает unique name assumption: без AllDifferent SWRL может
+        # унифицировать переменные sub1=sub2 и AND вырождается в OR.
         if len(subs) >= 2:
             AllDifferent(subs)
 
@@ -74,7 +66,7 @@ class OrHandler(RuleHandler):
             if sub is not None:
                 recurse_policy(graph, onto, sub, probe.source_id, depth=0)
 
-    def can_grant(self, onto, policy, can_grant_element, can_grant_policy, visited, cache, unsat_policies):
+    def can_grant(self, _onto, policy, _can_grant_element, can_grant_policy, visited, cache, unsat_policies):
         subs = list(getattr(policy, "has_subpolicy", []) or [])
         if not subs:
             return False

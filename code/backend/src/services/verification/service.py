@@ -1,9 +1,4 @@
-"""Верификация курса: consistency, acyclicity, reachability (обязательные),
-redundancy и subsumption — опционально через SubsumptionChecker.
-
-Запуск резонера через ReasoningOrchestrator; при таймауте отчёт помечается
-partial=True, свойства зависящие от Pellet — unknown.
-"""
+"""Верификация курса: consistency, acyclicity, reachability и опционально redundancy/subsumption."""
 from __future__ import annotations
 
 import logging
@@ -42,14 +37,12 @@ class VerificationReport:
     ontology_version: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
-        props = {}
-        for name, report in self.properties.items():
-            entry: Dict[str, Any] = {"status": report.status, "violations": report.violations}
-            props[name] = entry
-
+        props = {
+            name: {"status": report.status, "violations": report.violations}
+            for name, report in self.properties.items()
+        }
         passed = sum(1 for r in self.properties.values() if r.status == "passed")
         total = len(self.properties)
-        summary = f"{passed} из {total} свойств выполнены"
         return {
             "course_id": self.course_id,
             "run_id": self.run_id,
@@ -57,27 +50,29 @@ class VerificationReport:
             "duration_ms": self.duration_ms,
             "partial": self.partial,
             "properties": props,
-            "summary": summary,
+            "summary": f"{passed} из {total} свойств выполнены",
             "ontology_version": self.ontology_version,
         }
 
 
 def _covers(cached: Dict[str, Any], include_subsumption: bool) -> bool:
     props = cached.get("properties", {})
-    if "consistency" not in props or "acyclicity" not in props or "reachability" not in props:
+    base = {"consistency", "acyclicity", "reachability"}
+    if not base.issubset(props):
         return False
-    if include_subsumption and ("redundancy" not in props or "subsumption" not in props):
+    if include_subsumption and not {"redundancy", "subsumption"}.issubset(props):
         return False
     return True
 
 
 def _report_from_dict(data: Dict[str, Any]) -> VerificationReport:
-    props: Dict[str, PropertyReport] = {}
-    for name, payload in (data.get("properties") or {}).items():
-        props[name] = PropertyReport(
+    props: Dict[str, PropertyReport] = {
+        name: PropertyReport(
             status=payload.get("status", "unknown"),
             violations=payload.get("violations", []) or [],
         )
+        for name, payload in (data.get("properties") or {}).items()
+    }
     return VerificationReport(
         course_id=data.get("course_id", ""),
         run_id=data.get("run_id", ""),
@@ -90,12 +85,6 @@ def _report_from_dict(data: Dict[str, Any]) -> VerificationReport:
 
 
 class VerificationService:
-    """Единая точка запуска верификации курса.
-
-    Зависит от OntologyCore, ReasoningOrchestrator (consistency + subsumption),
-    GraphValidator (acyclicity, reachability) и CacheManager.
-    """
-
     def __init__(
         self,
         core: OntologyCore,
@@ -113,12 +102,6 @@ class VerificationService:
         include_subsumption: bool = False,
         use_cache: bool = True,
     ) -> VerificationReport:
-        """Прогнать все запрошенные свойства и собрать отчёт.
-
-        При use_cache=True возвращает сохранённый в Redis результат, если он есть и
-        покрывает запрошенный набор свойств. Инвалидация кэша — на стороне
-        PolicyService и IntegrationService при мутациях ABox.
-        """
         if use_cache:
             cached = self.cache.get_verification(course_id)
             if cached and _covers(cached, include_subsumption):
@@ -140,7 +123,6 @@ class VerificationService:
         reasoning_result = self.reasoner.reason()
         partial = reasoning_result.status in {"timeout", "error"}
 
-        # consistency
         if reasoning_result.status == "ok":
             consistency.status = "passed"
         elif reasoning_result.status == "inconsistent":
@@ -156,7 +138,7 @@ class VerificationService:
                 "message": reasoning_result.error or f"status={reasoning_result.status}",
             })
 
-        # acyclicity — всегда считается (чистый граф, независим от Pellet)
+        # Acyclicity считается всегда — чистый граф, не зависит от Pellet
         cycles = GraphValidator.find_all_cycles(self.core.onto)
         if cycles:
             acyclicity.status = "failed"
@@ -171,7 +153,7 @@ class VerificationService:
         else:
             acyclicity.status = "passed"
 
-        # reachability — только если консистентно (иначе структурный анализ не имеет смысла)
+        # Reachability имеет смысл только при consistent онтологии
         if consistency.status == "passed":
             unreachable = self._find_unreachable(course)
             if unreachable:
@@ -180,7 +162,6 @@ class VerificationService:
             else:
                 reachability.status = "passed"
 
-        # redundancy / subsumption — по запросу
         if include_subsumption and consistency.status == "passed":
             pairs = SubsumptionChecker(self.core.onto).find_all()
             for pair in pairs:
@@ -227,15 +208,13 @@ class VerificationService:
         return report
 
     def _find_unreachable(self, course: Any) -> List[Dict[str, Any]]:
-        """Поиск недостижимых элементов: атомарная невыполнимость + структурная достижимость"""
         reports: List[Dict[str, Any]] = []
         atomic_unsat = self._atomic_unsatisfiable()
         reports.extend(atomic_unsat)
         unsat_ids = {entry["policy_id"] for entry in atomic_unsat}
 
-        course_elements = self._collect_course_elements(course)
         cache: Dict[str, bool] = {}
-        for element in course_elements:
+        for element in self._collect_course_elements(course):
             if not self._can_grant_element(element, visited=set(), cache=cache, unsat_policies=unsat_ids):
                 reports.append({
                     "code": "SV3_UNREACHABLE",
@@ -349,7 +328,6 @@ class VerificationService:
         return label_or_name(ind)
 
     def _policies_on_cycle(self, cycle_path: List[str]) -> List[str]:
-        """Вернуть имена политик, чьи источники попадают в путь цикла"""
         policy_ids: List[str] = []
         cycle_set = set(cycle_path)
         for policy in self.core.onto.AccessPolicy.instances():

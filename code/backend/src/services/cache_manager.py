@@ -4,7 +4,7 @@ import hashlib
 import json
 import logging
 import os
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -20,10 +20,9 @@ _SCAN_BATCH = 500
 class CacheManager:
     """Кэш доступов и отчётов верификации поверх Redis.
 
-    TTL — 1 час; датные политики обязаны выравнивать границы до часа, иначе
-    кэш не успевает пересчитаться до смены окна. Payload содержит sha256 файла
-    онтологии: хэш-мисматч → инвалидация записи без перезапуска сервиса.
-    Удаление идёт через SCAN+батч; KEYS заблокировал бы Redis на больших кэшах.
+    Записи помечаются sha256 файла онтологии: при несовпадении хэша запись
+    инвалидируется без рестарта сервиса. Удаление идёт через SCAN батчами;
+    KEYS заблокировал бы Redis на больших кэшах.
     """
 
     def __init__(self, redis_client, onto_path: Optional[str] = None) -> None:
@@ -33,10 +32,6 @@ class CacheManager:
         self._cached_mtime: Optional[float] = None
 
     def current_ontology_version(self) -> Optional[str]:
-        """sha256 содержимого файла онтологии или None, если путь не задан
-
-        Пересчитывается только при изменении mtime
-        """
         if not self._onto_path:
             return None
         try:
@@ -59,7 +54,6 @@ class CacheManager:
         return self._cached_version
 
     def publish_ontology_version(self) -> Optional[str]:
-        """Записать текущий хэш в `onto:version`, вернуть записанное значение"""
         version = self.current_ontology_version()
         if self.redis and version:
             try:
@@ -69,7 +63,6 @@ class CacheManager:
         return version
 
     def stored_ontology_version(self) -> Optional[str]:
-        """Прочитать `onto:version` из Redis, None если ключа нет или Redis недоступен"""
         if not self.redis:
             return None
         try:
@@ -79,10 +72,10 @@ class CacheManager:
             return None
 
     def ensure_version_consistency(self) -> bool:
-        """Выровнять Redis с текущим файлом онтологии
+        """Сверить хэш файла с записанным в Redis; на расхождении сбросить кэши.
 
-        На рассинхроне очистить access:* и verify:*, переписать `onto:version`.
-        Вызывается на старте приложения. True, если инвалидация не понадобилась
+        Вызывается на старте приложения. Возвращает True, если инвалидация
+        не понадобилась.
         """
         current = self.current_ontology_version()
         if not current or not self.redis:
@@ -91,8 +84,8 @@ class CacheManager:
         if stored == current:
             return True
         logger.warning(
-            "Версия онтологии изменилась (%s → %s). Инвалидация access:* и verify:*.",
-            stored or "∅", current[:12],
+            "Версия онтологии изменилась (%s -> %s). Инвалидация access:* и verify:*.",
+            stored or "none", current[:12],
         )
         self.invalidate_all_access()
         self.invalidate_verification()
@@ -100,11 +93,6 @@ class CacheManager:
         return False
 
     def get_student_access(self, student_id: str) -> Optional[Dict[str, Any]]:
-        """Прочитать карту доступов студента, None на cache miss
-
-        Служебные поля обёртки наружу не видны — сервис получает тот же dict
-        element_id → meta, что и до введения ontology_version
-        """
         if not self.redis:
             return None
         raw = self.redis.get(f"{ACCESS_KEY_PREFIX}{student_id}")
@@ -119,8 +107,7 @@ class CacheManager:
             return None
         if isinstance(payload, dict) and "access" in payload:
             return payload.get("access") or {}
-        # старый формат без обёртки — считаем валидным
-        return payload
+        return payload  # legacy формат, до версии с обёрткой
 
     def set_student_access(self, student_id: str, data: Dict[str, Any]) -> None:
         if not self.redis:
@@ -183,9 +170,9 @@ class CacheManager:
         if not self.redis:
             return
         try:
-            # SCAN под параллельным удалением пропускает часть ключей (курсор сдвигается
-            # на удалённых слотах), поэтому сначала собираем список, потом удаляем
-            keys = list(self._scan_iter(pattern))
+            # SCAN под параллельным удалением пропускает часть ключей: курсор
+            # сдвигается на удалённых слотах. Сначала собираем список, потом стираем.
+            keys = list(self.redis.scan_iter(match=pattern, count=_SCAN_BATCH))
             if not keys:
                 return
             for i in range(0, len(keys), _SCAN_BATCH):
@@ -193,10 +180,6 @@ class CacheManager:
             logger.info("Сброс кэша %s: удалено %d ключей (pattern=%s).", label, len(keys), pattern)
         except Exception as exc:
             logger.error("Ошибка при SCAN-инвалидации %s: %s", pattern, exc)
-
-    def _scan_iter(self, pattern: str) -> Iterable[str]:
-        # обёртка совместима с redis-py и fakeredis
-        yield from self.redis.scan_iter(match=pattern, count=_SCAN_BATCH)
 
     def _safe_delete(self, key: str) -> None:
         if not self.redis:
@@ -207,11 +190,6 @@ class CacheManager:
             logger.warning("Ошибка удаления %s: %s", key, exc)
 
     def _version_matches(self, payload: Any) -> bool:
-        """Совпадает ли `ontology_version` в payload с текущим хэшом файла
-
-        True при недоступном хэше файла, отсутствии поля в payload или совпадении.
-        False только при явном расхождении версий
-        """
         current = self.current_ontology_version()
         if not current or not isinstance(payload, dict):
             return True

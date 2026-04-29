@@ -1,4 +1,4 @@
-"""Pydantic-модели запросов и ответов API"""
+"""Pydantic-модели запросов и ответов API."""
 from pydantic import BaseModel, Field, model_validator, ConfigDict, AliasChoices
 from typing import List, Optional, Dict, Any
 from enum import Enum
@@ -8,101 +8,85 @@ from core.enums import RuleType, ElementType, ProgressStatus, EventType
 
 
 class Competency(BaseModel):
-    """Компетенция из онтологии"""
-    id: str = Field(..., description="ID компетенции (напр. 'comp_python')")
-    name: str = Field(..., description="Название (напр. 'Язык Python')")
-    parent_id: Optional[str] = Field(None, description="ID родительской компетенции для иерархии")
+    id: str
+    name: str
+    parent_id: Optional[str] = Field(None, description="ID родительской компетенции")
 
 
 class CourseElementMeta(BaseModel):
-    """Краткое представление элемента курса для UI"""
-    id: str = Field(..., description="Локальный ID элемента")
-    name: str = Field(..., description="Название элемента")
-    type: ElementType = Field(..., description="Тип элемента (course, module, lecture, test)")
-    is_mandatory: bool = Field(default=True, description="Является ли элемент обязательным")
+    id: str
+    name: str
+    type: ElementType
+    is_mandatory: bool = True
 
 
 class Group(BaseModel):
-    """Студенческая группа для group_restricted"""
-    id: str = Field(..., description="ID группы (напр. 'grp_advanced')")
-    name: str = Field(..., description="Название группы")
-    parent_id: Optional[str] = Field(
-        None,
-        description="ID прямого родителя по is_subgroup_of (для иерархии групп)",
-    )
+    id: str
+    name: str
+    parent_id: Optional[str] = Field(None, description="ID прямого родителя по is_subgroup_of")
 
 
 class OntologyMeta(BaseModel):
-    """Метаданные онтологии для фронтенда"""
-    rule_types: List[RuleType] = Field(..., description="Список поддерживаемых типов правил")
-    statuses: List[ProgressStatus] = Field(..., description="Список статусов отслеживания")
-    competencies: List[Competency] = Field(..., description="Список доступных компетенций")
-    course_elements: List[CourseElementMeta] = Field(..., description="Список элементов структуры курса")
-    groups: List[Group] = Field(default_factory=list, description="Список доступных групп студентов")
+    """Метаданные онтологии для фронтенда."""
+    rule_types: List[RuleType]
+    statuses: List[ProgressStatus]
+    competencies: List[Competency]
+    course_elements: List[CourseElementMeta]
+    groups: List[Group] = Field(default_factory=list)
 
 
 class AggregateFunction(str, Enum):
-    """Допустимые функции агрегата для aggregate_required"""
     AVG = "AVG"
     SUM = "SUM"
     COUNT = "COUNT"
 
 
 class PolicyBase(BaseModel):
-    """Базовые поля политики доступа"""
     model_config = ConfigDict(use_enum_values=True)
 
     source_element_id: Optional[str] = Field(
         None,
         description=(
-            "ID защищаемого элемента. Пусто → политика существует как "
-            "подполитика композита и не привязана к элементу напрямую."
+            "ID защищаемого элемента. Пусто — политика существует как подполитика "
+            "композита и не привязана к элементу напрямую."
         ),
     )
-    rule_type: RuleType = Field(..., description="Тип применяемого правила")
-    target_element_id: Optional[str] = Field(None, description="ID целевого элемента (для grade/completion/viewed)")
-    target_competency_id: Optional[str] = Field(None, description="ID целевой компетенции (для competency_required)")
-    passing_threshold: Optional[float] = Field(None, description="Пороговая оценка для grade_required/aggregate_required")
+    rule_type: RuleType
+    target_element_id: Optional[str] = Field(None, description="ID целевого элемента (grade/completion/viewed)")
+    target_competency_id: Optional[str] = Field(None, description="ID целевой компетенции (competency_required)")
+    passing_threshold: Optional[float] = Field(None, description="Порог для grade_required/aggregate_required")
     valid_from: Optional[datetime] = Field(
         None,
-        description="Дата открытия доступа (date_restricted)",
         alias="available_from",
         validation_alias=AliasChoices("valid_from", "available_from"),
         serialization_alias="valid_from",
     )
     valid_until: Optional[datetime] = Field(
         None,
-        description="Дата закрытия доступа (date_restricted)",
         alias="available_until",
         validation_alias=AliasChoices("valid_until", "available_until"),
         serialization_alias="valid_until",
     )
-    restricted_to_group_id: Optional[str] = Field(None, description="ID группы студентов для group_restricted")
+    restricted_to_group_id: Optional[str] = Field(None, description="ID группы для group_restricted")
     subpolicy_ids: Optional[List[str]] = Field(
         None,
         description=(
             "ID подполитик для and_combination/or_combination. "
-            "Для and_combination — от 2 до 3 (ограничение SWRL-шаблонов). "
-            "Для or_combination — от 2 без верхней границы."
+            "and_combination: 2–3 (ограничение SWRL-шаблонов); or_combination: от 2 без верхней границы."
         ),
     )
-    aggregate_function: Optional[AggregateFunction] = Field(
-        None, description="AVG/SUM/COUNT для aggregate_required"
-    )
-    aggregate_element_ids: Optional[List[str]] = Field(
-        None, description="ID элементов, по которым считается агрегат"
-    )
-    author_id: str = Field(..., description="ID методиста, создавшего правило")
+    aggregate_function: Optional[AggregateFunction] = Field(None, description="AVG/SUM/COUNT")
+    aggregate_element_ids: Optional[List[str]] = Field(None, description="ID элементов для агрегата")
+    author_id: str = Field(..., description="ID методиста")
 
 
 class PolicyCreate(PolicyBase):
-    """Payload для создания новой политики"""
-    is_active: bool = Field(True, description="Флаг активности (по умолчанию: True)")
+    is_active: bool = True
     nested_subpolicies: Optional[List["PolicyCreate"]] = Field(
         None,
         description=(
-            "Для and_combination — новые подполитики, создаваемые атомарно вместе "
-            "с родителем. Альтернатива subpolicy_ids (привязка к уже существующим)."
+            "Для and_combination: новые подполитики, создаваемые атомарно вместе с родителем. "
+            "Альтернатива subpolicy_ids."
         ),
     )
 
@@ -167,14 +151,13 @@ PolicyCreate.model_rebuild()
 
 
 class Policy(PolicyBase):
-    """Политика доступа с идентификатором, статусом активности и UI-extras"""
-    id: str = Field(..., description="Сгенерированный ID политики")
-    is_active: bool = Field(..., description="Флаг активности правила")
-    name: Optional[str] = Field(None, description="Человеческое название (label или auto-описание)")
-    target_element_name: Optional[str] = Field(None, description="Название целевого элемента")
-    target_competency_name: Optional[str] = Field(None, description="Название целевой компетенции")
-    restricted_to_group_name: Optional[str] = Field(None, description="Название группы")
-    aggregate_element_names: Optional[List[str]] = Field(None, description="Названия элементов агрегата")
+    id: str
+    is_active: bool
+    name: Optional[str] = None
+    target_element_name: Optional[str] = None
+    target_competency_name: Optional[str] = None
+    restricted_to_group_name: Optional[str] = None
+    aggregate_element_names: Optional[List[str]] = None
     subpolicies_detail: Optional[List["Policy"]] = Field(
         None, description="Развёрнутые подусловия композита (только верхний уровень)"
     )
@@ -184,62 +167,55 @@ Policy.model_rebuild()
 
 
 class TogglePolicy(BaseModel):
-    """Payload для переключения активности политики"""
-    is_active: bool = Field(..., description="Новое состояние активности")
+    is_active: bool
 
 
 class CourseElement(BaseModel):
-    """Элемент структуры курса"""
     model_config = ConfigDict(use_enum_values=True)
 
-    element_id: str = Field(..., description="ID элемента")
-    name: str = Field(..., description="Человекочитаемое название")
-    element_type: ElementType = Field(..., description="Тип элемента")
-    parent_id: Optional[str] = Field(None, description="ID родительского контейнера или курса")
-    is_mandatory: Optional[bool] = Field(default=True, description="Является ли элемент обязательным для прохождения")
-    order_index: Optional[int] = Field(default=None, description="Порядковый номер элемента. Если не передан, вычисляется из позиции в массиве.")
+    element_id: str
+    name: str
+    element_type: ElementType
+    parent_id: Optional[str] = None
+    is_mandatory: Optional[bool] = True
+    order_index: Optional[int] = Field(default=None, description="Порядковый номер; None — берётся позиция в массиве")
 
 
 class CourseSyncPayload(BaseModel):
-    """Payload синхронизации структуры курса"""
-    course_name: str = Field(..., description="Название курса")
-    elements: List[CourseElement] = Field(..., description="Плоский список всех элементов иерархии")
+    course_name: str
+    elements: List[CourseElement]
 
 
 class ProgressEvent(BaseModel):
-    """Событие успеваемости студента из СДО"""
     model_config = ConfigDict(use_enum_values=True)
 
-    student_id: str = Field(..., description="ID студента")
-    element_id: str = Field(..., description="ID элемента, с которым взаимодействовал студент")
-    event_type: EventType = Field(..., description="Тип произведённого действия")
-    grade: Optional[float] = Field(None, description="Полученная оценка (если есть)")
-    timestamp: Optional[datetime] = Field(None, description="Время события")
+    student_id: str
+    element_id: str
+    event_type: EventType
+    grade: Optional[float] = None
+    timestamp: Optional[datetime] = None
 
 
 class AvailableElements(BaseModel):
-    """Ответ с логически выведенными доступными элементами"""
-    available_elements: List[str] = Field(..., description="ID элементов, доступных студенту")
+    available_elements: List[str]
 
 
 class SandboxProgressPayload(BaseModel):
-    """Payload для симуляции прогресса в Песочнице (тестовый студент)"""
     element_id: str
     status: ProgressStatus
     grade: Optional[float] = None
 
 
 class SandboxCompetencyPayload(BaseModel):
-    """Payload для выдачи и отзыва компетенций в Песочнице (тестовый студент)"""
     competency_id: str
     has_competency: bool
 
 
 class CourseTreeNode(BaseModel):
-    """Узел дерева курса для UI"""
     key: str
     data: Dict[str, Any]
     children: Optional[List['CourseTreeNode']] = []
+
 
 if hasattr(CourseTreeNode, 'model_rebuild'):
     CourseTreeNode.model_rebuild()
@@ -248,16 +224,12 @@ else:
 
 
 class PropertyReportResponse(BaseModel):
-    """Отчёт по одному верифицируемому свойству (СВ-1…СВ-5)"""
+    """Отчёт по одному верифицируемому свойству."""
     status: str = Field(..., description='"passed" | "failed" | "unknown"')
-    violations: List[Dict[str, Any]] = Field(
-        default_factory=list,
-        description="Список найденных нарушений со структурой, специфичной для свойства",
-    )
+    violations: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 class VerificationReportResponse(BaseModel):
-    """Сводный отчёт по курсу: СВ-1/2/3 (+ СВ-4/5 при full=true)"""
     course_id: str
     run_id: str
     timestamp: str
@@ -267,18 +239,16 @@ class VerificationReportResponse(BaseModel):
         description="True, если reasoning не завершился штатно (timeout/error) и часть свойств — unknown",
     )
     properties: Dict[str, PropertyReportResponse] = Field(
-        ..., description="Ключи: consistency, acyclicity, reachability, redundancy, subsumption"
+        ..., description="consistency, acyclicity, reachability, redundancy, subsumption"
     )
     summary: str
-    ontology_version: Optional[str] = Field(
-        None, description="sha256 онтологии на момент расчёта отчёта"
-    )
+    ontology_version: Optional[str] = Field(None, description="sha256 онтологии на момент расчёта")
 
 
 class JustificationNodeResponse(BaseModel):
-    """Узел дерева обоснования доступа или блокировки (rule-based SLD-trace)"""
+    """Узел дерева обоснования доступа или блокировки."""
     status: str = Field(..., description='"satisfied" | "unsatisfied" | "available" | "unavailable"')
-    rule_template: str = Field(..., description="Имя шаблона: completion_required, meta:is_available_for, …")
+    rule_template: str = Field(..., description="completion_required, meta:is_available_for, …")
     policy_id: Optional[str] = None
     variable_bindings: Dict[str, Any] = Field(default_factory=dict)
     body_facts: List[Dict[str, Any]] = Field(default_factory=list)
@@ -290,7 +260,6 @@ JustificationNodeResponse.model_rebuild()
 
 
 class BlockedPolicyResponse(BaseModel):
-    """Краткое описание конкретной политики на элементе в контексте объяснения"""
     policy_id: str
     policy_name: str
     rule_type: str
@@ -300,14 +269,14 @@ class BlockedPolicyResponse(BaseModel):
 
 
 class BlockingExplanationResponse(BaseModel):
-    """Ответ UC-9: почему элемент (не)доступен конкретному студенту"""
+    """Ответ на запрос «почему элемент (не)доступен студенту»."""
     element_id: str
     element_name: str
     student_id: str
     student_name: str
     is_available: bool
     cascade_blocker: Optional[str] = Field(
-        None, description="ID ближайшего родительского элемента, который заблокировал доступ каскадно"
+        None, description="ID ближайшего родителя, заблокировавшего доступ каскадно"
     )
     cascade_blocker_name: Optional[str] = None
     cascade_reason: Optional[str] = None

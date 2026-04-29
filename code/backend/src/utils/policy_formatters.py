@@ -1,9 +1,4 @@
-"""Человечное отображение политик доступа для UI и отчётов.
-
-Использование: API-слой, VerificationService и AccessService — строят JSON-ответы
-с человечными именами правил (методист видит «Завершить лекцию 1», а не идентификаторы).
-Модуль утилитарный, без зависимостей на сервисы.
-"""
+"""Человекочитаемое представление политик доступа."""
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
@@ -12,10 +7,7 @@ from utils.owl_utils import get_owl_prop, label_or_name
 
 
 def describe_policy_auto(pol: Any) -> str:
-    """Человечное описание правила из его полей — не из rdfs:label.
-
-    Для AND/OR рекурсивно собирает описания подполитик через handler.describe
-    """
+    """Описание правила из его полей; для AND/OR рекурсивно через handler.describe."""
     from services.rule_handlers import REGISTRY
     rt = get_owl_prop(pol, "rule_type", "") or ""
     handler = REGISTRY.get(rt)
@@ -23,11 +15,7 @@ def describe_policy_auto(pol: Any) -> str:
 
 
 def policy_display_name(pol: Any) -> str:
-    """Manual label первым, auto-generated — fallback.
-
-    Методист может дать правилу своё имя через rdfs:label; по умолчанию
-    показываем описание по типу + полям.
-    """
+    """rdfs:label, если задан; иначе авто-описание по полям."""
     label = getattr(pol, "label", None)
     if label:
         return label[0]
@@ -40,10 +28,11 @@ def serialize_policy(
     source_id: Optional[str] = None,
     include_subpolicies_detail: bool = True,
 ) -> Dict[str, Any]:
-    """Единое представление политики: ключи под Pydantic-схему `Policy`
-    (включая UI-extras). Параметр `source_id` подставляется в `source_element_id`,
-    если он не выведен из has_access_policy. `subpolicies_detail` — только на
-    верхнем уровне, чтобы не уходить в бесконечную вложенность.
+    """Представление политики под Pydantic-схему `Policy`.
+
+    `source_id` подставляется в source_element_id, если он не выводится через
+    has_access_policy. `subpolicies_detail` разворачивается только на верхнем
+    уровне — иначе бесконечная вложенность.
     """
     subpolicies = list(getattr(pol, "has_subpolicy", []) or [])
     aggregate_elems = list(getattr(pol, "aggregate_elements", []) or [])

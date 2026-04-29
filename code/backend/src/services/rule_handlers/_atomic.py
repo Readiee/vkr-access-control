@@ -1,37 +1,26 @@
-"""Хэндлеры семи атомарных типов правил доступа
-
-Каждый класс описывает поведение одного типа в пяти контекстах:
-граф зависимостей, probe-детектор, верификация, описание для UI, запись в ABox
-"""
+"""Хэндлеры атомарных типов правил доступа."""
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
-
-import networkx as nx
+from typing import Any
 
 from core.enums import RuleType
 from services.rule_handlers._base import RuleHandler
 from utils.owl_utils import get_owl_prop, label_or_name
 
-if TYPE_CHECKING:
-    from schemas.schemas import PolicyCreate
-    from services.graph_validator import ProbePolicy
-    from services.ontology_core import OntologyCore
-
 
 class CompletionHandler(RuleHandler):
     rule_type = RuleType.COMPLETION.value
 
-    def add_dependency_edges(self, graph, onto, policy, source_id, recurse, depth):
+    def add_dependency_edges(self, graph, _onto, policy, source_id, _recurse, _depth):
         target = get_owl_prop(policy, "targets_element")
         if target is not None:
             graph.add_edge(f"{target.name}_complete", f"{source_id}_access")
 
-    def add_probe_edges(self, graph, onto, probe, recurse_policy):
+    def add_probe_edges(self, graph, _onto, probe, _recurse_policy):
         if probe.target_element_id:
             graph.add_edge(f"{probe.target_element_id}_complete", f"{probe.source_id}_access")
 
-    def can_grant(self, onto, policy, can_grant_element, can_grant_policy, visited, cache, unsat_policies):
+    def can_grant(self, _onto, policy, can_grant_element, _can_grant_policy, visited, cache, unsat_policies):
         target = get_owl_prop(policy, "targets_element")
         return can_grant_element(target, visited, cache, unsat_policies) if target else False
 
@@ -43,16 +32,16 @@ class CompletionHandler(RuleHandler):
 class ViewedHandler(RuleHandler):
     rule_type = RuleType.VIEWED.value
 
-    def add_dependency_edges(self, graph, onto, policy, source_id, recurse, depth):
+    def add_dependency_edges(self, graph, _onto, policy, source_id, _recurse, _depth):
         target = get_owl_prop(policy, "targets_element")
         if target is not None:
             graph.add_edge(f"{target.name}_access", f"{source_id}_access")
 
-    def add_probe_edges(self, graph, onto, probe, recurse_policy):
+    def add_probe_edges(self, graph, _onto, probe, _recurse_policy):
         if probe.target_element_id:
             graph.add_edge(f"{probe.target_element_id}_access", f"{probe.source_id}_access")
 
-    def can_grant(self, onto, policy, can_grant_element, can_grant_policy, visited, cache, unsat_policies):
+    def can_grant(self, _onto, policy, can_grant_element, _can_grant_policy, visited, cache, unsat_policies):
         target = get_owl_prop(policy, "targets_element")
         return can_grant_element(target, visited, cache, unsat_policies) if target else False
 
@@ -64,22 +53,22 @@ class ViewedHandler(RuleHandler):
 class GradeHandler(RuleHandler):
     rule_type = RuleType.GRADE.value
 
-    def add_dependency_edges(self, graph, onto, policy, source_id, recurse, depth):
+    def add_dependency_edges(self, graph, _onto, policy, source_id, _recurse, _depth):
         target = get_owl_prop(policy, "targets_element")
         if target is not None:
             graph.add_edge(f"{target.name}_complete", f"{source_id}_access")
 
-    def add_probe_edges(self, graph, onto, probe, recurse_policy):
+    def add_probe_edges(self, graph, _onto, probe, _recurse_policy):
         if probe.target_element_id:
             graph.add_edge(f"{probe.target_element_id}_complete", f"{probe.source_id}_access")
 
-    def atomic_unsat_reason(self, onto, policy):
+    def atomic_unsat_reason(self, _onto, policy):
         th = get_owl_prop(policy, "passing_threshold")
         if th is None or th < 0 or th > 100:
             return f"threshold={th} вне диапазона [0, 100]"
         return None
 
-    def can_grant(self, onto, policy, can_grant_element, can_grant_policy, visited, cache, unsat_policies):
+    def can_grant(self, _onto, policy, can_grant_element, _can_grant_policy, visited, cache, unsat_policies):
         target = get_owl_prop(policy, "targets_element")
         return can_grant_element(target, visited, cache, unsat_policies) if target else False
 
@@ -92,7 +81,7 @@ class GradeHandler(RuleHandler):
 class CompetencyHandler(RuleHandler):
     rule_type = RuleType.COMPETENCY.value
 
-    def add_dependency_edges(self, graph, onto, policy, source_id, recurse, depth):
+    def add_dependency_edges(self, graph, onto, policy, source_id, _recurse, _depth):
         competency = get_owl_prop(policy, "targets_competency")
         if competency is None:
             return
@@ -102,15 +91,14 @@ class CompetencyHandler(RuleHandler):
             for assessor in onto.search(assesses=sub) or []:
                 graph.add_edge(f"{assessor.name}_complete", f"{source_id}_access")
 
-    def add_probe_edges(self, graph, onto, probe, recurse_policy):
+    def add_probe_edges(self, graph, onto, probe, _recurse_policy):
         if not probe.target_competency_id:
             return
         competency = onto.search_one(type=onto.Competency, iri=f"*{probe.target_competency_id}")
         if competency is None:
             return
-        # probe-детектор строит те же дуги, что и реальная политика — иначе
-        # цикл через транзитивную иерархию компетенций обнаруживается только
-        # при верификации, но не при создании правила
+        # Probe дублирует дуги реальной политики, иначе цикл через транзитивную
+        # иерархию компетенций не виден на этапе создания правила.
         for assessor in onto.search(assesses=competency) or []:
             graph.add_edge(f"{assessor.name}_complete", f"{probe.source_id}_access")
         for sub in _subcompetencies(onto, competency):
@@ -125,7 +113,7 @@ class CompetencyHandler(RuleHandler):
             return f"компетенция {comp.name} не оценивается ни одним элементом"
         return None
 
-    def can_grant(self, onto, policy, can_grant_element, can_grant_policy, visited, cache, unsat_policies):
+    def can_grant(self, onto, policy, can_grant_element, _can_grant_policy, visited, cache, unsat_policies):
         comp = get_owl_prop(policy, "targets_competency")
         if comp is None:
             return False
@@ -146,10 +134,7 @@ class CompetencyHandler(RuleHandler):
 class DateHandler(RuleHandler):
     rule_type = RuleType.DATE.value
 
-    # Дат-политика не добавляет структурных дуг (нет элемент-зависимостей)
-    # и структурно всегда выполнима (зависит только от текущего времени)
-
-    def atomic_unsat_reason(self, onto, policy):
+    def atomic_unsat_reason(self, _onto, policy):
         vf = get_owl_prop(policy, "valid_from")
         vu = get_owl_prop(policy, "valid_until")
         if vf is None or vu is None:
@@ -168,8 +153,6 @@ class DateHandler(RuleHandler):
 class GroupHandler(RuleHandler):
     rule_type = RuleType.GROUP.value
 
-    # Группа не добавляет структурных дуг и структурно всегда выполнима
-
     def apply_abox_fields(self, policy, data, core):
         if not data.restricted_to_group_id:
             return
@@ -186,15 +169,17 @@ class GroupHandler(RuleHandler):
 class AggregateHandler(RuleHandler):
     rule_type = RuleType.AGGREGATE.value
 
-    def add_dependency_edges(self, graph, onto, policy, source_id, recurse, depth):
+    _FN_LABELS = {"AVG": "Средний балл", "SUM": "Сумма баллов", "COUNT": "Количество сданных"}
+
+    def add_dependency_edges(self, graph, _onto, policy, source_id, _recurse, _depth):
         for elem in getattr(policy, "aggregate_elements", []) or []:
             graph.add_edge(f"{elem.name}_complete", f"{source_id}_access")
 
-    def add_probe_edges(self, graph, onto, probe, recurse_policy):
+    def add_probe_edges(self, graph, _onto, probe, _recurse_policy):
         for eid in probe.aggregate_element_ids:
             graph.add_edge(f"{eid}_complete", f"{probe.source_id}_access")
 
-    def atomic_unsat_reason(self, onto, policy):
+    def atomic_unsat_reason(self, _onto, policy):
         elements = list(getattr(policy, "aggregate_elements", []) or [])
         if not elements:
             return "aggregate_elements пуст"
@@ -206,14 +191,13 @@ class AggregateHandler(RuleHandler):
             return f"threshold={th} вне диапазона [0, {max_val}] для fn={fn}, k={k}"
         return None
 
-    def can_grant(self, onto, policy, can_grant_element, can_grant_policy, visited, cache, unsat_policies):
+    def can_grant(self, _onto, policy, can_grant_element, _can_grant_policy, visited, cache, unsat_policies):
         elements = list(getattr(policy, "aggregate_elements", []) or [])
         return all(can_grant_element(e, visited, cache, unsat_policies) for e in elements)
 
     def describe(self, policy):
         fn = get_owl_prop(policy, "aggregate_function") or "AVG"
-        _FN_LABELS = {"AVG": "Средний балл", "SUM": "Сумма баллов", "COUNT": "Количество сданных"}
-        fn_ru = _FN_LABELS.get(fn, fn)
+        fn_ru = self._FN_LABELS.get(fn, fn)
         threshold = get_owl_prop(policy, "passing_threshold")
         elems = list(getattr(policy, "aggregate_elements", []) or [])
         names = ", ".join(f"«{label_or_name(e)}»" for e in elems)
@@ -231,10 +215,8 @@ class AggregateHandler(RuleHandler):
         policy.aggregate_elements = agg_elements
 
 
-# ---- shared helpers -------------------------------------------------------
-
 def _subcompetencies(onto: Any, parent: Any) -> set:
-    """Все субкомпетенции parent через is_subcompetency_of (BFS без root)"""
+    """BFS по is_subcompetency_of; root в результат не входит."""
     seen: set = set()
     frontier = [parent]
     while frontier:
@@ -247,7 +229,6 @@ def _subcompetencies(onto: Any, parent: Any) -> set:
 
 
 def _competency_is_assessed(onto: Any, competency: Any) -> bool:
-    """True, если competency (или любая её субкомпетенция) оценивается элементом"""
     frontier = [competency]
     seen: set = set()
     while frontier:
