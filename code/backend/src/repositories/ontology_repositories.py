@@ -47,6 +47,22 @@ class CourseRepository:
         """Возвращает все компетенции."""
         return self.onto.Competency.instances() if hasattr(self.onto, "Competency") else []
 
+    def parent_index(self) -> dict:
+        """child.name → parent OwlObj за один проход по структуре курса
+
+        Идея заменяет линейный поиск родителя через перебор всех элементов:
+        вызовы из rollup, sandbox, access пользуются индексом за O(1) вместо
+        O(N) на каждый запрос
+        """
+        index: dict = {}
+        for parent in self.get_all_elements():
+            children = list(getattr(parent, "has_module", []) or []) + list(
+                getattr(parent, "contains_activity", []) or []
+            )
+            for child in children:
+                index[child.name] = parent
+        return index
+
 class ProgressRepository:
     def __init__(self, onto):
         self.onto = onto

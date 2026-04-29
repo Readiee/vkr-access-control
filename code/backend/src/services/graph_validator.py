@@ -73,7 +73,7 @@ class GraphValidator:
 
     @classmethod
     def build_dependency_graph(cls, onto: Any) -> nx.DiGraph:
-        """Собрать split-node DiGraph по всей онтологии"""
+        """Собрать split-node граф по всей онтологии"""
         graph = nx.DiGraph()
 
         for elem in onto.CourseStructure.instances():
@@ -222,13 +222,12 @@ class GraphValidator:
 
     @staticmethod
     def get_parent_of(onto: Any, element_id: str) -> Any:
-        """Найти родителя элемента по has_module/contains_activity (совместимость)."""
-        element = onto.search_one(type=onto.CourseStructure, iri=f"*{element_id}")
-        if not element:
-            return None
+        """Родитель элемента по has_module/contains_activity; None при отсутствии"""
         for candidate in onto.CourseStructure.instances():
-            if element in (getattr(candidate, "has_module", []) or []):
-                return candidate
-            if element in (getattr(candidate, "contains_activity", []) or []):
-                return candidate
+            children = list(getattr(candidate, "has_module", []) or []) + list(
+                getattr(candidate, "contains_activity", []) or []
+            )
+            for child in children:
+                if child.name == element_id:
+                    return candidate
         return None

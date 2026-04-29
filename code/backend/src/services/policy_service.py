@@ -10,6 +10,7 @@ from services.cache_manager import CacheManager
 from services.graph_validator import GraphValidator, ProbePolicy
 from services.ontology_core import OntologyCore
 from services.reasoning import ReasoningOrchestrator
+from utils.owl_utils import get_owl_prop
 from utils.policy_formatters import serialize_policy
 
 logger = logging.getLogger(__name__)
@@ -76,6 +77,8 @@ class PolicyService:
         "has_subpolicy",
         "aggregate_elements",
     )
+    # rule_type и is_active reset не трогает: вызывающий перевыставляет их сам
+    _RESET_EXCLUDED = frozenset({"rule_type", "is_active"})
 
     def _snapshot_policy(self, policy: Any) -> dict:
         snap: dict = {p: getattr(policy, p, None) for p in self._SNAPSHOT_SCALAR_PROPS}
@@ -88,6 +91,15 @@ class PolicyService:
             setattr(policy, p, snap[p])
         for p in self._SNAPSHOT_LIST_PROPS:
             setattr(policy, p, list(snap[p]))
+
+    def _reset_policy_fields(self, policy: Any) -> None:
+        """Обнулить типо-специфичные поля перед re-apply в update_policy"""
+        for p in self._SNAPSHOT_SCALAR_PROPS:
+            if p in self._RESET_EXCLUDED:
+                continue
+            setattr(policy, p, None)
+        for p in self._SNAPSHOT_LIST_PROPS:
+            setattr(policy, p, [])
 
     def _delete_policies_by_id(self, ids: List[str]) -> None:
         for pid in ids:
@@ -359,18 +371,9 @@ class PolicyService:
             policy.is_active = True
         else:
             policy.is_active = getattr(data, 'is_active', True)
-        policy.passing_threshold = None
-        policy.targets_element = None
-        policy.targets_competency = []
-        policy.valid_from = None
-        policy.valid_until = None
-        policy.restricted_to_group = None
-        policy.has_subpolicy = []
-        policy.aggregate_elements = []
-        policy.aggregate_function = None
+        self._reset_policy_fields(policy)
 
         self._apply_type_specific_fields(policy, data, new_type)
-        self._cleanup_orphan_nested(policy, old_subs)
 
         result = self.reasoner.reason()
         if result.status != "ok":
@@ -382,6 +385,8 @@ class PolicyService:
                 )
             raise PolicyConflictError(f"Reasoning {result.status}: {result.error or '—'}")
 
+        # cleanup осиротевших подусловий идёт после успешного reason: иначе
+        # rollback восстановит has_subpolicy ссылками на уничтоженные индивиды
         self._cleanup_orphan_nested(policy, old_subs)
 
         self.core.save()
@@ -420,11 +425,14 @@ class PolicyService:
         policy = self.core.policies.find_by_id(policy_id)
         if not policy:
             raise ValueError(f"Политика с ID {policy_id} не найдена")
-        previous = list(getattr(policy, "is_active", None) or [])
-        policy.is_active = is_active
+        # is_active — functional, скалярный API; бывшее значение храним как bool,
+        # чтобы rollback не положил список в скалярное свойство
+        previous = bool(get_owl_prop(policy, "is_active", True))
+        policy.is_active = bool(is_active)
         result = self.reasoner.reason()
         if result.status != "ok":
             policy.is_active = previous
+            self._invalidate_all_access_caches()
             raise PolicyConflictError(
                 f"Переключение активности привело к reasoning {result.status}: {result.error or '—'}"
             )

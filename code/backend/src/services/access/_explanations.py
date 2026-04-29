@@ -1,17 +1,13 @@
-"""Обоснования выведенных satisfies / is_available_for через SLD-trace тела SWRL
-
-Весь логический вывод в системе — Horn-clause SWRL (атомарный шаблон → satisfies,
-мета-правило → is_available_for). Для Horn-теорий минимальное обоснование равно
-SLD-proof trace, то есть набору ABox-фактов, соответствующих биндингам тела
-правила (Horridge, Parsia 2009, "Laconic and Precise Justifications in OWL").
-Здесь собирается это дерево: для каждого satisfies — binding тела соответствующего
-шаблона, для композитов — рекурсия по has_subpolicy, для is_available_for —
-тривиальная связка satisfies и has_access_policy
+"""Деревья обоснований для satisfies / is_available_for: для каждого тела
+SWRL-шаблона собирается binding ABox-фактов, для композитов — рекурсия по
+has_subpolicy. Атомарные правила декларируются спецификациями: общий
+строитель собирает Justification из spec, частная логика остаётся только
+в построении биндингов и текста note
 """
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from core.enums import RuleType
 from services.ontology_core import OntologyCore
@@ -33,6 +29,16 @@ class Justification:
         out = asdict(self)
         out["children"] = [c if isinstance(c, dict) else c for c in out["children"]]
         return out
+
+
+@dataclass
+class _AtomicSpec:
+    """Декларативное описание тела одного атомарного SWRL-шаблона"""
+    template: str
+    bindings: Dict[str, Any]
+    body_facts: List[Dict[str, Any]]
+    note_positive: str
+    note_negative: str
 
 
 class AccessExplainer:
@@ -77,70 +83,101 @@ class AccessExplainer:
         )
 
     def explain_satisfies(self, student: Any, policy: Any) -> Justification:
-        """Ступень 1: обоснование satisfies(student, policy) через биндинги тела шаблона
-
-        Если satisfies не выведено — возвращает unsatisfied-узел с диагностикой
-        (какое именно условие не выполнено)
-        """
+        """Ступень 1: обоснование satisfies(student, policy) через биндинги тела шаблона"""
         satisfied = policy in (getattr(student, "satisfies", []) or [])
         rule_type = get_owl_prop(policy, "rule_type", "") or ""
 
-        if rule_type == RuleType.COMPLETION.value:
-            return self._explain_completion(student, policy, satisfied)
-        if rule_type == RuleType.GRADE.value:
-            return self._explain_grade(student, policy, satisfied)
-        if rule_type == RuleType.VIEWED.value:
-            return self._explain_viewed(student, policy, satisfied)
-        if rule_type == RuleType.COMPETENCY.value:
-            return self._explain_competency(student, policy, satisfied)
-        if rule_type == RuleType.DATE.value:
-            return self._explain_date(student, policy, satisfied)
-        if rule_type == RuleType.GROUP.value:
-            return self._explain_group(student, policy, satisfied)
-        if rule_type == RuleType.AGGREGATE.value:
-            return self._explain_aggregate(student, policy, satisfied)
-        if rule_type == RuleType.AND.value:
-            return self._explain_and(student, policy, satisfied)
-        if rule_type == RuleType.OR.value:
-            return self._explain_or(student, policy, satisfied)
+        if rule_type in {RuleType.AND.value, RuleType.OR.value}:
+            return self._explain_composite(student, policy, satisfied, rule_type)
 
+        builder = self._ATOMIC_SPECS.get(rule_type)
+        if builder is None:
+            return Justification(
+                status="satisfied" if satisfied else "unsatisfied",
+                rule_template=f"unknown:{rule_type}",
+                policy_id=policy.name,
+                note="Неизвестный rule_type — шаблон не соответствует каталогу SWRL.",
+            )
+        spec = builder(self, student, policy)
         return Justification(
             status="satisfied" if satisfied else "unsatisfied",
-            rule_template=f"unknown:{rule_type}",
+            rule_template=spec.template,
             policy_id=policy.name,
-            note="Неизвестный rule_type — шаблон не соответствует каталогу SWRL.",
+            variable_bindings=spec.bindings,
+            body_facts=spec.body_facts,
+            note=spec.note_positive if satisfied else spec.note_negative,
         )
 
-    def _explain_completion(self, student: Any, policy: Any, satisfied: bool) -> Justification:
+    def _explain_composite(
+        self, student: Any, policy: Any, satisfied: bool, rule_type: str
+    ) -> Justification:
+        subs = list(getattr(policy, "has_subpolicy", []) or [])
+        children = [self.explain_satisfies(student, sub) for sub in subs]
+        facts = [{"predicate": "has_subpolicy", "subject": policy.name, "object": s.name} for s in subs]
+        bindings: Dict[str, Any] = {
+            "student": student.name, "policy": policy.name,
+            "subpolicies": [s.name for s in subs],
+        }
+        if rule_type == RuleType.AND.value:
+            template = "and_combination"
+            failing = [c for c in children if c.status == "unsatisfied"]
+            note = (
+                "Все подполитики выполнены; AllDifferent гарантирует отсутствие унификации."
+                if satisfied
+                else f"Не выполнены подполитики: {[c.policy_id for c in failing]}."
+            )
+        else:
+            template = "or_combination"
+            passing = [c for c in children if c.status == "satisfied"]
+            bindings["satisfied_by"] = [c.policy_id for c in passing]
+            note = (
+                f"Хотя бы одна подполитика выполнена: {[c.policy_id for c in passing]}."
+                if satisfied
+                else "Ни одна подполитика не выполнена."
+            )
+        return Justification(
+            status="satisfied" if satisfied else "unsatisfied",
+            rule_template=template,
+            policy_id=policy.name,
+            variable_bindings=bindings,
+            body_facts=facts,
+            children=children,
+            note=note,
+        )
+
+    # ---- спецификации атомарных шаблонов -----------------------------------
+
+    def _spec_completion(self, student: Any, policy: Any) -> _AtomicSpec:
         target = get_owl_prop(policy, "targets_element")
         pr = self._find_progress(student, target)
-        bindings = {"student": student.name, "policy": policy.name,
-                    "target": target.name if target else None,
-                    "progress_record": pr.name if pr else None}
+        bindings = {
+            "student": student.name, "policy": policy.name,
+            "target": target.name if target else None,
+            "progress_record": pr.name if pr else None,
+        }
         facts: List[Dict[str, Any]] = []
         if target is not None:
             facts.append({"predicate": "targets_element", "subject": policy.name, "object": target.name})
         if pr is not None:
             facts.append({"predicate": "has_progress_record", "subject": student.name, "object": pr.name})
-            facts.append({"predicate": "refers_to_element", "subject": pr.name,
-                          "object": (get_owl_prop(pr, "refers_to_element") or target).name})
+            facts.append({
+                "predicate": "refers_to_element", "subject": pr.name,
+                "object": (get_owl_prop(pr, "refers_to_element") or target).name,
+            })
             status = get_owl_prop(pr, "has_status")
-            facts.append({"predicate": "has_status", "subject": pr.name,
-                          "object": status.name if status else None})
-        return Justification(
-            status="satisfied" if satisfied else "unsatisfied",
-            rule_template="completion_required",
-            policy_id=policy.name,
-            variable_bindings=bindings,
+            facts.append({
+                "predicate": "has_status", "subject": pr.name,
+                "object": status.name if status else None,
+            })
+        return _AtomicSpec(
+            template="completion_required",
+            bindings=bindings,
             body_facts=facts,
-            note=(
-                "Body выполнено: найдена запись прогресса с has_status=status_completed."
-                if satisfied
-                else f"Нет ProgressRecord со status_completed для {target.name if target else '?'}."
-            ),
+            note_positive="Body выполнено: найдена запись прогресса с has_status=status_completed.",
+            note_negative=f"Нет ProgressRecord со status_completed для {target.name if target else '?'}.",
         )
 
-    def _explain_grade(self, student: Any, policy: Any, satisfied: bool) -> Justification:
+    def _spec_grade(self, student: Any, policy: Any) -> _AtomicSpec:
         target = get_owl_prop(policy, "targets_element")
         threshold = get_owl_prop(policy, "passing_threshold")
         pr = self._find_progress(student, target)
@@ -157,20 +194,15 @@ class AccessExplainer:
         facts.append({"predicate": "passing_threshold", "subject": policy.name, "object": threshold})
         if pr is not None:
             facts.append({"predicate": "has_grade", "subject": pr.name, "object": grade})
-        return Justification(
-            status="satisfied" if satisfied else "unsatisfied",
-            rule_template="grade_required",
-            policy_id=policy.name,
-            variable_bindings=bindings,
+        return _AtomicSpec(
+            template="grade_required",
+            bindings=bindings,
             body_facts=facts,
-            note=(
-                f"Body выполнено: has_grade={grade} >= threshold={threshold}."
-                if satisfied
-                else f"Не выполнено grade≥threshold: {grade} vs {threshold}."
-            ),
+            note_positive=f"Body выполнено: has_grade={grade} >= threshold={threshold}.",
+            note_negative=f"Не выполнено grade≥threshold: {grade} vs {threshold}.",
         )
 
-    def _explain_viewed(self, student: Any, policy: Any, satisfied: bool) -> Justification:
+    def _spec_viewed(self, student: Any, policy: Any) -> _AtomicSpec:
         target = get_owl_prop(policy, "targets_element")
         pr = self._find_progress(student, target)
         status = get_owl_prop(pr, "has_status") if pr else None
@@ -184,22 +216,19 @@ class AccessExplainer:
         if target is not None:
             facts.append({"predicate": "targets_element", "subject": policy.name, "object": target.name})
         if pr is not None:
-            facts.append({"predicate": "has_status", "subject": pr.name,
-                          "object": status.name if status else None})
-        return Justification(
-            status="satisfied" if satisfied else "unsatisfied",
-            rule_template="viewed_required",
-            policy_id=policy.name,
-            variable_bindings=bindings,
+            facts.append({
+                "predicate": "has_status", "subject": pr.name,
+                "object": status.name if status else None,
+            })
+        return _AtomicSpec(
+            template="viewed_required",
+            bindings=bindings,
             body_facts=facts,
-            note=(
-                "Body выполнено: has_status=status_viewed."
-                if satisfied
-                else f"has_status={status.name if status else '∅'} ≠ status_viewed."
-            ),
+            note_positive="Body выполнено: has_status=status_viewed.",
+            note_negative=f"has_status={status.name if status else '∅'} ≠ status_viewed.",
         )
 
-    def _explain_competency(self, student: Any, policy: Any, satisfied: bool) -> Justification:
+    def _spec_competency(self, student: Any, policy: Any) -> _AtomicSpec:
         comp = get_owl_prop(policy, "targets_competency")
         student_comps = list(getattr(student, "has_competency", []) or [])
         chain = self._find_competency_chain(student_comps, comp) if comp else []
@@ -216,23 +245,22 @@ class AccessExplainer:
         if chain and len(chain) > 1:
             for parent, child in zip(chain[1:], chain[:-1]):
                 facts.append({"predicate": "is_subcompetency_of", "subject": child.name, "object": parent.name})
-        return Justification(
-            status="satisfied" if satisfied else "unsatisfied",
-            rule_template="competency_required",
-            policy_id=policy.name,
-            variable_bindings=bindings,
+        if chain:
+            note_positive = f"Body выполнено через иерархию: {' ⊑ '.join(c.name for c in chain)}."
+        else:
+            note_positive = "Body выполнено напрямую (has_competency)."
+        note_negative = (
+            f"У студента нет компетенции {comp.name if comp else '?'} ни прямо, ни через иерархию."
+        )
+        return _AtomicSpec(
+            template="competency_required",
+            bindings=bindings,
             body_facts=facts,
-            note=(
-                f"Body выполнено через иерархию: {' ⊑ '.join(c.name for c in chain)}."
-                if satisfied and chain
-                else (
-                    f"У студента нет компетенции {comp.name if comp else '?'} ни прямо, ни через иерархию."
-                    if not satisfied else "Body выполнено напрямую (has_competency)."
-                )
-            ),
+            note_positive=note_positive,
+            note_negative=note_negative,
         )
 
-    def _explain_date(self, student: Any, policy: Any, satisfied: bool) -> Justification:
+    def _spec_date(self, student: Any, policy: Any) -> _AtomicSpec:
         vf = get_owl_prop(policy, "valid_from")
         vu = get_owl_prop(policy, "valid_until")
         now_ind = next(iter(self.core.onto.CurrentTime.instances()), None)
@@ -243,23 +271,20 @@ class AccessExplainer:
             {"predicate": "has_value", "subject": now_ind.name if now_ind else None,
              "object": str(now) if now else None},
         ]
-        return Justification(
-            status="satisfied" if satisfied else "unsatisfied",
-            rule_template="date_restricted",
-            policy_id=policy.name,
-            variable_bindings={"student": student.name, "policy": policy.name,
-                               "valid_from": str(vf) if vf else None,
-                               "valid_until": str(vu) if vu else None,
-                               "current_time": str(now) if now else None},
+        return _AtomicSpec(
+            template="date_restricted",
+            bindings={
+                "student": student.name, "policy": policy.name,
+                "valid_from": str(vf) if vf else None,
+                "valid_until": str(vu) if vu else None,
+                "current_time": str(now) if now else None,
+            },
             body_facts=facts,
-            note=(
-                f"Body выполнено: {vf} ≤ now={now} ≤ {vu}."
-                if satisfied
-                else f"Текущее время {now} вне окна [{vf}, {vu}]."
-            ),
+            note_positive=f"Body выполнено: {vf} ≤ now={now} ≤ {vu}.",
+            note_negative=f"Текущее время {now} вне окна [{vf}, {vu}].",
         )
 
-    def _explain_group(self, student: Any, policy: Any, satisfied: bool) -> Justification:
+    def _spec_group(self, student: Any, policy: Any) -> _AtomicSpec:
         required = get_owl_prop(policy, "restricted_to_group")
         groups = list(getattr(student, "belongs_to_group", []) or [])
         facts: List[Dict[str, Any]] = []
@@ -267,33 +292,31 @@ class AccessExplainer:
             facts.append({"predicate": "restricted_to_group", "subject": policy.name, "object": required.name})
         for g in groups:
             facts.append({"predicate": "belongs_to_group", "subject": student.name, "object": g.name})
-        return Justification(
-            status="satisfied" if satisfied else "unsatisfied",
-            rule_template="group_restricted",
-            policy_id=policy.name,
-            variable_bindings={
+        required_name = required.name if required else "?"
+        return _AtomicSpec(
+            template="group_restricted",
+            bindings={
                 "student": student.name, "policy": policy.name,
                 "required_group": required.name if required else None,
                 "student_groups": [g.name for g in groups],
             },
             body_facts=facts,
-            note=(
-                f"Body выполнено: студент входит в {required.name if required else '?'}."
-                if satisfied
-                else f"Студент не входит в {required.name if required else '?'}."
-            ),
+            note_positive=f"Body выполнено: студент входит в {required_name}.",
+            note_negative=f"Студент не входит в {required_name}.",
         )
 
-    def _explain_aggregate(self, student: Any, policy: Any, satisfied: bool) -> Justification:
+    def _spec_aggregate(self, student: Any, policy: Any) -> _AtomicSpec:
         threshold = get_owl_prop(policy, "passing_threshold")
         fn = get_owl_prop(policy, "aggregate_function") or "AVG"
         elements = list(getattr(policy, "aggregate_elements", []) or [])
         fact = self._find_aggregate_fact(student, policy)
         value = get_owl_prop(fact, "computed_value") if fact else None
         grades = [
-            {"element": get_owl_prop(pr, "refers_to_element").name,
-             "progress_record": pr.name,
-             "grade": get_owl_prop(pr, "has_grade")}
+            {
+                "element": get_owl_prop(pr, "refers_to_element").name,
+                "progress_record": pr.name,
+                "grade": get_owl_prop(pr, "has_grade"),
+            }
             for pr in (getattr(student, "has_progress_record", []) or [])
             if get_owl_prop(pr, "refers_to_element") in elements
             and get_owl_prop(pr, "has_grade") is not None
@@ -308,72 +331,24 @@ class AccessExplainer:
             facts.append({"predicate": "computed_value", "subject": fact.name, "object": value})
         for g in grades:
             facts.append({"predicate": "has_grade", "subject": g["progress_record"], "object": g["grade"]})
-        return Justification(
-            status="satisfied" if satisfied else "unsatisfied",
-            rule_template="aggregate_required",
-            policy_id=policy.name,
-            variable_bindings={
+        if fact is None:
+            note_negative = f"Для студента нет AggregateFact (пустой набор оценок по {len(elements)} элементам)."
+        else:
+            note_negative = f"{fn} = {value} < {threshold}."
+        return _AtomicSpec(
+            template="aggregate_required",
+            bindings={
                 "student": student.name, "policy": policy.name,
                 "function": fn, "threshold": threshold,
                 "computed_value": value,
                 "contributing_grades": grades,
             },
             body_facts=facts,
-            note=(
-                f"Body выполнено: {fn}({[g['grade'] for g in grades]}) = {value} >= {threshold}."
-                if satisfied
-                else (
-                    f"Для студента нет AggregateFact (пустой набор оценок по {len(elements)} элементам)."
-                    if fact is None
-                    else f"{fn} = {value} < {threshold}."
-                )
-            ),
+            note_positive=f"Body выполнено: {fn}({[g['grade'] for g in grades]}) = {value} >= {threshold}.",
+            note_negative=note_negative,
         )
 
-    def _explain_and(self, student: Any, policy: Any, satisfied: bool) -> Justification:
-        subs = list(getattr(policy, "has_subpolicy", []) or [])
-        children = [self.explain_satisfies(student, sub) for sub in subs]
-        failing = [c for c in children if c.status == "unsatisfied"]
-        facts = [{"predicate": "has_subpolicy", "subject": policy.name, "object": s.name} for s in subs]
-        return Justification(
-            status="satisfied" if satisfied else "unsatisfied",
-            rule_template="and_combination",
-            policy_id=policy.name,
-            variable_bindings={
-                "student": student.name, "policy": policy.name,
-                "subpolicies": [s.name for s in subs],
-            },
-            body_facts=facts,
-            children=children,
-            note=(
-                "Все подполитики выполнены; AllDifferent гарантирует отсутствие унификации."
-                if satisfied
-                else f"Не выполнены подполитики: {[c.policy_id for c in failing]}."
-            ),
-        )
-
-    def _explain_or(self, student: Any, policy: Any, satisfied: bool) -> Justification:
-        subs = list(getattr(policy, "has_subpolicy", []) or [])
-        children = [self.explain_satisfies(student, sub) for sub in subs]
-        passing = [c for c in children if c.status == "satisfied"]
-        facts = [{"predicate": "has_subpolicy", "subject": policy.name, "object": s.name} for s in subs]
-        return Justification(
-            status="satisfied" if satisfied else "unsatisfied",
-            rule_template="or_combination",
-            policy_id=policy.name,
-            variable_bindings={
-                "student": student.name, "policy": policy.name,
-                "subpolicies": [s.name for s in subs],
-                "satisfied_by": [c.policy_id for c in passing],
-            },
-            body_facts=facts,
-            children=children,
-            note=(
-                f"Хотя бы одна подполитика выполнена: {[c.policy_id for c in passing]}."
-                if satisfied
-                else "Ни одна подполитика не выполнена."
-            ),
-        )
+    # ---- helpers -----------------------------------------------------------
 
     def _find_progress(self, student: Any, element: Any) -> Optional[Any]:
         if element is None:
@@ -390,9 +365,9 @@ class AccessExplainer:
         return None
 
     def _find_competency_chain(self, student_comps: List[Any], required: Any) -> List[Any]:
-        """Найти цепочку ?sub ⊑* ?required, начинающуюся у студента
+        """Цепочка ?sub ⊑* ?required, начинающаяся у студента
 
-        Возвращается [required, ..., sub], где sub ∈ student_comps — тот корень,
+        Возвращается [required, ..., sub], где sub ∈ student_comps — корень,
         из которого required достижим через is_subcompetency_of. Если required
         уже есть у студента напрямую — цепочка из одного элемента
         """
@@ -411,3 +386,15 @@ class AccessExplainer:
                 for parent in getattr(node, "is_subcompetency_of", []) or []:
                     stack.append((parent, path + [parent]))
         return []
+
+    # ---- registry ----------------------------------------------------------
+
+    _ATOMIC_SPECS: Dict[str, Callable[["AccessExplainer", Any, Any], _AtomicSpec]] = {
+        RuleType.COMPLETION.value: _spec_completion,
+        RuleType.GRADE.value: _spec_grade,
+        RuleType.VIEWED.value: _spec_viewed,
+        RuleType.COMPETENCY.value: _spec_competency,
+        RuleType.DATE.value: _spec_date,
+        RuleType.GROUP.value: _spec_group,
+        RuleType.AGGREGATE.value: _spec_aggregate,
+    }

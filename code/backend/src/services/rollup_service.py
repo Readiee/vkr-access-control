@@ -13,13 +13,7 @@ class RollupService:
 
     def execute(self, student, child_element, update_callback: Callable[[str, str, ProgressStatus], None]) -> None:
         """Если все обязательные соседи элемента завершены, закрыть родителя через callback"""
-        parent = None
-        for p in self.core.courses.get_all_elements():
-            children = getattr(p, "has_module", []) + getattr(p, "contains_activity", [])
-            if child_element in children:
-                parent = p
-                break
-
+        parent = self.core.courses.parent_index().get(child_element.name)
         if not parent:
             return
 

@@ -28,7 +28,10 @@ from services.reasoning._enricher import (
 logger = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT_SEC = 10  # дальше синхронный HTTP-запрос теряет смысл
-_PELLET_PATCH_LOCK = threading.Lock()
+# sync_reasoner_pellet модифицирует общий World, и pre-enrich тоже;
+# параллельные reason()-ы перетопчут друг друга в ABox, поэтому весь прогон
+# сериализуется одним process-wide локом
+_REASON_LOCK = threading.Lock()
 
 
 @dataclass
@@ -54,6 +57,10 @@ class ReasoningOrchestrator:
         self.timeout_sec = timeout_sec
 
     def reason(self) -> ReasoningResult:
+        with _REASON_LOCK:
+            return self._reason_locked()
+
+    def _reason_locked(self) -> ReasoningResult:
         import time
         started = time.monotonic()
 
@@ -139,23 +146,26 @@ class ReasoningOrchestrator:
             raise error_holder[0]
 
     def _patched_sync_reasoner(self) -> None:
-        """Подменить Jena-loader на OWLAPI в команде запуска Pellet"""
-        with _PELLET_PATCH_LOCK:
-            original_run = subprocess.run
+        """Подменить Jena-loader на OWLAPI в команде запуска Pellet
 
-            def patched_run(cmd, *args, **kwargs):
-                if isinstance(cmd, list) and "java" in cmd and "Jena" in cmd:
-                    cmd[cmd.index("Jena")] = "OWLAPI"
-                return original_run(cmd, *args, **kwargs)
+        Patch subprocess.run в process-wide; вызывается только из reason() под
+        _REASON_LOCK, поэтому отдельный лок вокруг patch не нужен
+        """
+        original_run = subprocess.run
 
-            subprocess.run = patched_run
-            try:
-                # Первый аргумент — онтология/мир; без него Pellet берёт default_world
-                # и пропускает индивидов из изолированных World (тесты, многопоточка)
-                sync_reasoner_pellet(
-                    self.onto.world,
-                    infer_property_values=True,
-                    infer_data_property_values=True,
-                )
-            finally:
-                subprocess.run = original_run
+        def patched_run(cmd, *args, **kwargs):
+            if isinstance(cmd, list) and "java" in cmd and "Jena" in cmd:
+                cmd[cmd.index("Jena")] = "OWLAPI"
+            return original_run(cmd, *args, **kwargs)
+
+        subprocess.run = patched_run
+        try:
+            # Первый аргумент — онтология/мир; без него Pellet берёт default_world
+            # и пропускает индивидов из изолированных World (тесты, многопоточка)
+            sync_reasoner_pellet(
+                self.onto.world,
+                infer_property_values=True,
+                infer_data_property_values=True,
+            )
+        finally:
+            subprocess.run = original_run

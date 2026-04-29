@@ -23,18 +23,14 @@ from dataclasses import dataclass
 from typing import Any, List, Optional
 
 from core.enums import RuleType
-from utils.owl_utils import get_owl_prop
+from utils.owl_utils import get_owl_prop, label_or_name
 
 logger = logging.getLogger(__name__)
 
 
 def _label(obj: Any) -> str:
-    if obj is None:
-        return "?"
-    label = getattr(obj, "label", None)
-    if label:
-        return label[0]
-    return obj.name
+    """label_or_name с заменой пустой строки на «?» для witness-сообщений"""
+    return label_or_name(obj) or "?"
 
 
 @dataclass

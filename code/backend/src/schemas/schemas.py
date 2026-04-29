@@ -126,8 +126,7 @@ class PolicyCreate(PolicyBase):
                 raise ValueError("Для date_restricted обязательны valid_from и valid_until.")
             if self.valid_from > self.valid_until:
                 raise ValueError("valid_from должно быть раньше valid_until.")
-            # Шаг границ — ровно 1 час. Это позволяет держать фиксированный
-            # TTL=3600 кэша доступов без отдельного cron-воркера: к моменту
+            # Шаг границ — ровно 1 час. К моменту
             # истечения TTL все датные границы уже пересечены
             for field_name, ts in (("valid_from", self.valid_from), ("valid_until", self.valid_until)):
                 if ts.minute != 0 or ts.second != 0 or ts.microsecond != 0:

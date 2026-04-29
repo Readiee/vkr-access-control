@@ -10,14 +10,14 @@ date_restricted не фильтруется здесь: окно целиком 
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Iterable, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 from core.enums import RuleType
 from services.access._explanations import AccessExplainer, Justification
 from services.cache_manager import CacheManager
 from services.ontology_core import OntologyCore
 from services.reasoning import ReasoningOrchestrator
-from utils.owl_utils import get_owl_prop
+from utils.owl_utils import get_owl_prop, label_or_name
 from utils.policy_formatters import policy_display_name
 
 logger = logging.getLogger(__name__)
@@ -66,10 +66,10 @@ class AccessService:
             cached = rebuild.get("inferred_access", {})
 
         course_elements = self._collect_course_elements(course_id)
-        parent_map = self._build_parent_map()
+        parent_index = self.core.courses.parent_index()
         visible: Set[str] = set()
         for eid in course_elements:
-            if self._is_really_available(eid, cached, parent_map):
+            if self._is_really_available(eid, cached, parent_index):
                 visible.add(eid)
         return {"available_elements": list(visible)}
 
@@ -87,8 +87,8 @@ class AccessService:
         ]
         satisfies_on_element = student in (getattr(element, "is_available_for", []) or [])
 
-        parent_obj_map = self._build_parent_obj_map()
-        parent_blocker = self._find_parent_blocker(element, student, parent_obj_map)
+        parent_index = self.core.courses.parent_index()
+        parent_blocker = self._find_parent_blocker(element, student, parent_index)
         cascade = parent_blocker["element_id"] if parent_blocker else None
         cascade_name = parent_blocker["element_name"] if parent_blocker else None
         is_available = satisfies_on_element and cascade is None
@@ -99,9 +99,9 @@ class AccessService:
 
         return {
             "element_id": element_id,
-            "element_name": _label_of(element),
+            "element_name": label_or_name(element),
             "student_id": student_id,
-            "student_name": _label_of(student),
+            "student_name": label_or_name(student),
             "is_available": is_available,
             "cascade_blocker": cascade,
             "cascade_blocker_name": cascade_name,
@@ -132,7 +132,7 @@ class AccessService:
         """Default-deny: элемент доступен, если (нет политик) ИЛИ (is_available_for),
         причём родительские элементы тоже доступны
         """
-        parent_obj_map = self._build_parent_obj_map()
+        parent_index = self.core.courses.parent_index()
         inferred: Dict[str, Dict[str, Any]] = {}
         for elem in self.core.courses.get_all_elements():
             active = [
@@ -142,56 +142,45 @@ class AccessService:
             swrl_passed = not active or student in (getattr(elem, "is_available_for", []) or [])
             if not swrl_passed:
                 continue
-            if not self._parent_unlocked(elem, student, parent_obj_map):
+            if not self._parent_unlocked(elem, student, parent_index):
                 continue
             inferred[elem.name] = {}
         return inferred
 
-    def _build_parent_obj_map(self) -> Dict[str, Any]:
-        """Один проход по CourseStructure: child.name → parent-object
-
-        Каскадные проверки идут по этой карте без повторного O(N) поиска родителя
-        на каждый элемент
-        """
-        mapping: Dict[str, Any] = {}
-        for parent in self.core.courses.get_all_elements():
-            children = list(getattr(parent, "has_module", []) or []) + list(
-                getattr(parent, "contains_activity", []) or []
-            )
-            for child in children:
-                mapping[child.name] = parent
-        return mapping
-
-    def _parent_unlocked(self, element: Any, student: Any, parent_obj_map: Dict[str, Any]) -> bool:
-        parent = parent_obj_map.get(element.name)
-        if parent is None:
-            return True
-        parent_active = [
-            pol for pol in getattr(parent, "has_access_policy", []) or []
-            if get_owl_prop(pol, "is_active", True) is True
-        ]
-        if parent_active and student not in (getattr(parent, "is_available_for", []) or []):
-            return False
-        return self._parent_unlocked(parent, student, parent_obj_map)
+    def _parent_unlocked(self, element: Any, student: Any, parent_index: Dict[str, Any]) -> bool:
+        node = element
+        while True:
+            parent = parent_index.get(node.name)
+            if parent is None:
+                return True
+            parent_active = [
+                pol for pol in getattr(parent, "has_access_policy", []) or []
+                if get_owl_prop(pol, "is_active", True) is True
+            ]
+            if parent_active and student not in (getattr(parent, "is_available_for", []) or []):
+                return False
+            node = parent
 
     def _find_parent_blocker(
-        self, element: Any, student: Any, parent_obj_map: Dict[str, Any]
+        self, element: Any, student: Any, parent_index: Dict[str, Any]
     ) -> Optional[Dict[str, str]]:
-        parent = parent_obj_map.get(element.name)
-        if parent is None:
-            return None
-        parent_active = [
-            pol for pol in getattr(parent, "has_access_policy", []) or []
-            if get_owl_prop(pol, "is_active", True) is True
-        ]
-        if parent_active and student not in (getattr(parent, "is_available_for", []) or []):
-            parent_label = _label_of(parent)
-            return {
-                "element_id": parent.name,
-                "element_name": parent_label,
-                "reason": f"Родительский элемент «{parent_label}» недоступен студенту",
-            }
-        return self._find_parent_blocker(parent, student, parent_obj_map)
+        node = element
+        while True:
+            parent = parent_index.get(node.name)
+            if parent is None:
+                return None
+            parent_active = [
+                pol for pol in getattr(parent, "has_access_policy", []) or []
+                if get_owl_prop(pol, "is_active", True) is True
+            ]
+            if parent_active and student not in (getattr(parent, "is_available_for", []) or []):
+                parent_label = label_or_name(parent)
+                return {
+                    "element_id": parent.name,
+                    "element_name": parent_label,
+                    "reason": f"Родительский элемент «{parent_label}» недоступен студенту",
+                }
+            node = parent
 
     def _describe_policy(self, policy: Any, student: Any) -> Dict[str, Any]:
         rule_type = get_owl_prop(policy, "rule_type", "")
@@ -219,8 +208,8 @@ class AccessService:
         competency = get_owl_prop(policy, "targets_competency")
         if competency is None:
             return self._diagnose_unknown(policy, student)
-        comp_name = _label_of(competency)
-        owned = [_label_of(c) for c in getattr(student, "has_competency", []) or []]
+        comp_name = label_or_name(competency)
+        owned = [label_or_name(c) for c in getattr(student, "has_competency", []) or []]
         return (
             f"У студента нет компетенции «{comp_name}»",
             {"required_competency": comp_name, "student_competencies": owned},
@@ -228,8 +217,8 @@ class AccessService:
 
     def _diagnose_group(self, policy: Any, student: Any) -> tuple[str, Dict[str, Any]]:
         group = get_owl_prop(policy, "restricted_to_group")
-        group_name = _label_of(group) if group else None
-        groups = [_label_of(g) for g in getattr(student, "belongs_to_group", []) or []]
+        group_name = label_or_name(group) if group else None
+        groups = [label_or_name(g) for g in getattr(student, "belongs_to_group", []) or []]
         return (
             f"Студент не входит в группу «{group_name or '?'}»",
             {"required_group": group_name, "student_groups": groups},
@@ -245,7 +234,7 @@ class AccessService:
         target = get_owl_prop(policy, "targets_element")
         if target is None:
             return self._diagnose_unknown(policy, None)
-        t = _label_of(target)
+        t = label_or_name(target)
         return f"Нужно {verb} элемент «{t}»", {"target_element": t}
 
     def _diagnose_grade(self, policy: Any, student: Any) -> tuple[str, Dict[str, Any]]:
@@ -253,7 +242,7 @@ class AccessService:
         if target is None:
             return self._diagnose_unknown(policy, student)
         threshold = get_owl_prop(policy, "passing_threshold")
-        t = _label_of(target)
+        t = label_or_name(target)
         return (
             f"Не достигнут порог оценки {threshold} за «{t}»",
             {"target_element": t, "passing_threshold": threshold},
@@ -337,33 +326,15 @@ class AccessService:
         walk(course)
         return collected
 
-    def _build_parent_map(self) -> Dict[str, str]:
-        parent_map: Dict[str, str] = {}
-        for parent in self.core.courses.get_all_elements():
-            children: Iterable[Any] = list(getattr(parent, "has_module", []) or []) + list(
-                getattr(parent, "contains_activity", []) or []
-            )
-            for child in children:
-                parent_map[child.name] = parent.name
-        return parent_map
-
-    def _is_really_available(self, eid: str, cache: Dict[str, Any], parent_map: Dict[str, str]) -> bool:
-        if eid not in cache:
-            return False
-        parent = parent_map.get(eid)
-        if parent is None:
-            return True
-        return self._is_really_available(parent, cache, parent_map)
-
-
-def _label_of(owl_obj: Any) -> str:
-    """Человечное название OWL-индивида: rdfs:label или сам ID"""
-    if owl_obj is None:
-        return ""
-    label = getattr(owl_obj, "label", None)
-    if label:
-        return label[0]
-    return owl_obj.name
+    def _is_really_available(self, eid: str, cache: Dict[str, Any], parent_index: Dict[str, Any]) -> bool:
+        node_id = eid
+        while True:
+            if node_id not in cache:
+                return False
+            parent = parent_index.get(node_id)
+            if parent is None:
+                return True
+            node_id = parent.name
 
 
 def _justification_to_dict(node: Justification) -> Dict[str, Any]:

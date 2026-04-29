@@ -21,7 +21,7 @@ from services.graph_validator import GraphValidator
 from services.ontology_core import OntologyCore
 from services.reasoning import ReasoningOrchestrator
 from services.verification._subsumption import SubsumptionChecker
-from utils.owl_utils import get_owl_prop
+from utils.owl_utils import get_owl_prop, label_or_name
 from utils.policy_formatters import policy_display_name
 
 logger = logging.getLogger(__name__)
@@ -243,7 +243,7 @@ class VerificationService:
                 reports.append({
                     "code": "SV3_UNREACHABLE",
                     "element_id": element.name,
-                    "element_name": element.label[0] if getattr(element, "label", None) else element.name,
+                    "element_name": label_or_name(element),
                     "reason": "Не найден путь удовлетворения ни одной политики на элементе",
                 })
         return reports
@@ -421,7 +421,7 @@ class VerificationService:
             return entity_id
         if isinstance(ind, self.core.onto.AccessPolicy):
             return policy_display_name(ind)
-        return ind.label[0] if getattr(ind, "label", None) else ind.name
+        return label_or_name(ind)
 
     def _policies_on_cycle(self, cycle_path: List[str]) -> List[str]:
         """Вернуть имена политик, чьи источники попадают в путь цикла"""

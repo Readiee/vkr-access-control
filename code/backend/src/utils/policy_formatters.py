@@ -8,16 +8,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from utils.owl_utils import get_owl_prop
+from utils.owl_utils import get_owl_prop, label_or_name
 
 
 _AGG_FN_LABEL = {"AVG": "Средний балл", "SUM": "Сумма баллов", "COUNT": "Количество сданных"}
-
-
-def _label_or_id(obj: Any) -> str:
-    if obj is None:
-        return ""
-    return obj.label[0] if getattr(obj, "label", None) else obj.name
 
 
 def describe_policy_auto(pol: Any) -> str:
@@ -33,25 +27,25 @@ def describe_policy_auto(pol: Any) -> str:
     threshold = get_owl_prop(pol, "passing_threshold")
 
     if rt == "completion_required" and target is not None:
-        return f"Завершить «{_label_or_id(target)}»"
+        return f"Завершить «{label_or_name(target)}»"
     if rt == "viewed_required" and target is not None:
-        return f"Просмотреть «{_label_or_id(target)}»"
+        return f"Просмотреть «{label_or_name(target)}»"
     if rt == "grade_required" and target is not None:
-        return f"Оценка ≥ {threshold} за «{_label_or_id(target)}»"
+        return f"Оценка ≥ {threshold} за «{label_or_name(target)}»"
     if rt == "competency_required" and comp is not None:
-        return f"Компетенция «{_label_or_id(comp)}»"
+        return f"Компетенция «{label_or_name(comp)}»"
     if rt == "date_restricted":
         vf = get_owl_prop(pol, "valid_from")
         vu = get_owl_prop(pol, "valid_until")
         fmt = lambda d: d.strftime("%d.%m.%Y") if d else "?"
         return f"Доступно {fmt(vf)} – {fmt(vu)}"
     if rt == "group_restricted" and group is not None:
-        return f"Только группа «{_label_or_id(group)}»"
+        return f"Только группа «{label_or_name(group)}»"
     if rt == "aggregate_required":
         fn = get_owl_prop(pol, "aggregate_function") or "AVG"
         fn_ru = _AGG_FN_LABEL.get(fn, fn)
         elems = list(getattr(pol, "aggregate_elements", []) or [])
-        names = ", ".join(f"«{_label_or_id(e)}»" for e in elems)
+        names = ", ".join(f"«{label_or_name(e)}»" for e in elems)
         return f"{fn_ru} по {names} ≥ {threshold}" if names else f"{fn_ru} ≥ {threshold}"
     if rt in ("and_combination", "or_combination"):
         subs = list(getattr(pol, "has_subpolicy", []) or [])
@@ -99,17 +93,17 @@ def serialize_policy(
         "rule_type": rule_type,
         "passing_threshold": get_owl_prop(pol, "passing_threshold"),
         "target_element_id": target_el.name if target_el else None,
-        "target_element_name": _label_or_id(target_el) if target_el else None,
+        "target_element_name": label_or_name(target_el) if target_el else None,
         "target_competency_id": target_comp.name if target_comp else None,
-        "target_competency_name": _label_or_id(target_comp) if target_comp else None,
+        "target_competency_name": label_or_name(target_comp) if target_comp else None,
         "valid_from": get_owl_prop(pol, "valid_from"),
         "valid_until": get_owl_prop(pol, "valid_until"),
         "restricted_to_group_id": group.name if group else None,
-        "restricted_to_group_name": _label_or_id(group) if group else None,
+        "restricted_to_group_name": label_or_name(group) if group else None,
         "subpolicy_ids": [s.name for s in subpolicies] or None,
         "aggregate_function": get_owl_prop(pol, "aggregate_function"),
         "aggregate_element_ids": [e.name for e in aggregate_elems] or None,
-        "aggregate_element_names": [_label_or_id(e) for e in aggregate_elems] or None,
+        "aggregate_element_names": [label_or_name(e) for e in aggregate_elems] or None,
         "is_active": bool(get_owl_prop(pol, "is_active", True)),
         "author_id": author.name if author else "system",
     }

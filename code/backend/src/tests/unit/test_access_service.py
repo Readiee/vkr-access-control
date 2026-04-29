@@ -64,11 +64,22 @@ class AccessServiceTests(unittest.TestCase):
 
         # Стаб OntologyCore: только то, что реально зовёт AccessService.
         self.cache = _InMemoryCache()
+        def _parent_index() -> dict:
+            idx: dict = {}
+            for parent in self.onto.CourseStructure.instances():
+                children = list(getattr(parent, "has_module", []) or []) + list(
+                    getattr(parent, "contains_activity", []) or []
+                )
+                for child in children:
+                    idx[child.name] = parent
+            return idx
+
         self.core = SimpleNamespace(
             onto=self.onto,
             courses=SimpleNamespace(
                 find_by_id=lambda eid: self.onto.search_one(iri=f"*{eid}"),
                 get_all_elements=lambda: list(self.onto.CourseStructure.instances()),
+                parent_index=_parent_index,
             ),
             students=SimpleNamespace(get_or_create=lambda sid: self.student),
         )

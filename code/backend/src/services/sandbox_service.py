@@ -8,6 +8,7 @@ from services.access import AccessService
 from services.ontology_core import OntologyCore
 from services.progress_service import ProgressService
 from services.reasoning import ReasoningOrchestrator
+from utils.owl_utils import label_or_name
 
 logger = logging.getLogger(__name__)
 
@@ -79,11 +80,11 @@ class SandboxService:
 
         groups = list(getattr(student, "belongs_to_group", []) or [])
         group_ids = [g.name for g in groups]
-        group_names = [g.label[0] if getattr(g, "label", None) else g.name for g in groups]
+        group_names = [label_or_name(g) for g in groups]
 
         return {
             "student_id": sandbox_user_id,
-            "student_name": student.label[0] if getattr(student, "label", None) else sandbox_user_id,
+            "student_name": label_or_name(student) or sandbox_user_id,
             "available_elements": available_elements,
             "progress": progress_dict,
             "active_competencies": active_comps,
@@ -92,13 +93,17 @@ class SandboxService:
         }
 
     def _cascade_delete_parent_records(self, student, element):
-        for p in self.core.courses.get_all_elements():
-            children = getattr(p, "has_module", []) + getattr(p, "contains_activity", [])
-            if element in children:
-                parent_record = self.core.progress.find_record(student, p)
-                if parent_record:
-                    self.core.progress.delete_record(student, parent_record)
-                    self._cascade_delete_parent_records(student, p)
+        parent_index = self.core.courses.parent_index()
+        node = element
+        while True:
+            parent = parent_index.get(node.name)
+            if parent is None:
+                return
+            parent_record = self.core.progress.find_record(student, parent)
+            if parent_record is None:
+                return
+            self.core.progress.delete_record(student, parent_record)
+            node = parent
 
     def simulate_progress(self, payload) -> dict:
         student = self._sandbox_student()

@@ -19,6 +19,7 @@ from repositories.ontology_repositories import (
     ProgressRepository,
     StudentRepository,
 )
+from utils.owl_utils import label_or_name
 
 logger = logging.getLogger(__name__)
 
@@ -50,9 +51,7 @@ class OntologyCore:
     def _get_node_label(self, node_id: str) -> str:
         """Человекочитаемое название OWL-индивида: rdfs:label или сам ID"""
         el = self.onto.search_one(iri=f"*{node_id}")
-        if el and hasattr(el, "label") and el.label:
-            return el.label[0]
-        return node_id
+        return label_or_name(el) if el is not None else node_id
 
     def _get_or_create_element(self, element_id: str, element_class: Any) -> Any:
         """Найти OWL-индивид по ID или создать новый
