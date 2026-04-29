@@ -15,11 +15,11 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from core.enums import RuleType
 from services.cache_manager import CacheManager
 from services.graph_validator import GraphValidator
 from services.ontology_core import OntologyCore
 from services.reasoning import ReasoningOrchestrator
+from services.rule_handlers import REGISTRY
 from services.verification._subsumption import SubsumptionChecker
 from utils.owl_utils import get_owl_prop, label_or_name
 from utils.policy_formatters import policy_display_name
@@ -266,47 +266,8 @@ class VerificationService:
 
     def _atomic_check(self, policy: Any) -> Optional[str]:
         rt = get_owl_prop(policy, "rule_type", "")
-        if rt == RuleType.GRADE.value:
-            th = get_owl_prop(policy, "passing_threshold")
-            if th is None or th < 0 or th > 100:
-                return f"threshold={th} вне диапазона [0, 100]"
-        elif rt == RuleType.DATE.value:
-            vf = get_owl_prop(policy, "valid_from")
-            vu = get_owl_prop(policy, "valid_until")
-            if vf is None or vu is None:
-                return "отсутствует valid_from или valid_until"
-            if vf > vu:
-                return f"пустое окно: valid_from={vf} > valid_until={vu}"
-        elif rt == RuleType.AGGREGATE.value:
-            elements = list(getattr(policy, "aggregate_elements", []) or [])
-            if not elements:
-                return "aggregate_elements пуст"
-            fn = get_owl_prop(policy, "aggregate_function") or "AVG"
-            th = get_owl_prop(policy, "passing_threshold")
-            k = len(elements)
-            max_val = {"AVG": 100.0, "SUM": 100.0 * k, "COUNT": float(k)}.get(fn.upper(), 100.0)
-            if th is None or th < 0 or th > max_val:
-                return f"threshold={th} вне диапазона [0, {max_val}] для fn={fn}, k={k}"
-        elif rt == RuleType.COMPETENCY.value:
-            comp = get_owl_prop(policy, "targets_competency")
-            if comp is None:
-                return "targets_competency не задано"
-            if not self._competency_is_assessed(comp):
-                return f"компетенция {comp.name} не оценивается ни одним элементом"
-        return None
-
-    def _competency_is_assessed(self, competency: Any) -> bool:
-        frontier = [competency]
-        seen = set()
-        while frontier:
-            node = frontier.pop()
-            seen.add(node.name)
-            if self.core.onto.search(assesses=node):
-                return True
-            for sub in self.core.onto.search(is_subcompetency_of=node) or []:
-                if sub.name not in seen:
-                    frontier.append(sub)
-        return False
+        handler = REGISTRY.get(rt)
+        return handler.atomic_unsat_reason(self.core.onto, policy) if handler else None
 
     def _can_grant_element(
         self,
@@ -354,47 +315,15 @@ class VerificationService:
         unsat_policies: set,
     ) -> bool:
         rt = get_owl_prop(policy, "rule_type", "")
-        if rt in {RuleType.COMPLETION.value, RuleType.GRADE.value, RuleType.VIEWED.value}:
-            target = get_owl_prop(policy, "targets_element")
-            if target is None:
-                return False
-            return self._can_grant_element(target, visited, cache, unsat_policies)
-        if rt == RuleType.COMPETENCY.value:
-            comp = get_owl_prop(policy, "targets_competency")
-            if comp is None:
-                return False
-            for assessor in self.core.onto.search(assesses=comp) or []:
-                if self._can_grant_element(assessor, visited, cache, unsat_policies):
-                    return True
-            for sub in self.core.onto.search(is_subcompetency_of=comp) or []:
-                for assessor in self.core.onto.search(assesses=sub) or []:
-                    if self._can_grant_element(assessor, visited, cache, unsat_policies):
-                        return True
-            return False
-        if rt == RuleType.AGGREGATE.value:
-            elements = list(getattr(policy, "aggregate_elements", []) or [])
-            return all(self._can_grant_element(e, visited, cache, unsat_policies) for e in elements)
-        if rt in {RuleType.DATE.value, RuleType.GROUP.value}:
+        handler = REGISTRY.get(rt)
+        if handler is None:
             return True
-        if rt == RuleType.AND.value:
-            subs = list(getattr(policy, "has_subpolicy", []) or [])
-            if not subs:
-                return False
-            return all(
-                sub.name not in unsat_policies
-                and self._can_grant_policy(sub, visited, cache, unsat_policies)
-                for sub in subs
-            )
-        if rt == RuleType.OR.value:
-            subs = list(getattr(policy, "has_subpolicy", []) or [])
-            if not subs:
-                return False
-            return any(
-                sub.name not in unsat_policies
-                and self._can_grant_policy(sub, visited, cache, unsat_policies)
-                for sub in subs
-            )
-        return True
+        return handler.can_grant(
+            self.core.onto, policy,
+            can_grant_element=self._can_grant_element,
+            can_grant_policy=self._can_grant_policy,
+            visited=visited, cache=cache, unsat_policies=unsat_policies,
+        )
 
     def _collect_course_elements(self, course: Any) -> List[Any]:
         collected: List[Any] = [course]

@@ -2,14 +2,13 @@ import logging
 import uuid
 from typing import Any, List, Optional
 
-from owlready2 import AllDifferent
-
 from core.enums import RuleType
 from schemas.schemas import PolicyCreate
 from services.cache_manager import CacheManager
 from services.graph_validator import GraphValidator, ProbePolicy
 from services.ontology_core import OntologyCore
 from services.reasoning import ReasoningOrchestrator
+from services.rule_handlers import REGISTRY
 from utils.owl_utils import get_owl_prop
 from utils.policy_formatters import serialize_policy
 
@@ -223,14 +222,11 @@ class PolicyService:
         data: PolicyCreate,
         rule_type: str,
     ) -> None:
-        """Перенести поля PolicyCreate в ABox в зависимости от rule_type"""
+        """Перенести поля PolicyCreate в ABox: общие — всегда, типо-специфичные — через handler"""
         self._apply_common_fields(policy, data)
-        if rule_type == RuleType.GROUP.value:
-            self._apply_group_field(policy, data)
-        if rule_type in {RuleType.AND.value, RuleType.OR.value}:
-            self._apply_composite_fields(policy, data, rule_type)
-        if rule_type == RuleType.AGGREGATE.value:
-            self._apply_aggregate_fields(policy, data)
+        handler = REGISTRY.get(rule_type)
+        if handler is not None:
+            handler.apply_abox_fields(policy, data, self.core)
 
     def _apply_common_fields(self, policy: Any, data: PolicyCreate) -> None:
         if data.passing_threshold is not None:
@@ -257,42 +253,6 @@ class PolicyService:
             if comp is None:
                 raise ValueError(f"Компетенция {data.target_competency_id} не найдена.")
             policy.targets_competency = [comp]
-
-    def _apply_group_field(self, policy: Any, data: PolicyCreate) -> None:
-        if not data.restricted_to_group_id:
-            return
-        group = self.core.onto.search_one(
-            type=self.core.onto.Group, iri=f"*{data.restricted_to_group_id}"
-        )
-        if group is None:
-            raise ValueError(f"Группа {data.restricted_to_group_id} не найдена.")
-        policy.restricted_to_group = group
-
-    def _apply_composite_fields(self, policy: Any, data: PolicyCreate, rule_type: str) -> None:
-        if not data.subpolicy_ids:
-            return
-        subs: List[Any] = []
-        for sub_id in data.subpolicy_ids:
-            sub = self.core.policies.find_by_id(sub_id)
-            if sub is None:
-                raise ValueError(f"Подполитика {sub_id} не найдена.")
-            subs.append(sub)
-        policy.has_subpolicy = subs
-        # OWL по умолчанию допускает sub_i = sub_j (нет Unique Name Assumption);
-        # SWRL DifferentFrom срабатывает только при явной декларации AllDifferent
-        if rule_type == RuleType.AND.value and len(subs) >= 2:
-            AllDifferent(subs)
-
-    def _apply_aggregate_fields(self, policy: Any, data: PolicyCreate) -> None:
-        fn = data.aggregate_function
-        policy.aggregate_function = fn.value if hasattr(fn, "value") else fn
-        agg_elements: List[Any] = []
-        for eid in data.aggregate_element_ids or []:
-            elem = self.core.courses.find_by_id(eid)
-            if elem is None:
-                raise ValueError(f"Элемент агрегата {eid} не найден.")
-            agg_elements.append(elem)
-        policy.aggregate_elements = agg_elements
 
     def _rollback_policy(self, policy_node: Any, source_node: Any) -> None:
         """Снять политику с элемента и удалить её из ABox"""

@@ -8,12 +8,17 @@ and/or раскрываются рекурсией по has_subpolicy
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Set
+from typing import Any, List, Optional
 
 import networkx as nx
 
 from core.enums import RuleType
 from utils.owl_utils import get_owl_prop
+
+# импорт откладывается до первого вызова: избегает кругового импорта при старте
+def _registry():
+    from services.rule_handlers import REGISTRY
+    return REGISTRY
 
 
 @dataclass
@@ -109,90 +114,16 @@ class GraphValidator:
             raise RuntimeError(
                 f"Превышена глубина has_subpolicy ({depth}); вероятна циклическая композиция"
             )
-
         rule_type = get_owl_prop(policy, "rule_type", "")
-        if rule_type in {RuleType.DATE.value, RuleType.GROUP.value}:
-            return
-
-        if rule_type in {RuleType.COMPLETION.value, RuleType.GRADE.value}:
-            target = get_owl_prop(policy, "targets_element")
-            if target is not None:
-                graph.add_edge(f"{target.name}_complete", f"{source_id}_access")
-            return
-
-        if rule_type == RuleType.VIEWED.value:
-            target = get_owl_prop(policy, "targets_element")
-            if target is not None:
-                graph.add_edge(f"{target.name}_access", f"{source_id}_access")
-            return
-
-        if rule_type == RuleType.COMPETENCY.value:
-            competency = get_owl_prop(policy, "targets_competency")
-            if competency is None:
-                return
-            for assessor in onto.search(assesses=competency) or []:
-                graph.add_edge(f"{assessor.name}_complete", f"{source_id}_access")
-            for sub in cls._subcompetencies(onto, competency):
-                for assessor in onto.search(assesses=sub) or []:
-                    graph.add_edge(f"{assessor.name}_complete", f"{source_id}_access")
-            return
-
-        if rule_type in {RuleType.AND.value, RuleType.OR.value}:
-            for sub in getattr(policy, "has_subpolicy", []) or []:
-                cls._add_policy_edges(graph, onto, sub, source_id, depth + 1)
-            return
-
-        if rule_type == RuleType.AGGREGATE.value:
-            for elem in getattr(policy, "aggregate_elements", []) or []:
-                graph.add_edge(f"{elem.name}_complete", f"{source_id}_access")
-            return
+        handler = _registry().get(rule_type)
+        if handler is not None:
+            handler.add_dependency_edges(graph, onto, policy, source_id, cls._add_policy_edges, depth)
 
     @classmethod
     def _add_probe_edges(cls, graph: nx.DiGraph, onto: Any, probe: ProbePolicy) -> None:
-        rt = probe.rule_type
-        src = probe.source_id
-        if rt in {RuleType.DATE.value, RuleType.GROUP.value}:
-            return
-        if rt in {RuleType.COMPLETION.value, RuleType.GRADE.value} and probe.target_element_id:
-            graph.add_edge(f"{probe.target_element_id}_complete", f"{src}_access")
-            return
-        if rt == RuleType.VIEWED.value and probe.target_element_id:
-            graph.add_edge(f"{probe.target_element_id}_access", f"{src}_access")
-            return
-        if rt == RuleType.COMPETENCY.value and probe.target_competency_id:
-            competency = onto.search_one(type=onto.Competency, iri=f"*{probe.target_competency_id}")
-            if competency is None:
-                return
-            # Те же дуги, что и в _add_policy_edges — прямые и assessors всех
-            # subcompetencies; иначе probe-детектор не видит цикл через
-            # транзитивную иерархию компетенций, а верификация видит
-            for assessor in onto.search(assesses=competency) or []:
-                graph.add_edge(f"{assessor.name}_complete", f"{src}_access")
-            for sub in cls._subcompetencies(onto, competency):
-                for assessor in onto.search(assesses=sub) or []:
-                    graph.add_edge(f"{assessor.name}_complete", f"{src}_access")
-            return
-        if rt == RuleType.AGGREGATE.value:
-            for eid in probe.aggregate_element_ids:
-                graph.add_edge(f"{eid}_complete", f"{src}_access")
-            return
-        if rt in {RuleType.AND.value, RuleType.OR.value}:
-            for sub_id in probe.subpolicy_ids:
-                sub = onto.search_one(type=onto.AccessPolicy, iri=f"*{sub_id}")
-                if sub is not None:
-                    cls._add_policy_edges(graph, onto, sub, src, depth=0)
-
-    @staticmethod
-    def _subcompetencies(onto: Any, parent: Any) -> Set[Any]:
-        seen: Set[Any] = set()
-        frontier = [parent]
-        while frontier:
-            node = frontier.pop()
-            for child in onto.search(is_subcompetency_of=node) or []:
-                if child not in seen:
-                    seen.add(child)
-                    frontier.append(child)
-        return seen
+        handler = _registry().get(probe.rule_type)
+        if handler is not None:
+            handler.add_probe_edges(graph, onto, probe, cls._add_policy_edges)
 
     @classmethod
     def _find_first_cycle_path(cls, graph: nx.DiGraph) -> List[str]:

@@ -11,48 +11,15 @@ from typing import Any, Dict, Optional
 from utils.owl_utils import get_owl_prop, label_or_name
 
 
-_AGG_FN_LABEL = {"AVG": "Средний балл", "SUM": "Сумма баллов", "COUNT": "Количество сданных"}
-
-
 def describe_policy_auto(pol: Any) -> str:
-    """Собрать человечное описание правила из его полей — не из rdfs:label.
+    """Человечное описание правила из его полей — не из rdfs:label.
 
-    Вызывается, если у политики нет ручного label. Для AND/OR рекурсивно
-    собирает описания подполитик и склеивает через « и »/« или ».
+    Для AND/OR рекурсивно собирает описания подполитик через handler.describe
     """
+    from services.rule_handlers import REGISTRY
     rt = get_owl_prop(pol, "rule_type", "") or ""
-    target = get_owl_prop(pol, "targets_element")
-    comp = get_owl_prop(pol, "targets_competency")
-    group = get_owl_prop(pol, "restricted_to_group")
-    threshold = get_owl_prop(pol, "passing_threshold")
-
-    if rt == "completion_required" and target is not None:
-        return f"Завершить «{label_or_name(target)}»"
-    if rt == "viewed_required" and target is not None:
-        return f"Просмотреть «{label_or_name(target)}»"
-    if rt == "grade_required" and target is not None:
-        return f"Оценка ≥ {threshold} за «{label_or_name(target)}»"
-    if rt == "competency_required" and comp is not None:
-        return f"Компетенция «{label_or_name(comp)}»"
-    if rt == "date_restricted":
-        vf = get_owl_prop(pol, "valid_from")
-        vu = get_owl_prop(pol, "valid_until")
-        fmt = lambda d: d.strftime("%d.%m.%Y") if d else "?"
-        return f"Доступно {fmt(vf)} – {fmt(vu)}"
-    if rt == "group_restricted" and group is not None:
-        return f"Только группа «{label_or_name(group)}»"
-    if rt == "aggregate_required":
-        fn = get_owl_prop(pol, "aggregate_function") or "AVG"
-        fn_ru = _AGG_FN_LABEL.get(fn, fn)
-        elems = list(getattr(pol, "aggregate_elements", []) or [])
-        names = ", ".join(f"«{label_or_name(e)}»" for e in elems)
-        return f"{fn_ru} по {names} ≥ {threshold}" if names else f"{fn_ru} ≥ {threshold}"
-    if rt in ("and_combination", "or_combination"):
-        subs = list(getattr(pol, "has_subpolicy", []) or [])
-        conj = " И " if rt == "and_combination" else " ИЛИ "
-        parts = [describe_policy_auto(sub) for sub in subs]
-        return conj.join(parts) if parts else ("И-композит" if rt == "and_combination" else "ИЛИ-композит")
-    return rt or pol.name
+    handler = REGISTRY.get(rt)
+    return handler.describe(pol) if handler else (rt or pol.name)
 
 
 def policy_display_name(pol: Any) -> str:
