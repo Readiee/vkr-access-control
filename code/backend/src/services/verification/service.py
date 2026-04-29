@@ -1,10 +1,8 @@
-"""Полная верификация курса по пяти свойствам
+"""Верификация курса: consistency, acyclicity, reachability (обязательные),
+redundancy и subsumption — опционально через SubsumptionChecker.
 
-СВ-1 Consistency, СВ-2 Acyclicity, СВ-3 Reachability — обязательные.
-СВ-4 Redundancy и СВ-5 Subsumption — опционально через SubsumptionChecker.
-
-Запуск резонера идёт через ReasoningOrchestrator (pre-enrich + Pellet).
-При таймауте резонера отчёт помечается partial=True, а СВ-1/2/3 — unknown
+Запуск резонера через ReasoningOrchestrator; при таймауте отчёт помечается
+partial=True, свойства зависящие от Pellet — unknown.
 """
 from __future__ import annotations
 
@@ -92,11 +90,10 @@ def _report_from_dict(data: Dict[str, Any]) -> VerificationReport:
 
 
 class VerificationService:
-    """Единая точка запуска СВ-1…СВ-5
+    """Единая точка запуска верификации курса.
 
-    Зависит от OntologyCore, ReasoningOrchestrator (СВ-1 consistency + СВ-4/5
-    subsumption), GraphValidator (СВ-2/3 через статические методы) и CacheManager
-    (чтение и запись отчёта)
+    Зависит от OntologyCore, ReasoningOrchestrator (consistency + subsumption),
+    GraphValidator (acyclicity, reachability) и CacheManager.
     """
 
     def __init__(
@@ -116,11 +113,11 @@ class VerificationService:
         include_subsumption: bool = False,
         use_cache: bool = True,
     ) -> VerificationReport:
-        """Прогнать СВ-1/2/3 (+ СВ-4/5 при include_subsumption) и собрать отчёт
+        """Прогнать все запрошенные свойства и собрать отчёт.
 
         При use_cache=True возвращает сохранённый в Redis результат, если он есть и
         покрывает запрошенный набор свойств. Инвалидация кэша — на стороне
-        PolicyService и IntegrationService при мутациях ABox
+        PolicyService и IntegrationService при мутациях ABox.
         """
         if use_cache:
             cached = self.cache.get_verification(course_id)
@@ -143,7 +140,7 @@ class VerificationService:
         reasoning_result = self.reasoner.reason()
         partial = reasoning_result.status in {"timeout", "error"}
 
-        # СВ-1 Consistency
+        # consistency
         if reasoning_result.status == "ok":
             consistency.status = "passed"
         elif reasoning_result.status == "inconsistent":
@@ -159,7 +156,7 @@ class VerificationService:
                 "message": reasoning_result.error or f"status={reasoning_result.status}",
             })
 
-        # СВ-2 Acyclicity — всегда считается (чистый граф, независим от Pellet)
+        # acyclicity — всегда считается (чистый граф, независим от Pellet)
         cycles = GraphValidator.find_all_cycles(self.core.onto)
         if cycles:
             acyclicity.status = "failed"
@@ -174,7 +171,7 @@ class VerificationService:
         else:
             acyclicity.status = "passed"
 
-        # СВ-3 Reachability — только если консистентно (иначе смысла в структурном анализе нет)
+        # reachability — только если консистентно (иначе структурный анализ не имеет смысла)
         if consistency.status == "passed":
             unreachable = self._find_unreachable(course)
             if unreachable:
@@ -183,7 +180,7 @@ class VerificationService:
             else:
                 reachability.status = "passed"
 
-        # СВ-4 / СВ-5 — по запросу
+        # redundancy / subsumption — по запросу
         if include_subsumption and consistency.status == "passed":
             pairs = SubsumptionChecker(self.core.onto).find_all()
             for pair in pairs:
@@ -320,9 +317,8 @@ class VerificationService:
             return True
         return handler.can_grant(
             self.core.onto, policy,
-            can_grant_element=self._can_grant_element,
-            can_grant_policy=self._can_grant_policy,
-            visited=visited, cache=cache, unsat_policies=unsat_policies,
+            self._can_grant_element, self._can_grant_policy,
+            visited, cache, unsat_policies,
         )
 
     def _collect_course_elements(self, course: Any) -> List[Any]:

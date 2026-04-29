@@ -1,20 +1,11 @@
-"""Обнаружение избыточных (СВ-4) и поглощённых (СВ-5) политик
+"""Обнаружение избыточных и поглощённых политик доступа.
 
-Законченная синтаксическая процедура для атомарных типов GRADE / DATE / GROUP /
-COMPLETION / VIEWED и AND-composite. Корректность относительно DL-семантики
-SWRL-шаблонов формально доказана в SAT_ALGORITHMS §А6.4.2 (леммы 1-3, теоремы
-1-2): для атомарных типов синтаксика возвращает subsumes=true тогда и только
-тогда, когда P1 ⊒ P2 в семантике §А6.4.1; для AND-composite — soundness через
-эквивалентную подполитику.
+Синтаксическая процедура для атомарных типов: GRADE (threshold), DATE (window),
+GROUP (subgroup), COMPLETION/VIEWED (equality), AND-composite (subpolicy match).
+Для атомарных типов синтаксика эквивалентна DL-subsumption; для AND-composite
+даёт soundness без полноты.
 
-Граница техники (SAT_ALGORITHMS §А6.4.3): OR-composite, смешанные типы атом ↔
-композит, TBox-цепочки subcompetency / subgroup, aggregate, cross-type. Эти
-классы — кандидаты на DL-fallback через Pellet (§А6.8), вынесены в перспективы
-§6.6 PROJECT_BIBLE. Эмпирическая валидация — EXP1 day 2 на 102 сценариях,
-F1 = 1.000 на СВ-4 и СВ-5 включая 10 + 10 adversarial boundary-кейсов.
-
-Стоимость — десятки миллисекунд на курс без запуска резонера: GROUP-ветка
-работает за O(|members|), остальные — O(1) проверки атрибутов
+Работает без запуска резонера: GROUP-ветка — O(|members|), остальные — O(1).
 """
 from __future__ import annotations
 
@@ -43,11 +34,10 @@ class SubsumptionPair:
 
 
 class SubsumptionChecker:
-    """Проверка всех пар (P1, P2) активных политик на поглощение
+    """Проверка всех пар активных политик на поглощение.
 
-    Приватный модуль; вызывается только из VerificationService. Резонер на парах
-    не запускается — для атомарных типов синтаксика эквивалентна DL-subsumption
-    (SAT_ALGORITHMS §А6.4.2), для AND-composite даёт soundness
+    Резонер на парах не запускается — для атомарных типов синтаксика эквивалентна
+    DL-subsumption, для AND-composite даёт soundness.
     """
 
     def __init__(self, onto: Any) -> None:

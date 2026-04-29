@@ -64,9 +64,7 @@ class IntegrationService:
         group_cls = getattr(self.core.onto, "Group", None)
         if group_cls is not None:
             for grp in group_cls.instances():
-                # Прямой родитель по is_subgroup_of: берём первый ассертированный элемент.
-                # TransitiveProperty в ABox разворачивается резонером, но в онтологии
-                # хранятся именно те связи, что задал методист, и они нужны для дерева
+                # берём первый ассертированный элемент, а не транзитивное замыкание из вывода
                 parents = list(getattr(grp, "is_subgroup_of", []) or [])
                 parent_id = parents[0].name if parents else None
                 groups.append({
@@ -131,9 +129,7 @@ class IntegrationService:
             "synced_elements_count": len(payload.elements),
         }
 
-        # После импорта сразу прогоняем верификацию: на успехе — сводка, на
-        # ошибке — импорт оставляем, верификация помечается как failed.
-        # run_verification=False в smoke-тестах симулятора
+        # на ошибке верификации импорт не откатывается — только summary помечается failed
         if run_verification:
             try:
                 report = self.verification.verify(course.name, use_cache=False)
@@ -194,10 +190,8 @@ class IntegrationService:
         return [build_node(course, ElementType.COURSE.value)]
 
     def set_element_competencies(self, element_id: str, competency_ids: List[str]) -> dict:
-        """Перезаписать assesses у элемента — список компетенций, которые он выдаёт
-        студенту при прохождении. Инвалидирует кэш доступа и верификации; без
-        этого has_competency у уже существующих ProgressRecord не обновится
-        (OWL монотонен)
+        """Перезаписать assesses у элемента; OWL монотонен, поэтому инвалидация
+        обоих кэшей обязательна — без неё has_competency не обновится автоматически.
         """
         element = self.core.courses.find_by_id(element_id)
         if element is None:
@@ -216,10 +210,7 @@ class IntegrationService:
 
         element.assesses = competencies
         self.core.save()
-        # После изменения assesses SWRL может перевывести has_competency у всех
-        # студентов с ProgressRecord этого элемента, а с ним и is_available_for.
-        # Резонер сразу не гоняем (дорого) — AccessService пересчитает лениво
-        # на первом чтении после инвалидации кэша
+        # резонер не гоним сразу — AccessService пересчитает на первом чтении
         self.cache.invalidate_all_access()
         self.cache.invalidate_verification()
         return {
@@ -228,11 +219,8 @@ class IntegrationService:
         }
 
     def set_element_mandatory(self, element_id: str, is_mandatory: bool) -> dict:
-        """Перезаписать флаг обязательности элемента
-
-        Влияет на агрегацию завершённости: модуль/курс считается завершённым,
-        только если все обязательные потомки завершены. Смена флага
-        инвалидирует access-кэш; пересчёт идёт при следующем simulate_progress
+        """Перезаписать флаг обязательности; влияет на агрегацию завершённости
+        родительских модулей. Пересчёт идёт при следующем simulate_progress.
         """
         element = self.core.courses.find_by_id(element_id)
         if element is None:

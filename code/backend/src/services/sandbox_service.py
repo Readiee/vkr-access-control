@@ -35,11 +35,8 @@ class SandboxService:
         self.reasoner = reasoner
         self.access = access
         self.progress = progress
-        # Перезачёт компетенций методистом. Вспомогательное SWRL-правило
-        # выводит компетенции из ProgressRecord, но OWL монотонен — убрать
-        # их без очистки нельзя. Перед каждым прогоном перезаписываем
-        # has_competency на manual; резонер допишет inferred из актуального
-        # прогресса. In-memory: рестарт uvicorn теряет manual-override
+        # OWL монотонен: убрать выведенный has_competency без явной очистки нельзя.
+        # При рестарте теряется — для песочницы это приемлемо
         self._manual_competencies: dict[str, list[str]] = {}
 
     def _sandbox_student(self):
@@ -110,7 +107,7 @@ class SandboxService:
         sandbox_user_id = student.name
 
         # Даунгрейд (viewed/failed): сносим родительские рекорды, чтобы агрегация пересчитала их
-        if payload.status != ProgressStatus.COMPLETED.value and payload.status != "completed":
+        if payload.status != ProgressStatus.COMPLETED.value:
             element = self.core.courses.find_by_id(payload.element_id)
             if element:
                 self._cascade_delete_parent_records(student, element)
