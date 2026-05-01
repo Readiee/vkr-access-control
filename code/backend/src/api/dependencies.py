@@ -11,9 +11,9 @@ from fastapi import Depends
 
 from core.config import settings
 from services.access import AccessService
-from services.cache_manager import CacheManager
+from core.cache_manager import CacheManager
 from services.integration_service import IntegrationService
-from services.ontology_core import OntologyCore, connect_redis
+from core.ontology_core import OntologyCore, connect_redis
 from services.policy_service import PolicyService
 from services.progress_service import ProgressService
 from services.reasoning import ReasoningOrchestrator

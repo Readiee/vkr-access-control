@@ -16,7 +16,7 @@ from core.enums import ElementType
 from schemas import CourseElement, CourseSyncPayload
 from services.access import AccessService  
 from services.integration_service import IntegrationService  
-from services.ontology_core import OntologyCore  
+from core.ontology_core import OntologyCore  
 
 
 class DateAndGroupReasoningTests(unittest.TestCase):
@@ -24,7 +24,7 @@ class DateAndGroupReasoningTests(unittest.TestCase):
         from tests._factory import make_temp_onto_copy
         self.test_owl = make_temp_onto_copy(prefix="vkr_date_group_")
         self.core = OntologyCore(self.test_owl)
-        from services.cache_manager import CacheManager
+        from core.cache_manager import CacheManager
         from services.reasoning import ReasoningOrchestrator
         from services.rollup_service import RollupService
         from services.access import AccessService

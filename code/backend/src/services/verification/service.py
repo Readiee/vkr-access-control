@@ -9,9 +9,9 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from core.enums import ReasoningStatus, VerificationStatus
-from services.cache_manager import CacheManager
-from services.graph_validator import GraphValidator
-from services.ontology_core import OntologyCore
+from core.cache_manager import CacheManager
+from services.verification.graph_validator import GraphValidator
+from core.ontology_core import OntologyCore
 from services.reasoning import ReasoningOrchestrator
 from services.rule_handlers import REGISTRY
 from services.verification._subsumption import SubsumptionChecker

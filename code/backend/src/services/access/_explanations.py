@@ -5,7 +5,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
 from core.enums import COMPOSITE_RULE_TYPES, JustificationStatus, RuleType
-from services.ontology_core import OntologyCore
+from core.ontology_core import OntologyCore
 from utils.owl_utils import get_owl_prop
 
 _AVAILABILITY_TEMPLATE = "meta:is_available_for"

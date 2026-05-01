@@ -2,16 +2,16 @@
 
 > **Назначение:** детальный анализ каждого источника: прочитан ли, качество, что взяли, индексация.
 > **Связь с PROJECT_BIBLE:** раздел 1.8 (списки A, B, C) + требования К5 (≥30 не старше 5 лет, ≥30% ВАК, ≥20% Scopus/WoS).
-> **Последнее обновление:** 16.04.2026
+> **Последнее обновление:** 29.04.2026
 
 ---
 
 ## Статистика (обновлять при добавлении источников)
 
-- **Всего уникальных источников:** ~56 (Z: 10, P: 31 минус 3 дубликата, N: 11, D: 5, E: 3, минус P20 = 2 источника)
-- **Не старше 5 лет (2021–2026):** ~20 (N18 2019 — вне окна; N17 2008, N19 2017 — фундаментальные) → нужно добить до ≥30
+- **Всего уникальных источников:** ~69 (Z: 10, P: 31 минус 3 дубликата, N: 11, D: 5, E: 3, F: 13, минус P20 = 2 источника)
+- **Не старше 5 лет (2021–2026):** ~32 (после добавления N20–N32 — 12 свежих; N22 2012 — фундаментальный, вне окна) → ≥30 закрыто
 - **ВАК/РИНЦ:** 0 → **осознанно не добираем**, см. ниже
-- **Scopus/WoS:** ~12–14 → нужно ≥20 %
+- **Scopus/WoS:** ~20 (после раздела F; точный подсчёт после верификации индексации N20, N23, N27)
 - **Фундаментальные (до 2020):** допустимы как основы области
 
 ### Решение 24.04 по ВАК-требованию К5
@@ -110,6 +110,45 @@
 | N17 | Zacharias V. — Development and Verification of Rule Based Systems: A Survey of Developers. RuleML 2008, LNCS 5321, pp. 30–44. DOI 10.1007/978-3-540-88808-6_4 | 2008 | Scopus (Springer LNCS) | Абстракт | L5/§1.5: обзор практик разработчиков rule-based систем — V&V и отладка названы главными болями. Обосновывает §1.5 тезис об отсутствии V&V-инструментов в BRMS. Ключ: `@ZachariasRuleDev2008` | Среднее |
 | N18 | Jabal A.A., Davari M., Bertino E. et al. — Methods and Tools for Policy Analysis. ACM Computing Surveys, 51(6), Art. 121, pp. 121:1–121:35. DOI 10.1145/3295749 | 2019 | Scopus + WoS (ACM) | Абстракт | L4/§1.5: систематический обзор методов анализа политик (формальная верификация, тестирование и др.) — подтверждает, что встроенная формальная верификация в production policy engines (OPA и др.) редкость. Ключ: `@JabalPolicyAnalysis2019` | Высокое |
 | N19 | Hu V.C., Kuhn D.R., Yaga D.J. — Verification and Test Methods for Access Control Policies/Models. NIST SP 800-192. DOI 10.6028/NIST.SP.800-192 | 2017 | — (NIST) | Абстракт | §1.5: NIST-классификация методов верификации политик доступа (black-box testing, white-box model checking) — прямая основа для таблицы 1.5. Ключ: `@HuNIST800192` | Высокое |
+
+## F. Источники, добавленные при фазе 4 — расширение корпуса 2021–2026 (N20–N32)
+
+> **Дата добавления:** 29.04.2026 (рекомендации Perplexity).
+> **Статус:** все источники требуют верификации до интеграции в текст ПЗ. Минимум: прочитать абстракты, уточнить индексацию, DOI и полные библиографические данные. Perplexity склонен искажать издательские реквизиты, не использовать в тексте ПЗ без сверки с первоисточником.
+> **Цель:** добить квоту свежих (2021–2026) до ≥30, усилить блоки L2 (онтологии в e-learning), L3 (OBAC вне образования) и §1.5 (формальная верификация политик). Все 12 источников 2021+ закрывают дефицит из задачи 1.
+
+### F.1 Онтологии и SWRL в e-learning (L2)
+
+| # | Источник | Год | Scopus/WoS | Прочитан | Роль в ВКР | Качество |
+|---|---------|-----|-----------|----------|-----------|----------|
+| N20 | On Building Legal Ontology Framework for E-Learning. ICIC Express Letters | 2022 | ? (требует проверки) | Не прочитан | L2: правовая онтология + SWRL для e-learning. Три типа правил: из юридических документов, от экспертов, мостовые. Не AC — подтверждает gap | Среднее |
+| N21 | Ontology and Rule-Based Recommender System for E-Learning Applications. iJET | 2021 | Scopus (iJET) | Не прочитан | L2: SWRL в e-learning для рекомендаций (история, успеваемость, социальные связи). Не AC — подтверждает gap | Среднее |
+| N22 | Representing Instructional Design Methods Using Ontologies and Rules. Knowledge-Based Systems (Elsevier) | 2012 | Scopus | Не прочитан | L2: фундаментальная работа по формализации методов instructional design через OWL+правила. Без AC | Высокое (фундаментальная) |
+
+### F.2 Ontology-Based Access Control вне образования (L3)
+
+| # | Источник | Год | Scopus/WoS | Прочитан | Роль в ВКР | Качество |
+|---|---------|-----|-----------|----------|-----------|----------|
+| N23 | Ontology-Based Access Control Model for Semantic Web Services. JICS (Global Science Press) | 2025 | ? (требует проверки) | Не прочитан | L3: OBAC через OWL/OWL-S для семантических веб-сервисов. Свежий пример OBAC вне образования | Среднее |
+| N24 | Ontology-Based Evaluation of ABAC Policies for Inter-Organizational Resource Sharing. ACM (SACMAT/CODASPY) | 2023 | Scopus (ACM) | Не прочитан | L3/L4: онтология как мост между атрибутами разных организаций для анализа ABAC-политик. Бридж между OBAC и формальной верификацией | Высокое |
+| N25 | GPT, Ontology, and CAABAC: A Tripartite Personalized Access Control Model. PLoS One | 2025 | Scopus + PMC | Не прочитан | L3: GPT-Onto-CAABAC для медицинских записей. Тренд интеграции LLM + онтология + CAABAC. Снова не образование | Высокое |
+| N26 | Natural Language Access Control Policies for XR-Enhanced Environments. ACM | 2025 | Scopus (ACM) | Не прочитан | L3: human-oriented AC через NL для XR. Контекст-зависимые правила, без онтологии курса и без LMS | Среднее |
+| N27 | Ontologies and Rules for Access Control: A Feature Oriented Survey. EJS (SADIO) | 2023 | ? (требует проверки) | Не прочитан | L3: систематический обзор OBAC по feature-критериям. Мастер-ссылка на OBAC-литературу. Образование как домен не выделено | Высокое (обзор) |
+
+### F.3 Формальная верификация политик (L4, §1.5)
+
+| # | Источник | Год | Scopus/WoS | Прочитан | Роль в ВКР | Качество |
+|---|---------|-----|-----------|----------|-----------|----------|
+| N28 | A Formal Validation Approach for XACML 3.0 Access Control Policy. Sensors (MDPI) | 2022 | Scopus + PMC | Не прочитан | L4/§1.5: формальная спецификация XACML 3.0, новые критерии покрытия тестами. Продолжение линии Margrave (N10) и SBA-XACML (P16) | Высокое |
+| N29 | Hu V.C. et al. Machine Learning for Access Control Policy Verification. NIST IR 8360 | 2021 | — (NIST) | Не прочитан | §1.5: ML (Random Forest) для верификации AC-политик. Дополняет SP 800-192 (N19) современным data-driven подходом | Стандарт |
+| N30 | Exploring Large Language Models for Access Control Policy Synthesis and Summarization. arXiv | 2025 | arXiv (preprint) | Не прочитан | §1.5: LLM для синтеза, диффа и суммаризации политик. Контраст с DL-reasoner подходом ВКР | Среднее |
+| N31 | Role-Conditioned Refusals: Evaluating Access Control Reasoning in LLMs. Findings of EACL | 2026 | Scopus (ACL Anthology) | Не прочитан | §1.5: бенчмарк отказов LLM по AC. Двухшаговая схема с явной верификацией работает лучше прямого reasoning — аргумент в пользу DL-верификации | Высокое |
+
+### F.4 SWRL-экосистема и миграция правил
+
+| # | Источник | Год | Scopus/WoS | Прочитан | Роль в ВКР | Качество |
+|---|---------|-----|-----------|----------|-----------|----------|
+| N32 | Bassiliades N. SWRL2SPIN: Transforming SWRL Rule Bases in OWL Ontologies to Object-Oriented SPIN Rules. IJSWIS / arXiv | 2020 (arXiv v4 — 2022) | Scopus (IJSWIS) | Не прочитан | L8/архитектура: миграция SWRL → SPIN+SPARQL. Аргумент о практических ограничениях SWRL и оправдание гибридных пайплайнов | Среднее |
 
 ---
 

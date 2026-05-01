@@ -16,9 +16,9 @@ from owlready2 import World
 
 from core.config import DEFAULT_ONTOLOGY_PATH
 from services.access import AccessService
-from services.cache_manager import CacheManager
+from core.cache_manager import CacheManager
 from services.integration_service import IntegrationService
-from services.ontology_core import OntologyCore
+from core.ontology_core import OntologyCore
 from services.policy_service import PolicyService
 from services.progress_service import ProgressService
 from services.reasoning import ReasoningOrchestrator

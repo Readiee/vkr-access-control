@@ -4,7 +4,7 @@ from typing import Any
 
 from core.enums import ProgressStatus
 from services.access import AccessService
-from services.ontology_core import OntologyCore
+from core.ontology_core import OntologyCore
 from services.progress_service import ProgressService
 from services.reasoning import ReasoningOrchestrator
 from utils.owl_utils import label_or_name, status_value_from_individual

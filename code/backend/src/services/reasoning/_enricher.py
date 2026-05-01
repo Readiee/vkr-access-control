@@ -34,8 +34,6 @@ def enrich_current_time(onto: Any, now: datetime | None = None) -> Any:
     """Положить в ABox единственный индивид CurrentTime."""
     for ind in list(onto.CurrentTime.instances()):
         destroy_entity(ind)
-    # SWRL-сравнения работают с naive datetime; явное приведение через aware-объект
-    # избавляет от deprecation-warning utcnow()
     now = now or datetime.now(timezone.utc).replace(tzinfo=None)
     ct = onto.CurrentTime(CURRENT_TIME_INDIVIDUAL)
     ct.has_value = now

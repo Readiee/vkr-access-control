@@ -24,10 +24,7 @@ from services.reasoning._enricher import (
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_TIMEOUT_SEC = 10  # дальше синхронный HTTP-запрос теряет смысл
-
-# pre-enrich и sync_reasoner_pellet работают на общий World; без сериализации
-# параллельные прогоны затрут друг друга в ABox
+DEFAULT_TIMEOUT_SEC = 10
 _REASON_LOCK = threading.Lock()
 
 _INCONSISTENT_MARKERS = ("inconsistent", "InconsistentOntologyError")
@@ -132,8 +129,6 @@ class ReasoningOrchestrator:
         thread.join(timeout=self.timeout_sec)
 
         if thread.is_alive():
-            # Pellet крутится в java-подпроцессе; thread.join не убьёт его —
-            # отдадим таймаут наверх, java-процесс отработает и закроется сам
             raise ReasoningTimeoutError(f"Pellet не завершился за {self.timeout_sec}s")
         if error_holder:
             raise error_holder[0]
@@ -149,8 +144,6 @@ class ReasoningOrchestrator:
 
         subprocess.run = patched_run
         try:
-            # явный world обязателен: иначе Pellet берёт default_world и теряет
-            # индивидов в изолированных World — это особенно бьёт по тестам
             sync_reasoner_pellet(
                 self.onto.world,
                 infer_property_values=True,

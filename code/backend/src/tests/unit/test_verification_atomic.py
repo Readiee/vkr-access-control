@@ -11,7 +11,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 from owlready2 import World  
 
 from core.config import DEFAULT_ONTOLOGY_PATH  
-from services.cache_manager import CacheManager  
+from core.cache_manager import CacheManager  
 from services.verification import VerificationService  
 
 

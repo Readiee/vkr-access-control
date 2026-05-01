@@ -9,9 +9,9 @@ from core.enums import (
     RuleType,
 )
 from schemas import PolicyCreate
-from services.cache_manager import CacheManager
-from services.graph_validator import GraphValidator, ProbePolicy
-from services.ontology_core import OntologyCore
+from core.cache_manager import CacheManager
+from services.verification.graph_validator import GraphValidator, ProbePolicy
+from core.ontology_core import OntologyCore
 from services.reasoning import ReasoningOrchestrator
 from services.rule_handlers import REGISTRY
 from utils.owl_utils import get_owl_prop

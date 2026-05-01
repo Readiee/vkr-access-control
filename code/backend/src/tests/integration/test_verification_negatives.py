@@ -15,7 +15,7 @@ from owlready2 import World
 from core.enums import ElementType  
 from schemas import CourseElement, CourseSyncPayload
 from services.integration_service import IntegrationService  
-from services.ontology_core import OntologyCore  
+from core.ontology_core import OntologyCore  
 from services.policy_service import PolicyService  
 from services.verification import VerificationService  
 
@@ -29,7 +29,7 @@ class VerificationNegativeTests(unittest.TestCase):
         self.test_owl = make_temp_onto_copy(prefix="vkr_verify_neg_")
         self.world = World()
         self.core = OntologyCore(self.test_owl, world=self.world)
-        from services.cache_manager import CacheManager
+        from core.cache_manager import CacheManager
         from services.reasoning import ReasoningOrchestrator
         from services.rollup_service import RollupService
         from services.access import AccessService

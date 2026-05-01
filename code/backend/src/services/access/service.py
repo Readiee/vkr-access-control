@@ -10,8 +10,8 @@ from typing import Any, Dict, List, Optional, Set
 
 from core.enums import JustificationStatus, RuleType
 from services.access._explanations import AccessExplainer, Justification
-from services.cache_manager import CacheManager
-from services.ontology_core import OntologyCore
+from core.cache_manager import CacheManager
+from core.ontology_core import OntologyCore
 from services.reasoning import ReasoningOrchestrator
 from utils.owl_utils import get_owl_prop, label_or_name
 from utils.policy_formatters import policy_display_name

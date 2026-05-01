@@ -11,7 +11,7 @@ from schemas import CourseElement, CourseSyncPayload, PolicyCreate
 from core.enums import ElementType, RuleType  
 from core.config import DEFAULT_ONTOLOGY_PATH  
 from services.integration_service import IntegrationService  
-from services.ontology_core import OntologyCore  
+from core.ontology_core import OntologyCore  
 from services.policy_service import PolicyService  
 from services.verification import VerificationService  
 
@@ -23,7 +23,7 @@ class VerificationServiceIntegrationTests(unittest.TestCase):
         self.test_owl = make_temp_onto_copy(prefix="vkr_verification_")
 
         self.core = OntologyCore(self.test_owl)
-        from services.cache_manager import CacheManager
+        from core.cache_manager import CacheManager
         from services.reasoning import ReasoningOrchestrator
         from services.rollup_service import RollupService
         from services.access import AccessService

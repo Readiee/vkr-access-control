@@ -11,7 +11,7 @@ from core.config import DEFAULT_ONTOLOGY_PATH
 from owlready2 import World  
 
 from core.enums import RuleType  
-from services.graph_validator import GraphValidator, ProbePolicy  
+from services.verification.graph_validator import GraphValidator, ProbePolicy  
 
 
 class GraphValidatorTests(unittest.TestCase):

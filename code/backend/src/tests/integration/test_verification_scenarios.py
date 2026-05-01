@@ -18,8 +18,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 from owlready2 import World  
 
-from services.cache_manager import CacheManager  
-from services.ontology_core import OntologyCore  
+from core.cache_manager import CacheManager  
+from core.ontology_core import OntologyCore  
 from services.reasoning import ReasoningOrchestrator  
 from services.verification import VerificationService  
 

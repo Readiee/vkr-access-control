@@ -8,7 +8,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 from schemas import CourseElement, PolicyCreate, ProgressEvent, CourseSyncPayload
 from core.enums import ElementType, RuleType, ProgressStatus, EventType
 from core.config import DEFAULT_ONTOLOGY_PATH
-from services.ontology_core import OntologyCore
+from core.ontology_core import OntologyCore
 from services.policy_service import PolicyService
 from services.integration_service import IntegrationService
 from services.progress_service import ProgressService
@@ -23,7 +23,7 @@ class TestOntologyIntegration(unittest.TestCase):
 
         self.world = World()
         self.core = OntologyCore(self.test_owl, world=self.world)
-        from services.cache_manager import CacheManager
+        from core.cache_manager import CacheManager
         from services.reasoning import ReasoningOrchestrator
         from services.rollup_service import RollupService
         from services.access import AccessService

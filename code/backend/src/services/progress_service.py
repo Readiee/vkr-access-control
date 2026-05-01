@@ -5,7 +5,7 @@ from typing import Any
 from core.enums import ProgressStatus
 from schemas import ProgressEvent
 from services.access import AccessService
-from services.ontology_core import OntologyCore
+from core.ontology_core import OntologyCore
 from services.reasoning import ReasoningOrchestrator
 from services.rollup_service import RollupService
 

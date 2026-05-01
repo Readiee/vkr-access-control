@@ -14,7 +14,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(
 
 import fakeredis  
 
-from services.cache_manager import (  
+from core.cache_manager import (  
     ACCESS_KEY_PREFIX,
     CacheManager,
     ONTO_VERSION_KEY,

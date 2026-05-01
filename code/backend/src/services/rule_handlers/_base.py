@@ -7,8 +7,8 @@ import networkx as nx
 
 if TYPE_CHECKING:
     from schemas import PolicyCreate
-    from services.ontology_core import OntologyCore
-    from services.graph_validator import ProbePolicy
+    from core.ontology_core import OntologyCore
+    from services.verification.graph_validator import ProbePolicy
 
 
 class RuleHandler:
